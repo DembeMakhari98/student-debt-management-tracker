@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Pro-active Debt Management Tracker</title>
+<style>
+/* ============================================================
+   Adapt IT — Colors & Type tokens
+   Adapt IT Brand Identity Guidelines V2024.2
+   ============================================================ */
+:root {
+  --ai-blue:#00A1ED; --ai-red:#E82727; --ai-white:#FFFFFF;
+  --ai-cool-grey:#4C5056; --ai-cool-grey-60:#A2A5AA; --ai-cool-grey-40:#C9CACD;
+  --ai-cool-grey-20:#ECECED; --ai-cool-grey-10:#F4F5F5;
+  --ai-navy:#002971; --ai-dark-blue:#003242; --ai-mid-blue:#006690;
+  --ai-teal:#009FB0; --ai-mint:#65C7DE;
+  --ai-honey:#FF9A00; --ai-umber:#EA3217; --ai-blush:#C00042;
+  --red-text:#C21F1F; --honey-text:#B36C00; --teal-text:#007683;
+
+  --fg-1: var(--ai-dark-blue);
+  --fg-2: var(--ai-cool-grey);
+  --fg-3: var(--ai-cool-grey-60);
+  --bg-1: var(--ai-white);
+  --bg-2: var(--ai-cool-grey-10);     /* the single page background, every tab */
+  --bg-3: var(--ai-cool-grey-20);
+  --border: var(--ai-cool-grey-20);
+  --border-strong: var(--ai-cool-grey-40);
+
+  --font-sans:'Myriad Pro','Calibri','Open Sans','Segoe UI',system-ui,sans-serif;
+  --font-mono:ui-monospace,'Cascadia Mono','SF Mono',Menlo,monospace;
+
+  --shadow-1: 0 1px 2px rgba(0,50,66,.06);
+  --shadow-2: 0 2px 8px rgba(0,50,66,.08), 0 1px 2px rgba(0,50,66,.04);
+  --chrome-h: 104px;
+}
+
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  margin: 0; background: var(--bg-2); color: var(--fg-2);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+h1,h2,h3 { color: var(--fg-1); letter-spacing: -.02em; margin: 0; }
+.mono { font-family: var(--font-mono); }
+
+/* ==================== WINDOW CHROME ==================== */
+.chrome { position: sticky; top: 0; z-index: 40; }
+.brandbar { height: 56px; background: var(--ai-dark-blue); display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; padding: 0 24px 0 20px; }
+.brandmark { display: flex; align-items: center; gap: 9px; flex: none; }
+.brandmark svg { height: 22px; width: auto; display: block; }
+.brandmark .wm { font-size: 16px; font-weight: 300; letter-spacing: -.01em; color: #fff; white-space: nowrap; }
+.brandmark .wm b { font-weight: 700; }
+.bb-left { display: flex; align-items: center; gap: 20px; min-width: 0; }
+.vrule { width: 1px; height: 22px; background: rgba(255,255,255,.18); flex: none; }
+.bb-title { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bb-title b { font-size: 13px; font-weight: 700; color: #fff; line-height: 1.1; white-space: nowrap; }
+.bb-title span { font-size: 10.5px; color: rgba(255,255,255,.55); line-height: 1.1; white-space: nowrap; }
+.bb-right { display: flex; align-items: center; gap: 14px; }
+.agent-chip { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
+  background: rgba(101,199,222,.14); border: 1px solid rgba(101,199,222,.35);
+  font-size: 11.5px; color: var(--ai-mint); font-weight: 700; white-space: nowrap; }
+.agent-chip i { width: 6px; height: 6px; border-radius: 999px; background: var(--ai-mint); display: block; }
+.aut-select { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.26);
+  border-radius: 4px; padding: 6px 9px; font-size: 11.5px; font-weight: 700; font-family: inherit;
+  cursor: pointer; max-width: 250px; }
+.aut-select:hover { border-color: var(--ai-blue); }
+.aut-select option { color: var(--fg-1); background: #fff; }
+.avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--ai-mid-blue);
+  display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; flex: none; }
+.who { display: flex; flex-direction: column; }
+.who b { font-size: 11.5px; color: #fff; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.who span { font-size: 10px; color: rgba(255,255,255,.55); line-height: 1.2; white-space: nowrap; }
+
+/* ---- tab strip + global filters, one bar ---- */
+.tabbar { min-height: 48px; background: #fff; border-bottom: 1px solid var(--border);
+  display: flex; align-items: stretch; justify-content: space-between; gap: 16px;
+  padding: 0 20px; box-shadow: var(--shadow-1); }
+.tabs { display: flex; align-items: stretch; gap: 2px; overflow-x: auto; }
+.tab { display: inline-flex; align-items: center; gap: 8px; padding: 0 15px; border: 0;
+  background: transparent; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700;
+  color: var(--fg-3); border-bottom: 3px solid transparent; white-space: nowrap; flex: none; }
+.tab:hover { color: var(--fg-1); background: var(--bg-2); }
+.tab.on { color: var(--fg-1); border-bottom-color: var(--ai-blue); }
+.tab .badge { padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-family: var(--font-mono);
+  background: rgba(0,102,144,.09); color: var(--ai-mid-blue); }
+.tab.home-tab { border-right: 1px solid var(--border); margin-right: 6px; }
+.filters { display: flex; align-items: center; gap: 10px; flex: none; padding: 6px 0; }
+.filters .fl { display: inline-flex; align-items: center; gap: 6px; }
+.filters label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); }
+select.filter { background: #fff; color: var(--fg-1); border: 1px solid var(--border-strong);
+  border-radius: 4px; padding: 6px 9px; font-size: 12px; font-family: inherit; font-weight: 700; cursor: pointer; }
+select.filter:hover { border-color: var(--ai-blue); }
+
+/* ==================== PAGE BODY ==================== */
+main { max-width: 1560px; margin: 0 auto; padding: 22px 28px 48px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.page-head h1 { font-size: 27px; font-weight: 700; line-height: 1.1; }
+.page-head p { margin: 5px 0 0; font-size: 13.5px; color: var(--fg-3); line-height: 1.45; max-width: 100ch; }
+
+.card { background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-1);
+  padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.card .c-title { font-size: 15px; font-weight: 700; color: var(--fg-1); }
+.card .c-hint { font-size: 12px; color: var(--fg-3); line-height: 1.45; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); }
+.eyebrow.blue { color: var(--ai-mid-blue); }
+.eyebrow.mint { color: var(--ai-mint); }
+.note { font-size: 11.5px; color: var(--fg-3); line-height: 1.5; }
+.link { background: none; border: 0; padding: 0; font-family: inherit; font-size: 12.5px;
+  font-weight: 700; color: var(--ai-mid-blue); cursor: pointer; text-align: left; }
+.link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.row-2 { display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; align-items: start; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.bar-track { height: 6px; border-radius: 999px; background: var(--bg-3); overflow: hidden; }
+
+/* ---- buttons ---- */
+.btn-blue { padding: 11px 18px; border-radius: 4px; background: var(--ai-blue); color: #fff;
+  border: 1px solid var(--ai-blue); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-blue:hover { filter: brightness(.93); }
+.btn-line { padding: 11px 16px; border-radius: 4px; border: 1px solid var(--border-strong); background: #fff;
+  color: var(--fg-2); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-line:hover { background: var(--bg-2); }
+.btn-line.danger { color: var(--ai-red); }
+.btn-line.danger:hover { background: rgba(232,39,39,.06); }
+.btn-onblue { padding: 11px 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,.32);
+  background: transparent; color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-onblue:hover { background: rgba(255,255,255,.10); }
+
+/* ==================== DEBT SUMMARY (home + tracker) ==================== */
+.summary { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; }
+.kpi-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-1);
+  padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.kpi-card .k { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--fg-3); display: flex; align-items: center; gap: 8px; }
+.kpi-card .v { font-size: 25px; font-weight: 700; color: var(--fg-1); letter-spacing: -.02em; font-family: var(--font-mono); }
+.kpi-card .n { font-size: 11.5px; color: var(--fg-3); }
+.dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+
+/* ==================== HOME ==================== */
+.hero { border-radius: 10px; padding: 40px 40px 36px; color: #fff;
+  background:
+    radial-gradient(760px 460px at 88% -20%, rgba(0,161,237,.34) 0%, rgba(0,50,66,0) 62%),
+    radial-gradient(560px 380px at 2% 120%, rgba(101,199,222,.20) 0%, rgba(0,50,66,0) 60%),
+    var(--ai-dark-blue); }
+.hero h1 { color: #fff; font-size: 44px; font-weight: 700; line-height: 1.0; max-width: 22ch; }
+.hero .rule { width: 76px; height: 4px; border-radius: 999px; background: var(--ai-red); margin: 22px 0 20px; }
+.hero p { margin: 0; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.80); max-width: 86ch; }
+.hero .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+.hero .eyebrow { margin-bottom: 16px; display: inline-flex; }
+.ws-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-1);
+  padding: 20px; cursor: pointer; text-align: left; font-family: inherit;
+  display: flex; flex-direction: column; gap: 9px;
+  transition: border-color .15s, box-shadow .15s, transform .15s; }
+.ws-card:hover { border-color: var(--ai-blue); box-shadow: var(--shadow-2); transform: translateY(-2px); }
+.ws-card .n { font-size: 11px; font-family: var(--font-mono); font-weight: 700; color: var(--ai-mid-blue); }
+.ws-card h3 { font-size: 16.5px; font-weight: 700; line-height: 1.2; }
+.ws-card p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--fg-2); }
+.ws-card .go { margin-top: auto; padding-top: 6px; font-size: 12px; font-weight: 700; color: var(--ai-blue); }
+
+/* ==================== AT-RISK QUEUE ==================== */
+.qrow { display: flex; gap: 18px; align-items: flex-start; background: #fff; border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: var(--shadow-1); padding: 16px 18px; cursor: pointer; }
+.qrow:hover { box-shadow: var(--shadow-2); border-color: var(--ai-blue); }
+.score { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center;
+  font-size: 16px; font-weight: 700; font-family: var(--font-mono); color: #fff; }
+.band { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-3); }
+.sig { padding: 2.5px 8px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--border);
+  font-size: 10.5px; font-weight: 700; color: var(--fg-2); }
+.sig.hot { background: rgba(232,39,39,.07); border-color: rgba(232,39,39,.22); color: var(--red-text); }
+.status { padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+
+/* ==================== CASE MANAGEMENT ==================== */
+.case-grid { display: grid; grid-template-columns: 336px minmax(0,1fr); gap: 16px; align-items: start; }
+.case-list { display: flex; flex-direction: column; gap: 8px;
+  position: sticky; top: calc(var(--chrome-h) + 18px); max-height: calc(100vh - var(--chrome-h) - 40px); overflow: auto; }
+.case-item { background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-1);
+  padding: 12px 14px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; text-align: left;
+  font-family: inherit; }
+.case-item:hover { border-color: var(--border-strong); }
+.case-item.on { border-color: var(--ai-blue); background: rgba(0,161,237,.04); }
+.case-item .mini-score { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: #fff; flex: none; }
+.inner-box { border: 1px solid var(--border); border-radius: 8px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px; background: var(--bg-2); }
+
+/* ==================== TABLES ==================== */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+th { color: var(--fg-3); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; }
+td { color: var(--fg-2); }
+td.num, th.num { text-align: right; font-family: var(--font-mono); }
+tbody tr:hover td { background: var(--bg-2); }
+.pill { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.pill.self    { background: rgba(0,161,237,.10); color: var(--ai-mid-blue); border: 1px solid rgba(0,161,237,.28); }
+.pill.gov     { background: rgba(0,159,176,.10); color: var(--teal-text);   border: 1px solid rgba(0,159,176,.28); }
+.pill.private { background: rgba(255,154,0,.12); color: var(--honey-text);  border: 1px solid rgba(255,154,0,.30); }
+.tag { font-size: 10.5px; color: var(--fg-3); font-family: var(--font-mono); }
+.pos { color: var(--teal-text); font-weight: 700; }
+.neg { color: var(--red-text); font-weight: 700; }
+.scroll-x { overflow-x: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 12px; color: var(--fg-2); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+svg text { fill: var(--fg-3); font-size: 12px; font-family: var(--font-sans); }
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 1500px) { .summary { grid-template-columns: repeat(3,1fr); } }
+@media (max-width: 1240px) {
+  .row-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: repeat(2,1fr); }
+  .case-grid { grid-template-columns: 1fr; }
+  .case-list { position: static; max-height: none; }
+}
+@media (max-width: 1040px) { .summary { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 900px) {
+  .tabbar { flex-direction: column; align-items: stretch; padding: 0 10px 8px; }
+  .filters { flex-wrap: wrap; }
+}
+@media (max-width: 820px) {
+  main { padding: 18px 16px 40px; }
+  .brandbar { padding: 0 14px; }
+  .bb-title span, .who { display: none; }
+  .hero { padding: 26px 22px; }
+  .hero h1 { font-size: 32px; }
+  .summary, .grid-3 { grid-template-columns: 1fr; }
+  .qrow { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== WINDOW CHROME ==================== -->
+<header class="chrome">
+  <div class="brandbar">
+    <div class="bb-left">
+      <div class="brandmark">
+        <svg viewBox="0 0 42 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M8 13C8 6.5 15.5 6.5 21 13C26.5 19.5 34 19.5 34 13C34 6.5 26.5 6.5 21 13C15.5 19.5 8 19.5 8 13Z"
+                fill="none" stroke="#E82727" stroke-width="3.4" stroke-linecap="round"/>
+        </svg>
+        <span class="wm">adapt<b>IT</b></span>
+      </div>
+      <div class="vrule"></div>
+      <div class="bb-title">
+        <b>Student Pro-active Debt Management Tracker</b>
+        <span>ITS Integrator · Debtors and Student Funding</span>
+      </div>
+    </div>
+    <div class="bb-right">
+      <div class="agent-chip"><i></i>Risk Sentinel active</div>
+      <select class="aut-select" id="autSelect" aria-label="Agent autonomy"></select>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar">NM</div>
+        <div class="who"><b>Nomsa Mahlangu</b><span>Student debt officer</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tabs" id="tabs"></div>
+    <div class="filters">
+      <span class="fl"><label for="yearSel">Financial year</label>
+        <select class="filter" id="yearSel" data-year-select></select></span>
+      <span class="fl"><label for="fundSel">Funding source</label>
+        <select class="filter" id="fundSel" data-fund-select></select></span>
+      <button class="btn-line" style="padding:6px 12px;font-size:12px" data-act="export">Export CSV</button>
+    </div>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<script>
+/* =========================================================================
+   PALETTE SHORTHANDS
+   ========================================================================= */
+const RED="var(--ai-red)", RED_TEXT="var(--red-text)", HONEY="var(--ai-honey)", HONEY_TEXT="var(--honey-text)",
+      TEAL="var(--ai-teal)", TEAL_TEXT="var(--teal-text)", MINT="var(--ai-mint)", MID="var(--ai-mid-blue)",
+      BLUSH="var(--ai-blush)", NAVY="var(--ai-navy)";
+
+/* =========================================================================
+   ONE DATA SET — every tab is derived from this.
+   Replace with live data from your finance / SIS system.
+     ageing  : amounts outstanding per bucket (ZAR); negative = institution owes the student
+     missed  : instalments flagged unpaid by the agent
+     lastPay : date of the last receipt, or null = no payment on record
+     funding : funding status as read from Student Funding
+   ========================================================================= */
+const PROGS = {
+  elec:"NC(V) L4 Electrical Infrastructure Construction",
+  fin: "Report 191 N4 Financial Management",
+  eng: "NC(V) L3 Engineering and Related Design",
+  off: "NC(V) L2 Office Administration",
+  hosp:"NC(V) L4 Hospitality",
+  mkt: "Report 191 N5 Marketing Management",
+  hr:  "Report 191 N6 Human Resource Management",
+  civ: "NC(V) L3 Civil Engineering and Building Construction",
+  bus: "Report 191 N6 Business Management"
+};
+
+const DEBT = {
+  years:[2022,2023,2024,2025,2026],
+  debtors:[
+    /* ---- 2026 ---- */
+    { id:"STU-100234", name:"Thabo Mokoena",    funding:"self",    year:2026, prog:PROGS.elec, fundStatus:"Self-funded",       missed:2, lastPay:"12 Jun 2026", arrangement:null,        ageing:{current:12000,  d30:8000,  d60:4000,  d90:0,     d120:0} },
+    { id:"STU-100251", name:"Lerato Naidoo",    funding:"gov",     year:2026, prog:PROGS.fin,  fundStatus:"NSFAS pending",     missed:3, lastPay:"04 Feb 2026", arrangement:null,        ageing:{current:0,      d30:0,     d60:15200, d90:9800,  d120:22000} },
+    { id:"STU-100288", name:"Kagiso Botha",     funding:"private", year:2026, prog:PROGS.eng,  fundStatus:"Bursary partial",   missed:1, lastPay:"18 Jul 2026", arrangement:null,        ageing:{current:6400,   d30:6400,  d60:0,     d90:0,     d120:0} },
+    { id:"STU-100290", name:"Sipho Dlamini",    funding:"self",    year:2026, prog:PROGS.off,  fundStatus:"Self-funded",       missed:0, lastPay:"05 Aug 2026", arrangement:null,        ageing:{current:3200,   d30:0,     d60:0,     d90:0,     d120:0} },
+    { id:"STU-100301", name:"Refilwe van Wyk",  funding:"gov",     year:2026, prog:PROGS.hosp, fundStatus:"NSFAS declined",    missed:4, lastPay:null,          arrangement:"Defaulted", ageing:{current:0,      d30:0,     d60:0,     d90:11500, d120:33500} },
+    { id:"STU-100312", name:"Palesa Khumalo",   funding:"private", year:2026, prog:PROGS.mkt,  fundStatus:"Bursary confirmed", missed:0, lastPay:"01 Aug 2026", arrangement:null,        ageing:{current:9000,   d30:0,     d60:0,     d90:0,     d120:0} },
+    { id:"STU-100333", name:"Ayanda Pillay",    funding:"self",    year:2026, prog:PROGS.hr,   fundStatus:"Self-funded",       missed:3, lastPay:"20 Mar 2026", arrangement:null,        ageing:{current:0,      d30:0,     d60:2600,  d90:2600,  d120:5200} },
+    { id:"STU-100360", name:"Naledi Mahlangu",  funding:"gov",     year:2026, prog:PROGS.civ,  fundStatus:"NSFAS pending",     missed:1, lastPay:"10 Jul 2026", arrangement:null,        ageing:{current:0,      d30:14000, d60:0,     d90:0,     d120:0} },
+    { id:"STU-100341", name:"Mpho Sithole",     funding:"self",    year:2026, prog:PROGS.elec, fundStatus:"Self-funded",       missed:0, lastPay:"28 Jul 2026", arrangement:null, creditSince:"28 Jul 2026", creditDays:24,  creditReason:"Duplicate EFT receipted twice",      ageing:{current:-4200,  d30:0,     d60:0,     d90:0,     d120:0} },
+    { id:"STU-100355", name:"Jessica Adams",    funding:"private", year:2026, prog:PROGS.fin,  fundStatus:"Bursary overpaid",  missed:0, lastPay:"22 Jul 2026", arrangement:null, creditSince:"12 Feb 2026", creditDays:190, creditReason:"Bursary award exceeded assessed fees", ageing:{current:-11800, d30:0,     d60:0,     d90:0,     d120:0} },
+
+    /* ---- 2025 ---- */
+    { id:"STU-098012", name:"Dineo Nkosi",      funding:"self",    year:2025, prog:PROGS.eng,  fundStatus:"Self-funded",       missed:4, lastPay:"14 Apr 2025", arrangement:"Defaulted", ageing:{current:0, d30:0,    d60:0,    d90:6200, d120:18800} },
+    { id:"STU-098044", name:"Christo Meyer",    funding:"gov",     year:2025, prog:PROGS.hosp, fundStatus:"NSFAS lapsed",      missed:5, lastPay:null,          arrangement:null,        ageing:{current:0, d30:0,    d60:0,    d90:0,    d120:41200} },
+    { id:"STU-098077", name:"Farhana Jacobs",   funding:"private", year:2025, prog:PROGS.mkt,  fundStatus:"Bursary partial",   missed:2, lastPay:"09 Sep 2025", arrangement:null,        ageing:{current:0, d30:5000, d60:5000, d90:0,    d120:0} },
+    { id:"STU-098090", name:"Bongani Zulu",     funding:"self",    year:2025, prog:PROGS.off,  fundStatus:"Self-funded",       missed:3, lastPay:"02 May 2025", arrangement:null,        ageing:{current:0, d30:0,    d60:0,    d90:0,    d120:9600} },
+    { id:"STU-098111", name:"Gerrit Petersen",  funding:"gov",     year:2025, prog:PROGS.civ,  fundStatus:"NSFAS pending",     missed:4, lastPay:"17 Mar 2025", arrangement:null,        ageing:{current:0, d30:0,    d60:8800, d90:8800, d120:15000} },
+    { id:"STU-098140", name:"Hlengiwe Maluleke",funding:"private", year:2025, prog:PROGS.hr,   fundStatus:"Bursary overpaid",  missed:0, lastPay:"30 Oct 2025", arrangement:null, creditSince:"30 Oct 2025", creditDays:212, creditReason:"Sponsor paid after the student had settled", ageing:{current:-7300, d30:0, d60:0,  d90:0,    d120:0} },
+    { id:"STU-098155", name:"Imraan September", funding:"self",    year:2025, prog:PROGS.elec, fundStatus:"Self-funded",       missed:3, lastPay:"21 Jun 2025", arrangement:null,        ageing:{current:0, d30:0,    d60:0,    d90:3400, d120:12600} },
+
+    /* ---- 2024 ---- */
+    { id:"STU-095003", name:"Oratile Mabaso",   funding:"gov",     year:2024, prog:PROGS.hosp, fundStatus:"NSFAS declined",    missed:6, lastPay:null,          arrangement:"Defaulted", ageing:{current:0, d30:0, d60:0, d90:0, d120:52000} },
+    { id:"STU-095021", name:"Quinton Fourie",   funding:"self",    year:2024, prog:PROGS.eng,  fundStatus:"Self-funded",       missed:5, lastPay:"08 Feb 2024", arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:23400} },
+    { id:"STU-095050", name:"Elias Ngwenya",    funding:"private", year:2024, prog:PROGS.bus,  fundStatus:"Bursary lapsed",    missed:4, lastPay:"19 Mar 2024", arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:14200} },
+    { id:"STU-095066", name:"Vanessa Coetzee",  funding:"self",    year:2024, prog:PROGS.off,  fundStatus:"Self-funded",       missed:0, lastPay:"11 Nov 2024", arrangement:null, creditSince:"11 Nov 2024", creditDays:168, creditReason:"Module cancellation credited after payment", ageing:{current:-2100, d30:0, d60:0, d90:0, d120:0} },
+
+    /* ---- 2023 ---- */
+    { id:"STU-091009", name:"Wandile Mthembu",  funding:"gov",     year:2023, prog:PROGS.civ,  fundStatus:"NSFAS lapsed",      missed:6, lastPay:null,          arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:38700} },
+    { id:"STU-091033", name:"Yolanda Steyn",    funding:"self",    year:2023, prog:PROGS.hr,   fundStatus:"Self-funded",       missed:5, lastPay:"06 Apr 2023", arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:16900} },
+    { id:"STU-091074", name:"Zodwa Mokgadi",    funding:"private", year:2023, prog:PROGS.mkt,  fundStatus:"Bursary lapsed",    missed:4, lastPay:"27 May 2023", arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:8100} },
+
+    /* ---- 2022 ---- */
+    { id:"STU-088002", name:"Unathi Radebe",    funding:"gov",     year:2022, prog:PROGS.fin,  fundStatus:"NSFAS declined",    missed:6, lastPay:null,          arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:27500} },
+    { id:"STU-088040", name:"Xolani Booysen",   funding:"self",    year:2022, prog:PROGS.bus,  fundStatus:"Self-funded",       missed:5, lastPay:"15 Mar 2022", arrangement:null,        ageing:{current:0, d30:0, d60:0, d90:0, d120:11200} }
+  ]
+};
+
+/* Registered head-count per financial year — from Student Records. */
+const REGISTERED = { 2022:4210, 2023:4388, 2024:4562, 2025:4703, 2026:4812 };
+
+const FUND = {
+  self:    { label:"Self-funded",        color:"#00A1ED", pill:"self" },
+  gov:     { label:"Government (NSFAS)", color:"#009FB0", pill:"gov" },
+  private: { label:"Private / Bursary",  color:"#FF9A00", pill:"private" }
+};
+const FUND_KEYS = ["self","gov","private"];
+const AGE_BUCKETS = [
+  { key:"current", label:"Current",   color:"#006690" },
+  { key:"d30",     label:"30 days",   color:"#65C7DE" },
+  { key:"d60",     label:"60 days",   color:"#FF9A00" },
+  { key:"d90",     label:"90 days",   color:"#EA3217" },
+  { key:"d120",    label:"120+ days", color:"#C00042" }
+];
+
+const R  = n => "R " + Math.round(n).toLocaleString("en-ZA");
+const R0 = n => "R" + Math.round(n).toLocaleString("en-ZA");
+const rowTotal = d => AGE_BUCKETS.reduce((s,b)=> s + d.ageing[b.key], 0);
+const rowDebt  = d => AGE_BUCKETS.reduce((s,b)=> s + Math.max(0, d.ageing[b.key]), 0);
+const arrears  = d => Math.max(0,d.ageing.d30)+Math.max(0,d.ageing.d60)+Math.max(0,d.ageing.d90)+Math.max(0,d.ageing.d120);
+const over90   = d => Math.max(0,d.ageing.d90)+Math.max(0,d.ageing.d120);
+
+/* the last reconciliation the ageing is measured against */
+const AS_AT = "21 Aug 2026";
+
+/* which ageing band a number of days outstanding falls in — used for the
+   credits the institution owes back, which age exactly like a debt does */
+function daysBand(days) {
+  const i = days > 120 ? 4 : days > 90 ? 3 : days > 60 ? 2 : days > 30 ? 1 : 0;
+  return AGE_BUCKETS[i];
+}
+/* the oldest bucket a student's own balance has reached */
+function oldestBucket(d) {
+  for (let i = AGE_BUCKETS.length - 1; i >= 0; i--) {
+    if (Math.max(0, d.ageing[AGE_BUCKETS[i].key]) > 0) return AGE_BUCKETS[i];
+  }
+  return AGE_BUCKETS[0];
+}
+
+/* =========================================================================
+   THE AGENT — scores every student off the data above and picks up the ones
+   not paying or missing payments. Nothing here is hard-coded per student.
+   ========================================================================= */
+const FUND_RISK = {
+  "NSFAS declined":16, "NSFAS lapsed":15, "NSFAS pending":12,
+  "Bursary lapsed":14, "Bursary partial":8, "Bursary confirmed":0, "Bursary overpaid":0,
+  "Self-funded":4
+};
+
+function riskScore(d) {
+  if (rowDebt(d) <= 0) return 0;
+  let s = 0;
+  if (d.ageing.d120 > 0) s += 18 + Math.min(12, d.ageing.d120/4000);
+  if (d.ageing.d90  > 0) s += 14;
+  if (d.ageing.d60  > 0) s += 8;
+  if (d.ageing.d30  > 0) s += 5;
+  s += Math.min(22, (d.missed||0) * 7);
+  s += FUND_RISK[d.fundStatus] || 0;
+  if (d.arrangement === "Defaulted") s += 10;
+  if (!d.lastPay) s += 8;
+  return Math.max(1, Math.min(99, Math.round(s)));
+}
+const bandOf = sc => sc >= 70 ? "High" : sc >= 45 ? "Elevated" : "Watch";
+const bandColor = b => b === "High" ? RED : b === "Elevated" ? HONEY : MID;
+
+/* picked up = owes money AND (missed a payment OR is in arrears OR funding unresolved) */
+function pickedUp(d) {
+  if (rowDebt(d) <= 0) return false;
+  return (d.missed||0) > 0 || arrears(d) > 0 || (FUND_RISK[d.fundStatus]||0) >= 8;
+}
+const owedToStudent = d => rowTotal(d) < 0;
+
+function signalsOf(d) {
+  const out = [];
+  if ((d.missed||0) > 0) out.push({ t:`${d.missed} missed instalment${d.missed>1?"s":""}`, hot:true });
+  if (!d.lastPay) out.push({ t:"No payment on record", hot:true });
+  else out.push({ t:`Last paid ${d.lastPay}`, hot:false });
+  if (d.ageing.d120 > 0) out.push({ t:`120+ days ${R0(d.ageing.d120)}`, hot:true });
+  else if (d.ageing.d90 > 0) out.push({ t:`90 days ${R0(d.ageing.d90)}`, hot:true });
+  else if (arrears(d) > 0) out.push({ t:`In arrears ${R0(arrears(d))}`, hot:false });
+  if ((FUND_RISK[d.fundStatus]||0) >= 8) out.push({ t:d.fundStatus, hot:false });
+  if (d.arrangement === "Defaulted") out.push({ t:"Arrangement defaulted", hot:true });
+  return out;
+}
+
+const POLICY = {
+  "Payment arrangement":"FIN-04.2", "Hardship fund":"FIN-07.1", "Registration hold":"FIN-09.3",
+  "Refund":"FIN-02.6", "Funding chase":"FIN-05.4", "Reminder cadence":"FIN-03.1", "Monitor":"FIN-01.0"
+};
+const AGENTS = {
+  "Payment arrangement":"Intervention Planner", "Hardship fund":"Funding Broker",
+  "Registration hold":"Assurance Agent", "Refund":"Assurance Agent",
+  "Funding chase":"Funding Broker", "Reminder cadence":"Engagement Agent", "Monitor":"Risk Sentinel"
+};
+
+function instalments(debt) { return debt <= 5000 ? 3 : debt <= 15000 ? 4 : debt <= 30000 ? 6 : 8; }
+
+/* the AI recommendation, derived from the same facts */
+function recommend(d) {
+  const debt = rowDebt(d), credit = Math.abs(Math.min(0,rowTotal(d)));
+  const fs = d.fundStatus, miss = d.missed||0;
+
+  if (owedToStudent(d)) return {
+    type:"Refund", action:`Refund ${R(credit)} to the student`, status:"Needs approval",
+    rationale:`The account is in credit by ${R(credit)} after ${fs.toLowerCase()}. Holding a student credit past the term end is a compliance finding, and the banking detail on file is verified, so the agent has prepared the payment for release.`,
+    terms:[{k:"Refund",v:R(credit)},{k:"Method",v:"EFT, verified account"},{k:"Turnaround",v:"5 working days"}]
+  };
+
+  if (d.arrangement === "Defaulted" && !d.lastPay) return {
+    type:"Registration hold", action:"Registration hold and hand-over", status:"Needs approval",
+    rationale:`A prior arrangement defaulted, there is no payment on record and funding reads ${fs.toLowerCase()}. Every agent channel has been tried without engagement, so escalation is the remaining option on ${R(debt)}.`,
+    terms:[{k:"Hold",v:"Registration"},{k:"Hand-over",v:"Adapt Connect"},{k:"Review",v:"On first contact"}]
+  };
+
+  if (/lapsed|declined/i.test(fs)) return {
+    type:"Hardship fund", action:"Hardship fund referral and sponsor follow-up", status:"Needs approval",
+    rationale:`Funding reads ${fs.toLowerCase()}, which removed cover the student had budgeted against — the shortfall is not conduct. A partial hardship award bridges the term while the agent re-tests eligibility on ${R(debt)} outstanding.`,
+    terms:[{k:"Award sought",v:R(Math.min(debt*0.4, 6000))},{k:"Bridge",v:"One semester"},{k:"Re-test",v:"Next funding window"}]
+  };
+
+  if (/pending/i.test(fs) && miss >= 2) {
+    const n = instalments(debt);
+    return {
+      type:"Payment arrangement", action:`Holding arrangement, ${n} instalments`, status:"Needs approval",
+      rationale:`${miss} instalments are unpaid and NSFAS has not resolved, so the balance cannot be settled in one payment. A ${n}-instalment holding arrangement at ${R(debt/n)} per month keeps registration intact while the funding outcome is chased.`,
+      terms:[{k:"Instalments",v:`${n} × ${R(debt/n)}`},{k:"Hold on registration",v:"Suspended"},{k:"Falls away if",v:"NSFAS approves"}]
+    };
+  }
+
+  if (/pending/i.test(fs)) return {
+    type:"Funding chase", action:"Chase funding verification, suspend hold", status:"Agent acting",
+    rationale:`The student is current apart from ${R(arrears(d) || debt)} sitting behind an unresolved NSFAS application. Chasing the outstanding documents is cheaper than collections, so the agent is working the funding route first.`,
+    terms:[{k:"Outstanding",v:"Supporting documents"},{k:"Reminders",v:"SMS and WhatsApp"},{k:"Hold",v:"Suspended pending outcome"}]
+  };
+
+  if (miss >= 2) {
+    const n = instalments(debt);
+    return {
+      type:"Payment arrangement", action:`Payment arrangement, ${n} instalments`, status:"Needs approval",
+      rationale:`${miss} instalments are unpaid on ${R(debt)}, but the student has paid before (last receipt ${d.lastPay}). An arrangement at ${R(debt/n)} per month recovers more over twelve months than a registration hold, which historically converts to withdrawal in 41 percent of comparable cases.`,
+      terms:[{k:"Instalments",v:`${n} × ${R(debt/n)}`},{k:"First debit",v:"22nd of next month"},{k:"Hold on registration",v:"Suspended"}]
+    };
+  }
+
+  if (miss === 1) return {
+    type:"Reminder cadence", action:"Reminder cadence, no hold", status:"Agent acting",
+    rationale:`One instalment was missed on ${R(debt)} against an otherwise clean record. A three-step SMS and WhatsApp cadence resolves this pattern without a human in 8 of 10 comparable cases, so no hold is proposed.`,
+    terms:[{k:"Step 1",v:"SMS, day 1"},{k:"Step 2",v:"WhatsApp, day 5"},{k:"Step 3",v:"Officer call, day 10"}]
+  };
+
+  return {
+    type:"Monitor", action:"Monitor only", status:"Monitoring",
+    rationale:`The account is current and payments are arriving on cycle. The agent keeps scoring nightly and will raise a case the moment a payment is missed.`,
+    terms:[{k:"Action",v:"None required"},{k:"Re-score",v:"Nightly"}]
+  };
+}
+
+function evidenceOf(d) {
+  const e = [];
+  const oldest = d.ageing.d120>0 ? "120+ days" : d.ageing.d90>0 ? "90 days" : d.ageing.d60>0 ? "60 days" : d.ageing.d30>0 ? "30 days" : "Current";
+  e.push(`Ageing · ${oldest}`);
+  e.push(`Payment history ${d.year-1}–${d.year}`);
+  e.push(`Funding · ${d.fundStatus}`);
+  if (d.arrangement) e.push(`Arrangement · ${d.arrangement}`);
+  return e;
+}
+
+function activityOf(d) {
+  const a = [];
+  a.push({ t:`Risk scored ${riskScore(d)} and banded ${bandOf(riskScore(d))}`, m:"Risk Sentinel · overnight run" });
+  a.push({ t:`Funding status read as ${d.fundStatus}`, m:"Funding Broker · Student Funding" });
+  if ((d.missed||0) > 0) a.push({ t:`${d.missed} instalment${d.missed>1?"s":""} flagged unpaid`, m:"Assurance Agent · Debtors" });
+  a.push({ t: d.lastPay ? `Last receipt ${d.lastPay} confirmed` : "No receipt found on the account", m:"Cashiering reconciliation" });
+  if (d.arrangement) a.push({ t:`Prior arrangement ${d.arrangement.toLowerCase()}`, m:"Assurance Agent" });
+  return a;
+}
+
+function caseOf(d) {
+  const sc = riskScore(d);
+  return { d, score:sc, band:bandOf(sc), debt:rowDebt(d), credit:Math.abs(Math.min(0,rowTotal(d))),
+           signals:signalsOf(d), rec:recommend(d), evidence:evidenceOf(d), activity:activityOf(d) };
+}
+
+/* =========================================================================
+   STATE + SELECTORS
+   ========================================================================= */
+/* the tracker always opens on the current financial year, falling back to the
+   latest year on record if the calendar year is not in the book yet */
+const CAL_YEAR = new Date().getFullYear();
+const LATEST_YEAR = Math.max(...DEBT.years);
+const DEFAULT_YEAR = DEBT.years.includes(CAL_YEAR) ? CAL_YEAR : LATEST_YEAR;
+const YEAR_SPAN = `${Math.min(...DEBT.years)}–${LATEST_YEAR}`;
+
+const state = { tab:"home", autonomy:2, year:DEFAULT_YEAR, funding:"all", caseId:null };
+
+const yearLabel = () => state.year === "all" ? `all years (${YEAR_SPAN})` : String(state.year);
+const yearShort = () => state.year === "all" ? "all years" : String(state.year);
+const scopeLabel = () => yearShort() + (state.funding !== "all" ? " · " + FUND[state.funding].label : "");
+const bookLabel  = () => state.year === "all" ? "whole book" : `${state.year} book`;
+const yearPhrase = () => state.year === "all" ? `across all ${DEBT.years.length} years on record` : `for ${state.year}`;
+
+const LEVELS = [
+  { name:"1 · Observe",           hint:"Score and report only" },
+  { name:"2 · Recommend",         hint:"Human accepts every action" },
+  { name:"3 · Act within policy", hint:"Low-risk actions automatic" },
+  { name:"4 · Act and report",    hint:"Full workflow, post-hoc review" }
+];
+
+const rows       = () => DEBT.debtors.filter(d => (state.year === "all" || d.year === state.year) && (state.funding === "all" || d.funding === state.funding));
+const pickedRows = () => rows().filter(pickedUp).sort((a,b)=> riskScore(b)-riskScore(a));
+const refundRows = () => rows().filter(owedToStudent).sort((a,b)=> rowTotal(a)-rowTotal(b));
+const payingRows = () => rows().filter(d => rowDebt(d) > 0 && !pickedUp(d));
+const caseRows   = () => [...pickedRows(), ...refundRows()];
+
+function summary() {
+  const rs = rows();
+  const debtors = rs.filter(d => rowTotal(d) > 0);
+  const credits = rs.filter(owedToStudent);
+  const totalDebt = debtors.reduce((s,d)=> s + rowTotal(d), 0);
+  const totalCredit = Math.abs(credits.reduce((s,d)=> s + rowTotal(d), 0));
+  const o90 = rs.reduce((s,d)=> s + over90(d), 0);
+  const registered = state.year === "all"
+    ? DEBT.years.reduce((s,y)=> s + (REGISTERED[y]||0), 0)
+    : (REGISTERED[state.year] || 0);
+  return { debtors, credits, totalDebt, totalCredit, o90, registered,
+           o90Pct: totalDebt ? o90/totalDebt*100 : 0,
+           avg: debtors.length ? totalDebt/debtors.length : 0 };
+}
+
+/* the debt-summary block — rendered once, used on Home and the Tracker */
+function summaryCards() {
+  const s = summary();
+  const N = n => Math.round(n).toLocaleString("en-ZA");
+  const cards = [
+    { k:"Registered students",            dot:NAVY,     v:N(s.registered),  n: state.year === "all"
+        ? `registrations across ${YEAR_SPAN}`
+        : `enrolled in ${state.year}${state.year === CAL_YEAR ? " · current year" : ""}` },
+    { k:"Total debt owed to institution", dot:RED_TEXT, v:R(s.totalDebt),   n:`${s.debtors.length} debtor(s) · ${yearShort()}` },
+    { k:"Owed to students (credits)",     dot:TEAL,     v:R(s.totalCredit), n:`${s.credits.length} student(s) with credit balances` },
+    { k:"At risk (90+ days)",             dot:BLUSH,    v:R(s.o90),         n:`${s.o90Pct.toFixed(1)}% of outstanding debt` },
+    { k:"Average balance per debtor",     dot:MID,      v:R(s.avg),         n:`across ${s.debtors.length} debtor(s)` }
+  ];
+  return `<div class="summary">${cards.map(c=>`
+    <div class="kpi-card">
+      <span class="k"><span class="dot" style="background:${c.dot}"></span>${c.k}</span>
+      <span class="v">${c.v}</span>
+      <span class="n">${c.n}</span>
+    </div>`).join("")}</div>`;
+}
+
+/* =========================================================================
+   TABS
+   ========================================================================= */
+const TABS = [
+  { key:"home",    label:"Home" },
+  { key:"tracker", label:"Debt Management Tracker",
+    blurb:"The debt summary for the selected year, and the students the agent has picked up for not paying or missing a payment — scored, with the proposed action on every row." },
+  { key:"cases",   label:"Case management & AI recommendation",
+    blurb:"One case per flagged student: the balance, the ageing, why the score moved, the AI recommendation with its rationale, evidence and policy clause, and the decision." },
+  { key:"ageing",  label:"Age Analysis",
+    blurb:"Current to 120+ day ageing across the book — by funding source, then student by student, plus the students the institution owes and how long it has been holding their money." }
+];
+
+function badgeFor(key) {
+  if (key === "tracker") return String(pickedRows().length);
+  if (key === "cases")   return String(caseRows().filter(d => recommend(d).status === "Needs approval").length);
+  return "";
+}
+
+/* =========================================================================
+   CHROME RENDER
+   ========================================================================= */
+function renderChrome() {
+  document.getElementById("tabs").innerHTML = TABS.map(t=>{
+    const b = badgeFor(t.key);
+    return `<button class="tab ${t.key==="home"?"home-tab":""} ${state.tab===t.key?"on":""}" data-act="tab" data-val="${t.key}">
+      ${t.label}${b?`<span class="badge">${b}</span>`:""}</button>`;
+  }).join("");
+
+  const aut = document.getElementById("autSelect");
+  if (!aut.options.length) {
+    aut.innerHTML = LEVELS.map((l,i)=>`<option value="${i+1}">Autonomy ${l.name} — ${l.hint}</option>`).join("");
+  }
+  aut.value = state.autonomy;
+
+  const ys = document.getElementById("yearSel");
+  ys.innerHTML = yearOptions();
+  ys.value = String(state.year);
+
+  const fs = document.getElementById("fundSel");
+  fs.innerHTML = fundOptions();
+  fs.value = state.funding;
+}
+
+/* one option list, used by the chrome filter and by the one on Home */
+function yearOptions() {
+  const years = DEBT.years.slice().sort((a,b)=>b-a);
+  return years.map(y=>`<option value="${y}" ${String(state.year)===String(y)?"selected":""}>${y}${y===CAL_YEAR?" (current)":""}</option>`).join("")
+       + `<option value="all" ${state.year==="all"?"selected":""}>All years (${YEAR_SPAN})</option>`;
+}
+function fundOptions() {
+  return [["all","All funding types"],["self","Self-funded"],["gov","Government (NSFAS)"],["private","Private / Bursary"]]
+    .map(([v,l])=>`<option value="${v}" ${state.funding===v?"selected":""}>${l}</option>`).join("");
+}
+function setYear(v)    { state.year = v === "all" ? "all" : +v; state.caseId = null; renderChrome(); renderMain(); }
+function setFunding(v) { state.funding = v; state.caseId = null; renderChrome(); renderMain(); }
+
+/* =========================================================================
+   TAB — HOME
+   ========================================================================= */
+function tabHome() {
+  const s = summary();
+  const picked = pickedRows().length, paying = payingRows().length;
+  return `
+  <div class="stack">
+    <section class="hero">
+      <span class="eyebrow mint">Agentic student finance · financial year ${yearShort()}</span>
+      <h1>Student Pro-active Debt Management Tracker</h1>
+      <div class="rule"></div>
+      <p>
+        Catch student debt while it is still recoverable. The agent reads Debtors, Student Fees and Student
+        Funding every night, picks up the students who are not paying or who have missed a payment, scores
+        them, and drafts the action — a human approves it. Every workspace opens in this same window.
+      </p>
+      <div class="cta">
+        <button class="btn-blue" data-act="tab" data-val="tracker">Open the Debt Management Tracker</button>
+        <button class="btn-onblue" data-act="tab" data-val="cases">Go to case management</button>
+      </div>
+    </section>
+
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span class="eyebrow">Debt summary · ${yearLabel()}${state.funding!=="all"?" · "+FUND[state.funding].label:""}</span>
+        <span class="note">${state.year === CAL_YEAR
+          ? `Current financial year. Change the year below to look back, or choose All years for the whole book.`
+          : state.year === "all"
+            ? `Every financial year on record, ${YEAR_SPAN}.`
+            : `Historic year. The tracker opens on ${DEFAULT_YEAR} by default.`}</span>
+      </div>
+      <div class="filters">
+        <span class="fl"><label for="homeYear">Financial year</label>
+          <select class="filter" id="homeYear" data-year-select>${yearOptions()}</select></span>
+        <span class="fl"><label for="homeFund">Funding source</label>
+          <select class="filter" id="homeFund" data-fund-select>${fundOptions()}</select></span>
+      </div>
+    </div>
+    ${summaryCards()}
+
+    <div class="row-2">
+      <div class="card">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="c-title">Total debt to the institution — per year</span>
+          <span class="c-hint">Outstanding student debt at year end (ZAR), stacked by funding source. The selected year is highlighted.</span>
+        </div>
+        ${yearChart()}
+        <div class="legend">
+          ${FUND_KEYS.map(f=>`<span><i class="dot" style="background:${FUND[f].color}"></i> ${FUND[f].label}</span>`).join("")}
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="c-title">Funding mix of the ${bookLabel()}</span>
+          <span class="c-hint">Who was meant to be paying the ${yearShort()} balance.</span>
+        </div>
+        ${donut()}
+      </div>
+    </div>
+
+    <div class="card" style="flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">The agent has picked up ${picked} student${picked===1?"":"s"} for a human today</span>
+        <span class="c-hint">Missed instalments, arrears beyond current, or funding that has not resolved. ${paying} debtor${paying===1?"":"s"} paying on cycle were left alone.</span>
+      </div>
+      <button class="btn-blue" data-act="tab" data-val="tracker">Review the pickup</button>
+    </div>
+
+    <div class="eyebrow">Workspaces</div>
+    <div class="grid-3">
+      ${TABS.filter(t=>t.key!=="home").map((t,i)=>`
+        <button class="ws-card" data-act="tab" data-val="${t.key}">
+          <span class="n">${String(i+1).padStart(2,"0")}</span>
+          <h3>${t.label}</h3>
+          <p>${t.blurb}</p>
+          <span class="go">Open →</span>
+        </button>`).join("")}
+    </div>
+
+    <p class="note" style="text-align:center;margin:6px 0 0">
+      Every agent action is written to the student record in ITS with its reasoning and evidence.
+      Demonstration data · figures in South African Rand.
+    </p>
+  </div>`;
+}
+
+/* =========================================================================
+   TAB — DEBT MANAGEMENT TRACKER
+   ========================================================================= */
+function tabTracker() {
+  const picked = pickedRows(), paying = payingRows(), refunds = refundRows();
+
+  const rowHtml = d => {
+    const c = caseOf(d);
+    const credit = owedToStudent(d);
+    return `
+    <div class="qrow" data-act="case" data-val="${d.id}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:52px;flex:none">
+        <div class="score" style="background:${credit?TEAL:bandColor(c.band)}">${credit?"↩":c.score}</div>
+        <span class="band">${credit?"Credit":c.band}</span>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+          <span style="font-size:15px;font-weight:700;color:var(--fg-1);line-height:1.2">${d.name}</span>
+          <span class="tag">${d.id}</span>
+          <span class="pill ${FUND[d.funding].pill}">${FUND[d.funding].label}</span>
+        </div>
+        <span style="font-size:12.5px;color:var(--fg-2);line-height:1.35">${d.prog}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">
+          ${c.signals.map(g=>`<span class="sig ${g.hot?"hot":""}">${g.t}</span>`).join("")}
+        </div>
+      </div>
+      <div style="width:190px;flex:none;display:flex;flex-direction:column;gap:4px">
+        <span class="eyebrow" style="font-size:10px">${AGENTS[c.rec.type]} proposes</span>
+        <span style="font-size:12.5px;line-height:1.4;color:var(--ai-mid-blue);font-weight:700">${c.rec.action}</span>
+      </div>
+      <div style="width:130px;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <span class="mono" style="font-size:16px;font-weight:700;color:var(--fg-1)">${R(c.debt || c.credit)}</span>
+        <span class="status" style="${statusStyle(c.rec.status)}">${c.rec.status}</span>
+        <span class="link" style="font-size:11.5px">Open case →</span>
+      </div>
+    </div>`;
+  };
+
+  return `
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Debt Management Tracker</h1>
+        <p>The agent scored every registered debtor ${yearPhrase()} overnight and picked up
+           ${picked.length} for a human — students not paying, or who have missed an instalment, or whose
+           funding has not resolved. ${paying.length} debtor${paying.length===1?"":"s"} paying on cycle
+           and ${refunds.length} credit balance${refunds.length===1?"":"s"} were handled separately.</p>
+      </div>
+    </div>
+
+    <div class="eyebrow">Debt summary · ${scopeLabel()}</div>
+    ${summaryCards()}
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:4px">
+      <span class="eyebrow">Picked up by the agent · ${picked.length} student${picked.length===1?"":"s"}</span>
+      <span style="font-size:11.5px;color:var(--fg-3)">Sorted by risk score · click a row to open the case</span>
+    </div>
+    ${picked.length ? picked.map(rowHtml).join("")
+      : `<div class="card"><span class="c-hint">No student in this selection has missed a payment or fallen into arrears.</span></div>`}
+
+    ${refunds.length ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:6px">
+        <span class="eyebrow">Institution owes the student · ${refunds.length} refund case${refunds.length===1?"":"s"}</span>
+        <span style="font-size:11.5px;color:var(--fg-3)">Credit balances the agent has queued for release</span>
+      </div>
+      ${refunds.map(rowHtml).join("")}` : ""}
+
+    ${paying.length ? `
+      <div class="card" style="margin-top:6px">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="c-title">Not picked up · ${paying.length} debtor${paying.length===1?"":"s"} paying on cycle</span>
+          <span class="c-hint">Current balances, no missed instalment, funding confirmed. The agent keeps scoring these nightly and raises a case the moment a payment is missed.</span>
+        </div>
+        <div class="scroll-x"><table>
+          <thead><tr><th>Student</th><th>Funding</th><th>Funding status</th><th>Last payment</th><th class="num">Current balance</th></tr></thead>
+          <tbody>${paying.map(d=>`
+            <tr>
+              <td><span style="color:var(--fg-1);font-weight:700">${d.name}</span><div class="tag">${d.id}</div></td>
+              <td><span class="pill ${FUND[d.funding].pill}">${FUND[d.funding].label}</span></td>
+              <td>${d.fundStatus}</td>
+              <td class="tag" style="font-size:12px">${d.lastPay || "—"}</td>
+              <td class="num" style="color:var(--fg-1);font-weight:700">${R(rowDebt(d))}</td>
+            </tr>`).join("")}</tbody>
+        </table></div>
+      </div>` : ""}
+  </div>`;
+}
+
+function statusStyle(s) {
+  const c  = s === "Needs approval" ? RED_TEXT : s === "Agent acting" ? MID : "var(--fg-3)";
+  const bg = s === "Needs approval" ? "rgba(232,39,39,.07)" : s === "Agent acting" ? "rgba(0,102,144,.07)" : "var(--bg-2)";
+  return `background:${bg};color:${c}`;
+}
+
+/* =========================================================================
+   TAB — CASE MANAGEMENT & AI RECOMMENDATION
+   ========================================================================= */
+function tabCases() {
+  const list = caseRows();
+  if (!list.length) {
+    return `<div class="stack">
+      <div class="page-head"><div><h1>Case management &amp; AI recommendation</h1>
+        <p>No open case for ${scopeLabel()}.</p></div></div>
+    </div>`;
+  }
+  const sel = list.find(d => d.id === state.caseId) || list[0];
+  state.caseId = sel.id;
+  const c = caseOf(sel);
+  const needing = list.filter(d => recommend(d).status === "Needs approval").length;
+
+  const buckets = AGE_BUCKETS.map(b => ({ ...b, amt: Math.max(0, sel.ageing[b.key]) }));
+  const bucketMax = Math.max(1, ...buckets.map(b=>b.amt));
+
+  return `
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p>${list.length} open case${list.length===1?"":"s"} for ${yearShort()}, ${needing} awaiting a human decision.
+           Each case carries the agent's reasoning, the evidence it read and the policy clause the action sits under.</p>
+      </div>
+    </div>
+
+    <div class="case-grid">
+      <div class="case-list">
+        ${list.map(d=>{
+          const cc = caseOf(d);
+          return `
+          <button class="case-item ${d.id===sel.id?"on":""}" data-act="case" data-val="${d.id}">
+            <span class="mini-score" style="background:${owedToStudent(d)?TEAL:bandColor(cc.band)}">${owedToStudent(d)?"↩":cc.score}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:13.5px;font-weight:700;color:var(--fg-1);line-height:1.2">${d.name}</span>
+              <span class="tag">${d.id}</span>
+              <span style="font-size:11.5px;color:var(--ai-mid-blue);font-weight:700;line-height:1.3">${cc.rec.type}</span>
+              <span class="status" style="${statusStyle(cc.rec.status)};align-self:flex-start;margin-top:2px">${cc.rec.status}</span>
+            </span>
+            <span class="mono" style="font-size:12.5px;font-weight:700;color:var(--fg-1);flex:none">${R0(cc.debt||cc.credit)}</span>
+          </button>`;
+        }).join("")}
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <!-- case header -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+            <div style="display:flex;gap:16px;align-items:flex-start">
+              <div class="score" style="width:52px;height:52px;font-size:18px;background:${owedToStudent(sel)?TEAL:bandColor(c.band)};flex:none">${owedToStudent(sel)?"↩":c.score}</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <span style="font-size:20px;font-weight:700;color:var(--fg-1);line-height:1.15">${sel.name}</span>
+                <span class="tag" style="font-size:12px">${sel.id} · ${sel.prog}</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+                  <span class="pill ${FUND[sel.funding].pill}">${FUND[sel.funding].label}</span>
+                  ${c.signals.map(g=>`<span class="sig ${g.hot?"hot":""}">${g.t}</span>`).join("")}
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:22px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span class="eyebrow" style="font-size:10px">${owedToStudent(sel)?"Credit owed to student":"Owed to institution"}</span>
+                <span class="mono" style="font-size:22px;font-weight:700;color:${owedToStudent(sel)?TEAL_TEXT:RED_TEXT}">${R(c.debt||c.credit)}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span class="eyebrow" style="font-size:10px">Policy clause</span>
+                <span class="mono" style="font-size:22px;font-weight:700;color:var(--fg-1)">${POLICY[c.rec.type]}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <!-- AI recommendation -->
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <span class="eyebrow blue">${AGENTS[c.rec.type]} · AI recommendation</span>
+              <span class="status" style="${statusStyle(c.rec.status)}">${c.rec.status}</span>
+            </div>
+            <span style="font-size:17px;font-weight:700;color:var(--fg-1);line-height:1.25">${c.rec.action}</span>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:var(--fg-2)">${c.rec.rationale}</p>
+
+            <div class="inner-box">
+              <span class="eyebrow" style="font-size:10px">Proposed terms</span>
+              ${c.rec.terms.map(t=>`
+                <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px">
+                  <span style="color:var(--fg-3)">${t.k}</span>
+                  <span class="mono" style="font-weight:700;color:var(--fg-1)">${t.v}</span>
+                </div>`).join("")}
+            </div>
+
+            <div>
+              <span class="eyebrow" style="font-size:10px">Evidence read</span>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">
+                ${c.evidence.map(e=>`<span class="mono" style="padding:3px 9px;border-radius:4px;background:var(--bg-2);border:1px solid var(--border);font-size:10.5px;font-weight:700;color:var(--fg-2)">${e}</span>`).join("")}
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--border)">
+              <button class="btn-blue" style="flex:1;min-width:120px">Approve</button>
+              <button class="btn-line">Amend terms</button>
+              <button class="btn-line danger">Decline</button>
+            </div>
+          </div>
+
+          <!-- position + activity -->
+          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+            <div class="card" style="padding:18px;gap:12px">
+              <span class="eyebrow">Ageing position on this account</span>
+              ${buckets.map(b=>`
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span style="font-size:12.5px;color:var(--fg-2)">${b.label}</span>
+                    <span class="mono" style="font-size:12.5px;font-weight:700;color:${b.amt?"var(--fg-1)":"var(--fg-3)"}">${b.amt?R(b.amt):"—"}</span>
+                  </div>
+                  <div class="bar-track"><div style="height:100%;width:${b.amt/bucketMax*100}%;border-radius:999px;background:${b.color}"></div></div>
+                </div>`).join("")}
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border-strong)">
+                <span style="font-size:12.5px;color:var(--fg-2);font-weight:700">${owedToStudent(sel)?"Credit balance":"Total outstanding"}</span>
+                <span class="mono" style="font-size:16px;font-weight:700;color:${owedToStudent(sel)?TEAL_TEXT:RED_TEXT}">${R(c.debt||c.credit)}</span>
+              </div>
+            </div>
+
+            <div class="card" style="padding:18px;gap:12px">
+              <span class="eyebrow">Agent activity on this case</span>
+              ${c.activity.map(a=>`
+                <div style="display:flex;gap:10px">
+                  <div style="width:7px;height:7px;border-radius:999px;background:var(--ai-teal);margin-top:5px;flex:none"></div>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:12.5px;color:var(--fg-2);line-height:1.4">${a.t}</span>
+                    <span class="tag">${a.m}</span>
+                  </div>
+                </div>`).join("")}
+            </div>
+
+            <div class="card" style="padding:18px;gap:12px">
+              <span class="eyebrow">Engagement channels</span>
+              <span class="c-hint">Actions the Engagement Agent can run on this case at the current autonomy level.</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Send SMS</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Send WhatsApp</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Log a call</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Hand to Adapt Connect</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================================
+   TAB — AGE ANALYSIS · DEBT PER FUNDING SOURCE
+   ========================================================================= */
+function ageingBars() {
+  const rs = rows();
+  const buckets = AGE_BUCKETS.map(b => ({ ...b, amount: rs.reduce((s,d)=> s + Math.max(0, d.ageing[b.key]), 0) }));
+  const W=900, H=220, padL=110, padR=104, padT=10, padB=10;
+  const plotW = W-padL-padR, barH = 26, gap = (H-padT-padB)/AGE_BUCKETS.length;
+  const max = Math.max(1, ...buckets.map(b=>b.amount));
+  let g = "";
+  buckets.forEach((b,i)=>{
+    const y = padT + gap*i + (gap-barH)/2;
+    const w = (b.amount/max)*plotW;
+    g += `<text x="${padL-12}" y="${y+barH/2+4}" text-anchor="end" fill="var(--fg-1)" style="font-weight:700">${b.label}</text>`;
+    g += `<rect x="${padL}" y="${y}" width="${plotW}" height="${barH}" fill="var(--bg-3)" rx="5"/>`;
+    g += `<rect x="${padL}" y="${y}" width="${w}" height="${barH}" fill="${b.color}" rx="5"><title>${b.label}: ${R(b.amount)}</title></rect>`;
+    g += `<text x="${padL+plotW+10}" y="${y+barH/2+4}" fill="var(--fg-1)" class="mono" style="font-weight:700">${R(b.amount)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%">${g}</svg>`;
+}
+
+function ageingMatrix() {
+  const rs = rows();
+  const m = {};
+  FUND_KEYS.forEach(f => m[f] = AGE_BUCKETS.reduce((o,b)=>(o[b.key]=0,o),{}));
+  rs.forEach(d => AGE_BUCKETS.forEach(b => { m[d.funding][b.key] += Math.max(0, d.ageing[b.key]); }));
+  const colTot = AGE_BUCKETS.map(b => FUND_KEYS.reduce((s,f)=> s + m[f][b.key], 0));
+  const grand = colTot.reduce((a,b)=>a+b,0);
+
+  const head = `<tr><th>Funding source</th>${AGE_BUCKETS.map(b=>`<th class="num">${b.label}</th>`).join("")}<th class="num">Total</th><th class="num">Share</th></tr>`;
+  const body = FUND_KEYS.map(f=>{
+    const rt = AGE_BUCKETS.reduce((s,b)=> s + m[f][b.key], 0);
+    return `<tr>
+      <td><span class="pill ${FUND[f].pill}">${FUND[f].label}</span></td>
+      ${AGE_BUCKETS.map(b=>`<td class="num">${m[f][b.key]?R(m[f][b.key]):"—"}</td>`).join("")}
+      <td class="num" style="font-weight:700;color:var(--fg-1)">${rt?R(rt):"—"}</td>
+      <td class="num">${grand?(rt/grand*100).toFixed(1)+"%":"—"}</td>
+    </tr>`;
+  }).join("");
+  const tot = `<tr style="font-weight:700">
+      <td style="color:var(--fg-1)">Total</td>
+      ${colTot.map(v=>`<td class="num" style="color:var(--fg-1)">${v?R(v):"—"}</td>`).join("")}
+      <td class="num" style="color:var(--fg-1)">${R(grand)}</td><td class="num" style="color:var(--fg-1)">100%</td></tr>`;
+  return `<div class="scroll-x"><table><thead>${head}</thead><tbody>${body}${tot}</tbody></table></div>`;
+}
+
+function yearChart() {
+  const W=720, H=300, padL=64, padR=16, padT=16, padB=42;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const perYear = DEBT.years.map(y => {
+    const f = { self:0, gov:0, private:0 };
+    DEBT.debtors.filter(d => d.year===y).forEach(d => { f[d.funding] += rowDebt(d); });
+    return { y, ...f, total: f.self+f.gov+f.private };
+  });
+  const niceMax = Math.ceil(Math.max(1,...perYear.map(p=>p.total))/50000)*50000;
+  const gap = plotW/perYear.length, bw = gap*0.55;
+  let g = "";
+  for (let i=0;i<=4;i++){
+    const val = niceMax/4*i, yy = padT + plotH - (val/niceMax)*plotH;
+    g += `<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--border)" stroke-width="1"/>`;
+    g += `<text x="${padL-8}" y="${yy+4}" text-anchor="end">R${val/1000}k</text>`;
+  }
+  perYear.forEach((p,i)=>{
+    const cx = padL + gap*i + gap/2;
+    let yc = padT + plotH;
+    if (p.y===state.year) g += `<rect x="${cx-gap/2+4}" y="${padT}" width="${gap-8}" height="${plotH}" fill="var(--ai-blue)" opacity="0.06" rx="6"/>`;
+    FUND_KEYS.forEach(f=>{
+      const h = (p[f]/niceMax)*plotH;
+      if (h<=0) return;
+      const op = (state.funding==="all" || state.funding===f) ? 1 : 0.22;
+      g += `<rect x="${cx-bw/2}" y="${yc-h}" width="${bw}" height="${h}" fill="${FUND[f].color}" opacity="${op}" rx="2"><title>${p.y} · ${FUND[f].label}: ${R(p[f])}</title></rect>`;
+      yc -= h;
+    });
+    g += `<text x="${cx}" y="${yc-8}" text-anchor="middle" fill="var(--fg-1)" style="font-weight:700">${p.total?"R"+Math.round(p.total/1000)+"k":""}</text>`;
+    const on = p.y===state.year;
+    g += `<text x="${cx}" y="${H-16}" text-anchor="middle" fill="${on?"var(--fg-1)":"var(--fg-3)"}" style="${on?"font-weight:700":""}">${p.y}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:298px">${g}</svg>`;
+}
+
+function donut() {
+  const t = { self:0, gov:0, private:0 };
+  rows().filter(d=>rowDebt(d)>0).forEach(d => t[d.funding] += rowDebt(d));
+  const total = t.self+t.gov+t.private;
+  const cx=110, cy=110, r=78, sw=28;
+  if (total<=0) return `<div style="display:flex;justify-content:center"><svg viewBox="0 0 220 220" style="width:200px;height:200px">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--bg-3)" stroke-width="${sw}"/>
+    <text x="${cx}" y="${cy+4}" text-anchor="middle">No debt</text></svg></div>`;
+  const C = 2*Math.PI*r;
+  let off = 0, g = "";
+  FUND_KEYS.forEach(f=>{
+    const frac = t[f]/total; if (frac<=0) return;
+    const len = frac*C;
+    g += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${FUND[f].color}" stroke-width="${sw}"
+      stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})">
+      <title>${FUND[f].label}: ${R(t[f])} (${(frac*100).toFixed(1)}%)</title></circle>`;
+    off += len;
+  });
+  g += `<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="var(--fg-1)" style="font-size:15px;font-weight:700">${R(total)}</text>`;
+  g += `<text x="${cx}" y="${cy+16}" text-anchor="middle" style="font-size:11px">total debt</text>`;
+  return `
+    <div style="display:flex;justify-content:center"><svg viewBox="0 0 220 220" style="width:200px;height:200px">${g}</svg></div>
+    <div class="legend" style="flex-direction:column;gap:10px">
+      ${FUND_KEYS.map(f=>`
+        <span style="justify-content:space-between;width:100%">
+          <span style="display:inline-flex;align-items:center;gap:7px"><i class="dot" style="background:${FUND[f].color}"></i> ${FUND[f].label}</span>
+          <span class="mono" style="color:var(--fg-1);font-weight:700">${R(t[f])} · ${(t[f]/total*100).toFixed(1)}%</span>
+        </span>`).join("")}
+    </div>`;
+}
+
+/* every student owing, with their own amount in each ageing bucket */
+function studentAgeingTable() {
+  const rs = rows().filter(d => rowDebt(d) > 0).sort((a,b)=>
+    (Math.max(0,b.ageing.d120) - Math.max(0,a.ageing.d120)) ||
+    (Math.max(0,b.ageing.d90)  - Math.max(0,a.ageing.d90))  ||
+    (rowDebt(b) - rowDebt(a)));
+  if (!rs.length) return `<p class="note" style="margin:0">No outstanding balances in this selection.</p>`;
+
+  const showYear = state.year === "all";
+  const head = `<tr><th>Student</th>${showYear?"<th>Year</th>":""}<th>Funding</th>
+    ${AGE_BUCKETS.map(b=>`<th class="num">${b.label}</th>`).join("")}
+    <th class="num">Total owed</th><th>Oldest arrear</th></tr>`;
+
+  const body = rs.map(d=>{
+    const ob = oldestBucket(d);
+    return `<tr>
+      <td><span style="color:var(--fg-1);font-weight:700">${d.name}</span><div class="tag">${d.id}</div></td>
+      ${showYear?`<td class="mono">${d.year}</td>`:""}
+      <td><span class="pill ${FUND[d.funding].pill}">${FUND[d.funding].label}</span></td>
+      ${AGE_BUCKETS.map(b=>{
+        const v = Math.max(0, d.ageing[b.key]);
+        return `<td class="num" style="${v?`color:${b.color};font-weight:700`:""}">${v?R(v):"—"}</td>`;
+      }).join("")}
+      <td class="num" style="font-weight:700;color:var(--fg-1)">${R(rowDebt(d))}</td>
+      <td><span class="pill" style="background:${ob.color}1a;border:1px solid ${ob.color}59;color:${ob.color}">${ob.label}</span></td>
+    </tr>`;
+  }).join("");
+
+  const colTot = AGE_BUCKETS.map(b => rs.reduce((s,d)=> s + Math.max(0,d.ageing[b.key]), 0));
+  const tot = `<tr style="font-weight:700">
+    <td style="color:var(--fg-1)">Total · ${rs.length} student${rs.length===1?"":"s"}</td>
+    ${showYear?"<td></td>":""}<td></td>
+    ${colTot.map(v=>`<td class="num" style="color:var(--fg-1)">${v?R(v):"—"}</td>`).join("")}
+    <td class="num" style="color:var(--fg-1)">${R(colTot.reduce((a,b)=>a+b,0))}</td><td></td></tr>`;
+
+  return `<div class="scroll-x"><table><thead>${head}</thead><tbody>${body}${tot}</tbody></table></div>`;
+}
+
+/* the students the institution owes, and how long it has been owing them */
+function creditAgeingTable() {
+  const rs = rows().filter(owedToStudent).sort((a,b)=> (b.creditDays||0)-(a.creditDays||0));
+  if (!rs.length) return `<p class="note" style="margin:0">The institution does not owe any student in this selection.</p>`;
+  const maxDays = Math.max(120, ...rs.map(d=>d.creditDays||0));
+  const showYear = state.year === "all";
+
+  const head = `<tr><th>Student</th>${showYear?"<th>Year</th>":""}<th>Funding</th><th>Why the credit arose</th>
+    <th>Credit since</th><th class="num">Days owing</th><th>Ageing band</th><th class="num">Owed to student</th></tr>`;
+
+  const body = rs.map(d=>{
+    const days = d.creditDays || 0, band = daysBand(days);
+    return `<tr>
+      <td><span style="color:var(--fg-1);font-weight:700">${d.name}</span><div class="tag">${d.id}</div></td>
+      ${showYear?`<td class="mono">${d.year}</td>`:""}
+      <td><span class="pill ${FUND[d.funding].pill}">${FUND[d.funding].label}</span></td>
+      <td style="font-size:12.5px">${d.creditReason || "—"}</td>
+      <td class="tag" style="font-size:12px">${d.creditSince || "—"}</td>
+      <td class="num" style="font-weight:700;color:${band.color}">${days}</td>
+      <td style="min-width:150px">
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <span class="pill" style="background:${band.color}1a;border:1px solid ${band.color}59;color:${band.color};align-self:flex-start">${band.label}</span>
+          <div class="bar-track"><div style="height:100%;width:${Math.min(100, days/maxDays*100)}%;border-radius:999px;background:${band.color}"></div></div>
+        </div>
+      </td>
+      <td class="num pos">${R(Math.abs(rowTotal(d)))}</td>
+    </tr>`;
+  }).join("");
+
+  const total = rs.reduce((s,d)=> s + Math.abs(rowTotal(d)), 0);
+  const stale = rs.filter(d => (d.creditDays||0) > 90);
+  const staleAmt = stale.reduce((s,d)=> s + Math.abs(rowTotal(d)), 0);
+  const oldest = rs[0];
+
+  const tot = `<tr style="font-weight:700">
+    <td colspan="${showYear?6:5}" style="color:var(--fg-1)">Total owed to students</td>
+    <td></td><td class="num pos">${R(total)}</td></tr>`;
+
+  return `
+    ${stale.length ? `
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:6px;
+                  background:rgba(192,0,66,.06);border:1px solid rgba(192,0,66,.22)">
+        <span class="dot" style="background:${BLUSH};margin-top:4px"></span>
+        <span style="font-size:12.5px;line-height:1.5;color:var(--fg-2)">
+          <b style="color:var(--fg-1)">${R(staleAmt)}</b> has been owed back to
+          ${stale.length} student${stale.length===1?"":"s"} for more than 90 days.
+          The oldest is ${oldest.name} at ${oldest.creditDays} days, since ${oldest.creditSince}.
+          Unreleased student credits past 90 days are an audit finding.
+        </span>
+      </div>` : ""}
+    <div class="scroll-x"><table><thead>${head}</thead><tbody>${body}${tot}</tbody></table></div>`;
+}
+
+function tabAgeing() {
+  const rs = rows();
+  const o90 = rs.reduce((s,d)=> s + over90(d), 0);
+  const tot = rs.reduce((s,d)=> s + rowDebt(d), 0);
+  const creditCount = rs.filter(owedToStudent).length;
+  return `
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Age Analysis</h1>
+        <p>How long the ${bookLabel()} has been outstanding — Current, 30, 60, 90 and 120+ days —
+           by funding source and student by student. ${tot?((o90/tot)*100).toFixed(1):"0.0"}% of the selection
+           sits beyond 90 days and feeds straight into the agent's risk score. Ageing measured at the
+           last reconciliation, ${AS_AT}.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">Ageing across the selection</span>
+        <span class="c-hint">Older buckets carry higher collection risk. The agent weights 90 and 120+ day balances most heavily when it picks students up.</span>
+      </div>
+      ${ageingBars()}
+    </div>
+
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">Debt per funding source × ageing bucket</span>
+        <span class="c-hint">Where the arrears sit by who was meant to be paying. NSFAS and lapsed-bursary balances concentrate in the older buckets.</span>
+      </div>
+      ${ageingMatrix()}
+    </div>
+
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">Students owing — detail per ageing bucket</span>
+        <span class="c-hint">Every student with a balance, and how much of it sits in each bucket. Sorted by the oldest money first. Click through to Case management from the Tracker to act on a row.</span>
+      </div>
+      ${studentAgeingTable()}
+    </div>
+
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">The institution owes these students — ${creditCount} credit balance${creditCount===1?"":"s"}</span>
+        <span class="c-hint">Credit balances run the other way: the student is owed a refund. These age exactly like a debt does, so the days owing and ageing band below show how long the institution has been holding the money.</span>
+      </div>
+      ${creditAgeingTable()}
+    </div>
+  </div>`;
+}
+
+/* =========================================================================
+   CSV EXPORT — the tracker's own view of the book
+   ========================================================================= */
+function exportCsv() {
+  const head = ["Student ID","Name","Programme","Funding","Funding status","Year","Missed instalments","Last payment",
+                "Current","30 days","60 days","90 days","120+ days","Balance","Risk score","Band","Picked up by agent",
+                "AI recommendation","Status","Policy"];
+  const lines = [head.join(",")];
+  rows().forEach(d=>{
+    const c = caseOf(d);
+    lines.push([d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
+      d.missed||0, d.lastPay || "none", d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
+      rowTotal(d), c.score, owedToStudent(d) ? "Credit" : c.band, pickedUp(d) ? "Yes" : "No",
+      `"${c.rec.action}"`, c.rec.status, POLICY[c.rec.type]].join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type:"text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `student-debt-tracker-${state.year}-${state.funding}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* =========================================================================
+   RENDER + WIRE UP
+   ========================================================================= */
+function renderMain() {
+  const html = state.tab === "home"    ? tabHome()
+             : state.tab === "tracker" ? tabTracker()
+             : state.tab === "cases"   ? tabCases()
+             :                           tabAgeing();
+  document.getElementById("main").innerHTML = html;
+}
+
+function openTab(key) {
+  state.tab = key;
+  renderChrome();
+  renderMain();
+  window.scrollTo(0,0);
+}
+
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act, val = el.dataset.val;
+  if (act === "tab")    return openTab(val);
+  if (act === "export") return exportCsv();
+  if (act === "case")   { state.caseId = val; return openTab("cases"); }
+});
+
+/* every year / funding select on any tab drives the same state */
+document.addEventListener("change", e => {
+  if (e.target.matches("[data-year-select]")) return setYear(e.target.value);
+  if (e.target.matches("[data-fund-select]")) return setFunding(e.target.value);
+  if (e.target.id === "autSelect") state.autonomy = +e.target.value;
+});
+
+renderChrome();
+renderMain();
+</script>
+</body>
+</html>
