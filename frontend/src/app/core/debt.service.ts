@@ -73,6 +73,19 @@ export class DebtService {
     this.autonomy.set(level);
   }
 
+  /**
+   * Officer-initiated engagement actions (issue #14), keyed by debtor id. Frontend-only
+   * and session-lifetime by design — see docs/SDD/issue-14-engagement-channels-panel.spec.md.
+   * `caseOf` appends these after the derived activity entries, so the log stays append-only.
+   */
+  private readonly engagementLog = signal<Map<string, ActivityEntry[]>>(new Map());
+
+  logEngagementAction(debtorId: string, entry: ActivityEntry): void {
+    const next = new Map(this.engagementLog());
+    next.set(debtorId, [...(next.get(debtorId) ?? []), entry]);
+    this.engagementLog.set(next);
+  }
+
   /* =========================================================================
      DERIVED SELECTORS — recomputed whenever year/funding change.
      ========================================================================= */
@@ -352,7 +365,7 @@ export class DebtService {
       signals: this.signalsOf(d),
       rec: this.recommend(d),
       evidence: this.evidenceOf(d),
-      activity: this.activityOf(d),
+      activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])],
     };
   }
 

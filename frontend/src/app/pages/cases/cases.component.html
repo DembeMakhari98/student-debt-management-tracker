@@ -123,7 +123,7 @@
 
             <div class="card" style="padding:18px;gap:12px">
               <span class="eyebrow">Agent activity on this case</span>
-              @for (a of sel.activity; track a.t) {
+              @for (a of sel.activity; track $index) {
                 <div style="display:flex;gap:10px">
                   <div style="width:7px;height:7px;border-radius:999px;background:var(--ai-teal);margin-top:5px;flex:none"></div>
                   <div style="display:flex;flex-direction:column;gap:2px">
@@ -138,10 +138,10 @@
               <span class="eyebrow">Engagement channels</span>
               <span class="c-hint">Actions the Engagement Agent can run on this case at the current autonomy level.</span>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Send SMS</button>
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Send WhatsApp</button>
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Log a call</button>
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Hand to Adapt Connect</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="sendSms()">Send SMS</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="sendWhatsApp()">Send WhatsApp</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="logCall()">Log a call</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" disabled title="Pending Adapt Connect hand-off interface confirmation — see issue #14" (click)="handToAdaptConnect()">Hand to Adapt Connect</button>
               </div>
             </div>
           </div>
