@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { DebtService, formatRand, formatRandTight } from '../../core/debt.service';
 import { AGE_BUCKETS, AGENTS, FUND, POLICY } from '../../core/constants';
-import { CaseView } from '../../core/models';
+import { ActivityEntry, CaseView } from '../../core/models';
 
 /** Case management & AI recommendation — case list + full case detail (issue #12, #13). */
 @Component({
@@ -70,4 +70,32 @@ export class CasesComponent {
   statusBg(status: string): string {
     return status === 'Needs approval' ? 'rgba(232,39,39,.07)' : status === 'Agent acting' ? 'rgba(0,102,144,.07)' : 'var(--bg-2)';
   }
+
+  /* =========================================================================
+     ENGAGEMENT CHANNELS (issue #14) — frontend-only, session-lifetime activity
+     entries. No real SMS/WhatsApp/Adapt Connect dispatch — see
+     docs/SDD/issue-14-engagement-channels-panel.spec.md.
+     ========================================================================= */
+
+  private logEngagement(entry: ActivityEntry): void {
+    const sel = this.selected();
+    if (!sel) return;
+    this.debt.logEngagementAction(sel.d.id, entry);
+  }
+
+  sendSms(): void {
+    this.logEngagement({ t: 'SMS sent to student', m: 'Engagement Agent · Officer action' });
+  }
+
+  /** Target gateway: Cuedesk API (confirmed by product owner) — not yet integrated. */
+  sendWhatsApp(): void {
+    this.logEngagement({ t: 'WhatsApp message sent to student', m: 'Engagement Agent · Officer action' });
+  }
+
+  logCall(): void {
+    this.logEngagement({ t: 'Call logged with student', m: 'Engagement Agent · Officer action' });
+  }
+
+  /** No-op: button is disabled pending the Adapt Connect hand-off interface (issue #14). */
+  handToAdaptConnect(): void {}
 }

@@ -1,0 +1,33 @@
+{
+  "$schema": "../dev-its-workflow/config.schema.json",
+  "version": "1.0",
+  "team": {
+    "name": "Student Debt Management Tracker",
+    "reviewers": [
+      { "name": "DembeMakhari98", "github": "DembeMakhari98" },
+      { "name": "Oamogetswe-Makgopela", "github": "Oamogetswe-Makgopela" },
+      { "name": "Linda50-adaptit", "github": "Linda50-adaptit" }
+    ]
+  },
+  "repo": {
+    "backend": "github",
+    "org": "DembeMakhari98",
+    "name": "student-debt-management-tracker",
+    "base_branch": "feat/frontend-backend-scaffold",
+    "branch_prefix": "feat/",
+    "commit_style": "conventional"
+  },
+  "tools": {
+    "gh_path": "gh",
+    "az_path": "az"
+  },
+  "workflow": {
+    "gates": ["spec", "plan", "pr"],
+    "fast_track_enabled": true,
+    "max_retries_per_stage": 3,
+    "max_test_review_loops": 5,
+    "parallel_tests": true,
+    "auto_document": true
+  },
+  "pr_template": "built-in"
+}
