@@ -1,0 +1,153 @@
+@if (!list().length) {
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p>No open case for {{ debt.scopeLabel() }}.</p>
+      </div>
+    </div>
+  </div>
+} @else {
+  @if (selected(); as sel) {
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p>
+          {{ list().length }} open case{{ list().length === 1 ? '' : 's' }} for {{ debt.yearShort() }}, {{ needingApproval() }} awaiting a human decision.
+          Each case carries the agent's reasoning, the evidence it read and the policy clause the action sits under.
+        </p>
+      </div>
+    </div>
+
+    <div class="case-grid">
+      <div class="case-list">
+        @for (c of list(); track c.d.id) {
+          <button class="case-item" [class.on]="c.d.id === sel.d.id" (click)="selectCase(c.d.id)">
+            <span class="mini-score" [style.background]="bandColor(c)">{{ isCredit(c) ? '↩' : c.score }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="font-size:13.5px;font-weight:700;color:var(--fg-1);line-height:1.2">{{ c.d.name }}</span>
+              <span class="tag">{{ c.d.id }}</span>
+              <span style="font-size:11.5px;color:var(--ai-mid-blue);font-weight:700;line-height:1.3">{{ c.rec.type }}</span>
+              <span class="status" [style.background]="statusBg(c.rec.status)" [style.color]="statusColor(c.rec.status)" style="align-self:flex-start;margin-top:2px">{{ c.rec.status }}</span>
+            </span>
+            <span class="mono" style="font-size:12.5px;font-weight:700;color:var(--fg-1);flex:none">{{ R0(c.debt || c.credit) }}</span>
+          </button>
+        }
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <!-- case header -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
+            <div style="display:flex;gap:16px;align-items:flex-start">
+              <div class="score" style="width:52px;height:52px;font-size:18px;flex:none" [style.background]="bandColor(sel)">{{ isCredit(sel) ? '↩' : sel.score }}</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <span style="font-size:20px;font-weight:700;color:var(--fg-1);line-height:1.15">{{ sel.d.name }}</span>
+                <span class="tag" style="font-size:12px">{{ sel.d.id }} · {{ sel.d.prog }}</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+                  <span class="pill" [class]="FUND[sel.d.funding].pill">{{ FUND[sel.d.funding].label }}</span>
+                  @for (g of sel.signals; track g.t) {
+                    <span class="sig" [class.hot]="g.hot">{{ g.t }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:22px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span class="eyebrow" style="font-size:10px">{{ isCredit(sel) ? 'Credit owed to student' : 'Owed to institution' }}</span>
+                <span class="mono" style="font-size:22px;font-weight:700" [style.color]="isCredit(sel) ? 'var(--teal-text)' : 'var(--red-text)'">{{ R(sel.debt || sel.credit) }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span class="eyebrow" style="font-size:10px">Policy clause</span>
+                <span class="mono" style="font-size:22px;font-weight:700;color:var(--fg-1)">{{ POLICY[sel.rec.type] }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <!-- AI recommendation -->
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <span class="eyebrow blue">{{ AGENTS[sel.rec.type] }} · AI recommendation</span>
+              <span class="status" [style.background]="statusBg(sel.rec.status)" [style.color]="statusColor(sel.rec.status)">{{ sel.rec.status }}</span>
+            </div>
+            <span style="font-size:17px;font-weight:700;color:var(--fg-1);line-height:1.25">{{ sel.rec.action }}</span>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:var(--fg-2)">{{ sel.rec.rationale }}</p>
+
+            <div class="inner-box">
+              <span class="eyebrow" style="font-size:10px">Proposed terms</span>
+              @for (t of sel.rec.terms; track t.k) {
+                <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px">
+                  <span style="color:var(--fg-3)">{{ t.k }}</span>
+                  <span class="mono" style="font-weight:700;color:var(--fg-1)">{{ t.v }}</span>
+                </div>
+              }
+            </div>
+
+            <div>
+              <span class="eyebrow" style="font-size:10px">Evidence read</span>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">
+                @for (e of sel.evidence; track e) {
+                  <span class="mono" style="padding:3px 9px;border-radius:4px;background:var(--bg-2);border:1px solid var(--border);font-size:10.5px;font-weight:700;color:var(--fg-2)">{{ e }}</span>
+                }
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--border)">
+              <button class="btn-blue" style="flex:1;min-width:120px">Approve</button>
+              <button class="btn-line">Amend terms</button>
+              <button class="btn-line danger">Decline</button>
+            </div>
+          </div>
+
+          <!-- position + activity -->
+          <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+            <div class="card" style="padding:18px;gap:12px">
+              <span class="eyebrow">Ageing position on this account</span>
+              @for (b of buckets(); track b.key) {
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span style="font-size:12.5px;color:var(--fg-2)">{{ b.label }}</span>
+                    <span class="mono" style="font-size:12.5px;font-weight:700" [style.color]="b.amt ? 'var(--fg-1)' : 'var(--fg-3)'">{{ b.amt ? R(b.amt) : '—' }}</span>
+                  </div>
+                  <div class="bar-track"><div style="height:100%;border-radius:999px" [style.width.%]="b.pct" [style.background]="b.color"></div></div>
+                </div>
+              }
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border-strong)">
+                <span style="font-size:12.5px;color:var(--fg-2);font-weight:700">{{ isCredit(sel) ? 'Credit balance' : 'Total outstanding' }}</span>
+                <span class="mono" style="font-size:16px;font-weight:700" [style.color]="isCredit(sel) ? 'var(--teal-text)' : 'var(--red-text)'">{{ R(sel.debt || sel.credit) }}</span>
+              </div>
+            </div>
+
+            <div class="card" style="padding:18px;gap:12px">
+              <span class="eyebrow">Agent activity on this case</span>
+              @for (a of sel.activity; track a.t) {
+                <div style="display:flex;gap:10px">
+                  <div style="width:7px;height:7px;border-radius:999px;background:var(--ai-teal);margin-top:5px;flex:none"></div>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:12.5px;color:var(--fg-2);line-height:1.4">{{ a.t }}</span>
+                    <span class="tag">{{ a.m }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="card" style="padding:18px;gap:12px">
+              <span class="eyebrow">Engagement channels</span>
+              <span class="c-hint">Actions the Engagement Agent can run on this case at the current autonomy level.</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Send SMS</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Send WhatsApp</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Log a call</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px">Hand to Adapt Connect</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  }
+}

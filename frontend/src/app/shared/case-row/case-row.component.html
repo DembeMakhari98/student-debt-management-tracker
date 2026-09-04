@@ -1,0 +1,28 @@
+<div class="qrow" (click)="open.emit(case.d.id)">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:52px;flex:none">
+    <div class="score" [style.background]="badgeColor">{{ isCredit ? '↩' : case.score }}</div>
+    <span class="band">{{ isCredit ? 'Credit' : case.band }}</span>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <span style="font-size:15px;font-weight:700;color:var(--fg-1);line-height:1.2">{{ case.d.name }}</span>
+      <span class="tag">{{ case.d.id }}</span>
+      <span class="pill" [class]="FUND[case.d.funding].pill">{{ FUND[case.d.funding].label }}</span>
+    </div>
+    <span style="font-size:12.5px;color:var(--fg-2);line-height:1.35">{{ case.d.prog }}</span>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">
+      @for (g of case.signals; track g.t) {
+        <span class="sig" [class.hot]="g.hot">{{ g.t }}</span>
+      }
+    </div>
+  </div>
+  <div style="width:190px;flex:none;display:flex;flex-direction:column;gap:4px">
+    <span class="eyebrow" style="font-size:10px">{{ AGENTS[case.rec.type] }} proposes</span>
+    <span style="font-size:12.5px;line-height:1.4;color:var(--ai-mid-blue);font-weight:700">{{ case.rec.action }}</span>
+  </div>
+  <div style="width:130px;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <span class="mono" style="font-size:16px;font-weight:700;color:var(--fg-1)">{{ R(case.debt || case.credit) }}</span>
+    <span class="status" [style.background]="statusBg(case.rec.status)" [style.color]="statusColor(case.rec.status)">{{ case.rec.status }}</span>
+    <span class="link" style="font-size:11.5px">Open case →</span>
+  </div>
+</div>

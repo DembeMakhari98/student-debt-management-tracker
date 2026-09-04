@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Funding-status risk weights — business case §3.3. Kept as data so Student Funding can retune it. -->
+    <changeSet id="002-01-seed-funding-status-risk-weight" author="student-debt-tracker">
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="NSFAS declined"/><column name="risk_weight" valueNumeric="16"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="NSFAS lapsed"/><column name="risk_weight" valueNumeric="15"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="Bursary lapsed"/><column name="risk_weight" valueNumeric="14"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="NSFAS pending"/><column name="risk_weight" valueNumeric="12"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="Bursary partial"/><column name="risk_weight" valueNumeric="8"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="Bursary confirmed"/><column name="risk_weight" valueNumeric="0"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="Bursary overpaid"/><column name="risk_weight" valueNumeric="0"/></insert>
+        <insert tableName="funding_status_risk_weight"><column name="funding_status" value="Self-funded"/><column name="risk_weight" valueNumeric="4"/></insert>
+    </changeSet>
+
+    <!-- Registered head-count per financial year — sourced from Student Records (business case §3.8). -->
+    <changeSet id="002-02-seed-registered-count" author="student-debt-tracker">
+        <insert tableName="registered_count"><column name="financial_year" valueNumeric="2022"/><column name="headcount" valueNumeric="4210"/></insert>
+        <insert tableName="registered_count"><column name="financial_year" valueNumeric="2023"/><column name="headcount" valueNumeric="4388"/></insert>
+        <insert tableName="registered_count"><column name="financial_year" valueNumeric="2024"/><column name="headcount" valueNumeric="4562"/></insert>
+        <insert tableName="registered_count"><column name="financial_year" valueNumeric="2025"/><column name="headcount" valueNumeric="4703"/></insert>
+        <insert tableName="registered_count"><column name="financial_year" valueNumeric="2026"/><column name="headcount" valueNumeric="4812"/></insert>
+    </changeSet>
+
+    <!-- Autonomy level — business case §3.6. Recommended launch level is 2 (Recommend). -->
+    <changeSet id="002-03-seed-system-setting" author="student-debt-tracker">
+        <insert tableName="system_setting"><column name="setting_key" value="autonomy_level"/><column name="setting_value" value="2"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

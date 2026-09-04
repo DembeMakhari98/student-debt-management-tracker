@@ -1,0 +1,66 @@
+<header class="chrome">
+  <div class="brandbar">
+    <div class="bb-left">
+      <div class="brandmark">
+        <svg viewBox="0 0 42 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M8 13C8 6.5 15.5 6.5 21 13C26.5 19.5 34 19.5 34 13C34 6.5 26.5 6.5 21 13C15.5 19.5 8 19.5 8 13Z"
+                fill="none" stroke="#E82727" stroke-width="3.4" stroke-linecap="round"/>
+        </svg>
+        <span class="wm">adapt<b>IT</b></span>
+      </div>
+      <div class="vrule"></div>
+      <div class="bb-title">
+        <b>Student Pro-active Debt Management Tracker</b>
+        <span>ITS Integrator · Debtors and Student Funding</span>
+      </div>
+    </div>
+    <div class="bb-right">
+      <div class="agent-chip"><i></i>Risk Sentinel active</div>
+      <select class="aut-select" aria-label="Agent autonomy" (change)="onAutonomyChange($any($event.target).value)">
+        @for (l of levels; track l.name; let i = $index) {
+          <option [value]="i + 1" [selected]="debt.autonomy() === i + 1">Autonomy {{ l.name }} — {{ l.hint }}</option>
+        }
+      </select>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar">NM</div>
+        <div class="who"><b>Nomsa Mahlangu</b><span>Student debt officer</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tabs">
+      @for (t of tabs; track t.path; let first = $first) {
+        <a class="tab" [class.home-tab]="first" [routerLink]="['/', t.path]" routerLinkActive="on">
+          {{ t.label }}
+          @if (t.badge(); as b) { @if (b) { <span class="badge">{{ b }}</span> } }
+        </a>
+      }
+    </div>
+    <div class="filters">
+      <span class="fl">
+        <label for="yearSel">Financial year</label>
+        <select class="filter" id="yearSel" (change)="onYearChange($any($event.target).value)">
+          @for (y of debt.sortedYears; track y) {
+            <option [value]="y" [selected]="debt.year() === y">{{ y }}{{ y === debt.calendarYear ? ' (current)' : '' }}</option>
+          }
+          <option value="all" [selected]="debt.year() === 'all'">All years ({{ debt.yearSpan }})</option>
+        </select>
+      </span>
+      <span class="fl">
+        <label for="fundSel">Funding source</label>
+        <select class="filter" id="fundSel" (change)="onFundingChange($any($event.target).value)">
+          <option value="all" [selected]="debt.funding() === 'all'">All funding types</option>
+          <option value="self" [selected]="debt.funding() === 'self'">Self-funded</option>
+          <option value="gov" [selected]="debt.funding() === 'gov'">Government (NSFAS)</option>
+          <option value="private" [selected]="debt.funding() === 'private'">Private / Bursary</option>
+        </select>
+      </span>
+      <button class="btn-line" style="padding:6px 12px;font-size:12px" (click)="export()">Export CSV</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <router-outlet></router-outlet>
+</main>

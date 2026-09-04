@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Running this application for the first time creates the whole schema and seeds it with
+        the same demonstration dataset as the prototype/Angular app, so a new team member gets a
+        working, browsable database with nothing more than `docker compose up` + `./mvnw spring-boot:run`.
+    -->
+    <include file="db/changelog/001-schema.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/002-seed-lookups.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/003-seed-debtors.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/004-seed-activity-log.xml" relativeToChangelogFile="false"/>
+
+</databaseChangeLog>

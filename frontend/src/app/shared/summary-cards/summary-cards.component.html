@@ -1,0 +1,9 @@
+<div class="summary">
+  @for (c of cards(); track c.k) {
+    <div class="kpi-card">
+      <span class="k"><span class="dot" [style.background]="c.dot"></span>{{ c.k }}</span>
+      <span class="v">{{ c.v }}</span>
+      <span class="n">{{ c.n }}</span>
+    </div>
+  }
+</div>

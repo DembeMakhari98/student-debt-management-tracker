@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="001-01-create-registered-count" author="student-debt-tracker">
+        <createTable tableName="registered_count">
+            <column name="financial_year" type="int">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="headcount" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-02-create-funding-status-risk-weight" author="student-debt-tracker">
+        <createTable tableName="funding_status_risk_weight">
+            <column name="funding_status" type="varchar(40)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="risk_weight" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-03-create-system-setting" author="student-debt-tracker">
+        <createTable tableName="system_setting">
+            <column name="setting_key" type="varchar(60)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="setting_value" type="varchar(200)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-04-create-debtor" author="student-debt-tracker">
+        <createTable tableName="debtor">
+            <column name="debtor_key" type="varchar(40)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="student_id" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="financial_year" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="programme" type="varchar(160)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="funding_source" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="funding_status" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="missed_instalments" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_payment_date" type="date"/>
+            <column name="arrangement_status" type="varchar(40)"/>
+            <column name="ageing_current" type="numeric(14,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ageing_30" type="numeric(14,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ageing_60" type="numeric(14,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ageing_90" type="numeric(14,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ageing_120" type="numeric(14,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="credit_since" type="date"/>
+            <column name="credit_days" type="int"/>
+            <column name="credit_reason" type="varchar(200)"/>
+            <column name="created_at" type="timestamp with time zone" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_debtor_financial_year" tableName="debtor">
+            <column name="financial_year"/>
+        </createIndex>
+        <createIndex indexName="idx_debtor_funding_source" tableName="debtor">
+            <column name="funding_source"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="debtor" baseColumnNames="financial_year"
+                                  constraintName="fk_debtor_registered_count"
+                                  referencedTableName="registered_count" referencedColumnNames="financial_year"/>
+    </changeSet>
+
+    <changeSet id="001-05-create-activity-log-entry" author="student-debt-tracker">
+        <createTable tableName="activity_log_entry">
+            <!-- No DB-side default: Hibernate's UUID generator assigns the id client-side before insert. -->
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="debtor_key" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="text" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_activity_log_debtor_key" tableName="activity_log_entry">
+            <column name="debtor_key"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="activity_log_entry" baseColumnNames="debtor_key"
+                                  constraintName="fk_activity_log_debtor"
+                                  referencedTableName="debtor" referencedColumnNames="debtor_key"/>
+    </changeSet>
+
+    <changeSet id="001-06-create-officer-decision" author="student-debt-tracker">
+        <createTable tableName="officer_decision">
+            <!-- No DB-side default: Hibernate's UUID generator assigns the id client-side before insert. -->
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="debtor_key" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recommendation_type" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="action" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amended_terms" type="text"/>
+            <column name="reason" type="text"/>
+            <column name="decided_by" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="decided_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_officer_decision_debtor_key" tableName="officer_decision">
+            <column name="debtor_key"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="officer_decision" baseColumnNames="debtor_key"
+                                  constraintName="fk_officer_decision_debtor"
+                                  referencedTableName="debtor" referencedColumnNames="debtor_key"/>
+    </changeSet>
+
+</databaseChangeLog>
