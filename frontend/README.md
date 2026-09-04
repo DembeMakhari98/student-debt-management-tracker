@@ -23,7 +23,7 @@ src/app/
     mock-data.ts         The 26-debtor demonstration book (2022–2026) — same numbers as the API's seed data
     debt.service.ts      All state (year/funding/autonomy/case filters) + every derived calculation:
                          risk scoring (issue #4), pick-up rule (#5), signals/evidence (#6),
-                         the decision engine (#7), CSV export (#17)
+                         the decision engine (#7), engagement action log (#14), CSV export (#17)
   shared/
     summary-cards/       The 5 KPI cards (issue #10), used by Home and the Tracker
     year-chart/          Debt-by-year stacked bar (SVG)
@@ -56,5 +56,7 @@ component keeps working unchanged — none of them touch the mock data directly.
 - The Approve / Amend / Decline buttons in Case Management (issue #13) are rendered but not yet
   wired to persist a decision — the backend already exposes `POST /api/debtors/{key}/decision` for
   this (see `../backend/README.md`).
-- The engagement-channel buttons (issue #14) are static — the technical spec itself flags the
-  enablement rules per autonomy level as unconfirmed pending sign-off.
+- The engagement-channel buttons (issue #14): Send SMS, Send WhatsApp and Log a call are wired —
+  each appends a session-lifetime activity entry (see `docs/SDD/issue-14-engagement-channels-panel.spec.md`
+  for the frontend-only scope decision). Hand to Adapt Connect ships disabled pending the hand-off
+  interface; button enablement rules per autonomy level are still unconfirmed pending sign-off.
