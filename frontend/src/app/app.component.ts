@@ -27,7 +27,7 @@ export class AppComponent {
     {
       path: 'cases',
       label: 'Case management & AI recommendation',
-      badge: () => String(this.debt.caseRows().filter((d) => this.debt.recommend(d).status === 'Needs approval').length),
+      badge: () => String(this.debt.caseRows().filter((d) => this.debt.needsApproval(this.debt.caseOf(d))).length),
     },
     { path: 'ageing', label: 'Age Analysis', badge: () => '' },
   ];

@@ -3,6 +3,9 @@ package com.adaptit.studentdebt.service;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.dto.AgeingDto;
 import com.adaptit.studentdebt.dto.DebtorRowDto;
+import com.adaptit.studentdebt.dto.DecisionDto;
+import com.adaptit.studentdebt.dto.RecommendationDto;
+import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -15,13 +18,16 @@ public class RowAssembler {
     private final RiskScoringService riskScoringService;
     private final DecisionEngineService decisionEngineService;
     private final CaseAssemblyService caseAssemblyService;
+    private final OfficerDecisionRepository officerDecisionRepository;
 
     public RowAssembler(RiskScoringService riskScoringService,
                          DecisionEngineService decisionEngineService,
-                         CaseAssemblyService caseAssemblyService) {
+                         CaseAssemblyService caseAssemblyService,
+                         OfficerDecisionRepository officerDecisionRepository) {
         this.riskScoringService = riskScoringService;
         this.decisionEngineService = decisionEngineService;
         this.caseAssemblyService = caseAssemblyService;
+        this.officerDecisionRepository = officerDecisionRepository;
     }
 
     public DebtorRowDto toRow(Debtor d, Map<String, Integer> fundingRiskWeights) {
@@ -31,6 +37,14 @@ public class RowAssembler {
         BigDecimal credit = balance.signum() < 0 ? balance.abs() : BigDecimal.ZERO;
         int score = riskScoringService.score(d, fundingRiskWeights);
         String band = owedToStudent ? "CREDIT" : riskScoringService.bandOf(score).name();
+        RecommendationDto recommendation = decisionEngineService.recommend(d);
+
+        // A decision only resolves the case while it still matches the current recommendation
+        // (issue #13, AC6) — a re-score that changes the recommendation type reopens the case.
+        DecisionDto lastDecision = officerDecisionRepository
+                .findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(d.getDebtorKey(), recommendation.type())
+                .map(DecisionDto::from)
+                .orElse(null);
 
         AgeingDto ageing = new AgeingDto(
                 nz(d.getAgeingCurrent()), nz(d.getAgeing30()), nz(d.getAgeing60()), nz(d.getAgeing90()), nz(d.getAgeing120()));
@@ -56,7 +70,8 @@ public class RowAssembler {
                 score,
                 band,
                 caseAssemblyService.signalsOf(d, fundingRiskWeights),
-                decisionEngineService.recommend(d)
+                recommendation,
+                lastDecision
         );
     }
 
