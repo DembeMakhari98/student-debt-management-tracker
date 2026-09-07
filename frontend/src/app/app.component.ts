@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { DebtService } from './core/debt.service';
+import { ExtractStatusService } from './core/extract-status.service';
 import { LEVELS } from './core/constants';
 import { FundKey } from './core/models';
 
@@ -18,7 +19,7 @@ interface TabDef {
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   readonly levels = LEVELS;
 
   readonly tabs: TabDef[] = [
@@ -32,7 +33,18 @@ export class AppComponent {
     { path: 'ageing', label: 'Age Analysis', badge: () => '' },
   ];
 
-  constructor(public debt: DebtService) {}
+  constructor(
+    public debt: DebtService,
+    public extractStatus: ExtractStatusService,
+  ) {}
+
+  ngOnInit(): void {
+    this.extractStatus.refresh();
+  }
+
+  runExtract(): void {
+    this.extractStatus.triggerRun();
+  }
 
   onYearChange(value: string): void {
     this.debt.setYear(value === 'all' ? 'all' : Number(value));

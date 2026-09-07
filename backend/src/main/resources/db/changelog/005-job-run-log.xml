@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- The nightly extraction job's audit trail (issue #2) — every run, success or failure. -->
+    <changeSet id="005-01-create-job-run-log" author="student-debt-tracker">
+        <createTable tableName="job_run_log">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="job_name" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="finished_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="records_processed" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error_message" type="text"/>
+        </createTable>
+        <createIndex indexName="idx_job_run_log_started_at" tableName="job_run_log">
+            <column name="started_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
