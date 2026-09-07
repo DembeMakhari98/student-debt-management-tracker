@@ -110,6 +110,8 @@ class DecisionEngineServiceTest {
 
     @Test
     void rule5_fundingPendingWithFewerThanTwoMissedRecommendsFundingChase() {
+        // missed == 1 would also satisfy Rule 7's condition on its own; pending status must win first
+        // (this fixture doubles as the Rule 5-vs-Rule 7 order proof).
         Debtor d = debtor();
         d.setFundingStatus("NSFAS pending");
         d.setMissedInstalments(1);
@@ -173,11 +175,59 @@ class DecisionEngineServiceTest {
     }
 
     @Test
+    void ruleOrder_creditAccountHitsRuleOneRegardlessOfOtherConditions() {
+        // Also independently satisfies Rule 2 (defaulted, no payment), Rule 3 (lapsed funding),
+        // and Rule 6 (missed >= 2) — Rule 1 (credit) must win over all of them.
+        Debtor d = debtor();
+        d.setAgeingCurrent(BigDecimal.valueOf(-4200));
+        d.setArrangementStatus("Defaulted");
+        d.setLastPaymentDate(null);
+        d.setFundingStatus("NSFAS lapsed");
+        d.setMissedInstalments(5);
+
+        RecommendationDto rec = engine.recommend(d);
+
+        assertEquals("REFUND", rec.type());
+    }
+
+    @Test
+    void ruleOrder_defaultedNoPaymentHitsRuleTwoNotRuleThreeOrSix() {
+        // Also independently satisfies Rule 3 (lapsed funding) and Rule 6 (missed >= 2) —
+        // Rule 2 (registration hold) must win over both.
+        Debtor d = debtor();
+        d.setArrangementStatus("Defaulted");
+        d.setLastPaymentDate(null);
+        d.setFundingStatus("NSFAS lapsed");
+        d.setMissedInstalments(5);
+
+        RecommendationDto rec = engine.recommend(d);
+
+        assertEquals("REGISTRATION_HOLD", rec.type());
+    }
+
+    @Test
+    void ruleOrder_lapsedFundingHitsRuleThreeNotRuleSix() {
+        // missed == 2 would also independently satisfy Rule 6 — Rule 3 (hardship fund) must win.
+        Debtor d = debtor();
+        d.setFundingStatus("NSFAS declined");
+        d.setMissedInstalments(2);
+        d.setAgeingCurrent(BigDecimal.valueOf(10000));
+
+        RecommendationDto rec = engine.recommend(d);
+
+        assertEquals("HARDSHIP_FUND", rec.type());
+    }
+
+    @Test
     void instalmentCountBands_mapDebtToInstalmentCount() {
-        assertEquals(3, DebtMath.instalments(BigDecimal.valueOf(5000)));
-        assertEquals(4, DebtMath.instalments(BigDecimal.valueOf(15000)));
-        assertEquals(6, DebtMath.instalments(BigDecimal.valueOf(30000)));
-        assertEquals(8, DebtMath.instalments(BigDecimal.valueOf(30001)));
+        // assertAll runs every check and reports all failures together, rather than a JUnit
+        // assertEquals aborting the method on the first mismatch and masking the rest.
+        assertAll(
+                () -> assertEquals(3, DebtMath.instalments(BigDecimal.valueOf(5000))),
+                () -> assertEquals(4, DebtMath.instalments(BigDecimal.valueOf(15000))),
+                () -> assertEquals(6, DebtMath.instalments(BigDecimal.valueOf(30000))),
+                () -> assertEquals(8, DebtMath.instalments(BigDecimal.valueOf(30001)))
+        );
     }
 
     @Test

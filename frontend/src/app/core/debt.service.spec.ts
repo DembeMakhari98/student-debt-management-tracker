@@ -68,6 +68,8 @@ describe('DebtService — decision engine (issue #7)', () => {
   });
 
   it('Rule 5 — funding pending with fewer than 2 missed recommends a Funding chase', () => {
+    // missed === 1 would also satisfy Rule 7's condition on its own; pending status must win
+    // first (this fixture doubles as the Rule 5-vs-Rule 7 order proof).
     const rec = service.recommend(
       debtor({ fundStatus: 'NSFAS pending', missed: 1, ageing: { current: 12000, d30: 0, d60: 0, d90: 0, d120: 0 } })
     );
@@ -102,6 +104,38 @@ describe('DebtService — decision engine (issue #7)', () => {
       debtor({ fundStatus: 'NSFAS pending', missed: 3, ageing: { current: 15000, d30: 0, d60: 0, d90: 0, d120: 0 } })
     );
     expect(rec.action).toBe('Holding arrangement, 4 instalments');
+  });
+
+  it('rule order — a credit account hits Rule 1 regardless of other conditions', () => {
+    // Also independently satisfies Rule 2 (defaulted, no payment), Rule 3 (lapsed funding),
+    // and Rule 6 (missed >= 2) — Rule 1 (credit) must win over all of them.
+    const rec = service.recommend(
+      debtor({
+        ageing: { current: -4200, d30: 0, d60: 0, d90: 0, d120: 0 },
+        arrangement: 'Defaulted',
+        lastPay: null,
+        fundStatus: 'NSFAS lapsed',
+        missed: 5,
+      })
+    );
+    expect(rec.type).toBe('Refund');
+  });
+
+  it('rule order — defaulted with no payment hits Rule 2, not Rule 3 or Rule 6', () => {
+    // Also independently satisfies Rule 3 (lapsed funding) and Rule 6 (missed >= 2) —
+    // Rule 2 (registration hold) must win over both.
+    const rec = service.recommend(
+      debtor({ arrangement: 'Defaulted', lastPay: null, fundStatus: 'NSFAS lapsed', missed: 5 })
+    );
+    expect(rec.type).toBe('Registration hold');
+  });
+
+  it('rule order — lapsed funding hits Rule 3, not Rule 6', () => {
+    // missed === 2 would also independently satisfy Rule 6 — Rule 3 (hardship fund) must win.
+    const rec = service.recommend(
+      debtor({ fundStatus: 'NSFAS declined', missed: 2, ageing: { current: 10000, d30: 0, d60: 0, d90: 0, d120: 0 } })
+    );
+    expect(rec.type).toBe('Hardship fund');
   });
 
   it('instalment count bands — <=5000, <=15000, <=30000, >30000 map to 3/4/6/8', () => {

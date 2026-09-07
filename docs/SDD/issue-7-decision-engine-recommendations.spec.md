@@ -93,10 +93,27 @@ One fixture per rule, matching the rule's exact condition:
 | 7 Reminder cadence | `fundStatus: 'Self-funded', missed: 1` |
 | 8 Monitor | `fundStatus: 'Self-funded', missed: 0` |
 
-Each fixture also gets a **fall-through assertion** — e.g. the Rule 3 fixture must
-not incidentally satisfy Rule 2 (arrangement is null, so it can't), and the Rule 6
-fixture's `fundStatus` must not match `/lapsed|declined|pending/i`. This is what
-actually pins "first match wins," not just "each rule can fire in isolation."
+Each "clean" fixture above is constructed so it doesn't accidentally overlap an
+earlier rule's condition — but that alone only proves each rule fires correctly in
+isolation, not that ordering is enforced when two conditions really can be true at
+once. So, in addition, every rule that has a realistic conflict with an earlier rule
+gets a dedicated **order-proof fixture** that deliberately satisfies both conditions,
+asserting the earlier rule wins:
+
+- Rule 1 vs. 2/3/6 — a credit account that's also defaulted-with-no-payment and
+  lapsed-funding and missed≥2; Refund must still win
+- Rule 2 vs. 3/6 — defaulted-with-no-payment that's also lapsed-funding and missed≥2;
+  Registration hold must still win
+- Rule 3 vs. 6 — lapsed funding with missed=2 (which alone would satisfy Rule 6);
+  Hardship fund must still win
+- Rule 4 vs. 6 — funding pending with missed≥2 (which alone would satisfy Rule 6);
+  Holding arrangement must still win
+- Rule 5 vs. 7 — funding pending with missed=1 (which alone would satisfy Rule 7);
+  Funding chase must still win (the Rule 5 fixture above doubles as this proof)
+
+Rules 6, 7, and 8 have no realistic conflict with a *later* rule (their trigger
+values — `missed >= 2`, `missed == 1`, `missed == 0` — are mutually exclusive by
+construction), so no further order-proof is needed past Rule 5.
 
 Backend fixtures follow the same table, built via `Debtor`'s all-args constructor or
 a builder, using `BigDecimal` ageing values and `LocalDate`/`null` for `lastPaymentDate`.
