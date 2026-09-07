@@ -74,3 +74,6 @@ export const REGISTERED: Record<number, number> = {
 
 /** The last reconciliation the ageing is measured against. */
 export const AS_AT = '21 Aug 2026';
+
+/** The signed-in officer shown in the brand bar and stamped on every decision (issue #13). */
+export const CURRENT_OFFICER = 'Nomsa Mahlangu';

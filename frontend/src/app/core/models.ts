@@ -56,6 +56,21 @@ export interface ActivityEntry {
   m: string;
 }
 
+/** Officer's decision on a case's recommendation (issue #13, technical spec §3.5). */
+export type DecisionAction = 'Approved' | 'Amended' | 'Declined';
+
+export interface Decision {
+  /** The recommendation `type` this decision was made against, so a later re-score reopens the case. */
+  recommendationType: string;
+  action: DecisionAction;
+  /** Set only when action === 'Amended'. */
+  amendedTerms?: Term[];
+  /** Set only when action === 'Declined'. */
+  reason?: string;
+  decidedBy: string;
+  decidedAt: string;
+}
+
 /** The fully-assembled case behind a Tracker row / case list item / case detail (issues #6, #7, #12). */
 export interface CaseView {
   d: Debtor;
@@ -67,6 +82,8 @@ export interface CaseView {
   rec: Recommendation;
   evidence: string[];
   activity: ActivityEntry[];
+  /** Null while the current recommendation is still awaiting an officer decision (issue #13). */
+  decision: Decision | null;
 }
 
 export interface AgeBucketDef {

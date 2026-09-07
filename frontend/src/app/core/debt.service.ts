@@ -1,15 +1,18 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { AGE_BUCKETS, AGENTS, AS_AT, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
+import { AGE_BUCKETS, AGENTS, AS_AT, CURRENT_OFFICER, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
 import { DEBTORS, YEARS } from './mock-data';
 import {
   ActivityEntry,
   CaseView,
   Debtor,
+  Decision,
+  DecisionAction,
   DebtSummary,
   FundKey,
   Recommendation,
   RiskBand,
   Signal as CaseSignal,
+  Term,
 } from './models';
 
 /** ZAR formatting matching the prototype's R(n) / R0(n) helpers. */
@@ -84,6 +87,58 @@ export class DebtService {
     const next = new Map(this.engagementLog());
     next.set(debtorId, [...(next.get(debtorId) ?? []), entry]);
     this.engagementLog.set(next);
+  }
+
+  /* =========================================================================
+     OFFICER DECISIONS (issue #13) — approve, amend or decline a case's current
+     recommendation. Frontend-only and session-lifetime, mirroring the backend's
+     OfficerDecision entity (technical spec §3.5): a decision is keyed to the
+     recommendation `type` it was made against, so a later re-score into a
+     different recommendation reopens the case instead of hiding it forever.
+     ========================================================================= */
+
+  private readonly decisions = signal<Map<string, Decision>>(new Map());
+
+  /** The stored decision for this debtor, or null if it's stale against the current recommendation. */
+  private decisionOf(d: Debtor, rec: Recommendation): Decision | null {
+    const stored = this.decisions().get(d.id);
+    return stored && stored.recommendationType === rec.type ? stored : null;
+  }
+
+  private decide(d: Debtor, action: DecisionAction, extra: Partial<Pick<Decision, 'amendedTerms' | 'reason'>>): void {
+    const rec = this.recommend(d);
+    const decision: Decision = {
+      recommendationType: rec.type,
+      action,
+      decidedBy: CURRENT_OFFICER,
+      decidedAt: new Date().toISOString(),
+      ...extra,
+    };
+    const next = new Map(this.decisions());
+    next.set(d.id, decision);
+    this.decisions.set(next);
+
+    const verb = action === 'Approved' ? 'approved' : action === 'Amended' ? 'amended and approved' : 'declined';
+    this.logEngagementAction(d.id, {
+      t: `Recommendation ${verb} by ${CURRENT_OFFICER}` + (action === 'Declined' ? ` — ${extra.reason}` : ''),
+      m: `Officer decision · ${CURRENT_OFFICER}`,
+    });
+  }
+
+  /** Approves the case's current recommendation as-is (subject to the hard-rule autonomy gating
+   *  in technical spec §5.10: Registration hold and Refund always require this explicit click). */
+  approveCase(d: Debtor): void {
+    this.decide(d, 'Approved', {});
+  }
+
+  /** Officer-modified terms (e.g. instalment amount/count) approved in place of the AI's proposal. */
+  amendCase(d: Debtor, amendedTerms: Term[]): void {
+    this.decide(d, 'Amended', { amendedTerms });
+  }
+
+  /** Requires documented reasoning — the case remains unactioned. */
+  declineCase(d: Debtor, reason: string): void {
+    this.decide(d, 'Declined', { reason });
   }
 
   /* =========================================================================
@@ -356,6 +411,7 @@ export class DebtService {
 
   caseOf(d: Debtor): CaseView {
     const sc = this.riskScore(d);
+    const rec = this.recommend(d);
     return {
       d,
       score: sc,
@@ -363,10 +419,16 @@ export class DebtService {
       debt: this.rowDebt(d),
       credit: Math.abs(Math.min(0, this.rowTotal(d))),
       signals: this.signalsOf(d),
-      rec: this.recommend(d),
+      rec,
       evidence: this.evidenceOf(d),
       activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])],
+      decision: this.decisionOf(d, rec),
     };
+  }
+
+  /** Still awaiting a human call — used to badge the Cases tab and the "N awaiting a decision" copy. */
+  needsApproval(c: CaseView): boolean {
+    return c.rec.status === 'Needs approval' && !c.decision;
   }
 
   policyClauseOf(recType: string): string {
