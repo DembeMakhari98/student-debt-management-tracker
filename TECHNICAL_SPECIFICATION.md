@@ -90,10 +90,27 @@ does not replace them).
 | Web App | The 4 workspaces (Home, Tracker, Case Management, Age Analysis) — Section 6. |
 | Write-back Adapter | Pushes every agent/officer action and its rationale into the ITS Integrator student activity log. |
 
-`[TO CONFIRM]` Whether the Debt Tracker Service runs as a new microservice alongside
-ITS Integrator, or as a module inside the existing ITS Integrator codebase — depends on
-ITS Integrator's extensibility model and should be settled with the platform team before
-build.
+**[RESOLVED, issue #1]** The Debt Tracker Service runs as its own Spring Boot service,
+alongside ITS Integrator rather than embedded in it. It talks to every source system
+(Debtors, Student Fees, Student Funding, Student Records, Cashiering) through one
+`DebtorSourceAdapter` port (`backend/.../extract/DebtorSourceAdapter.java`) rather than
+calling each module's real API directly from the extraction job. This was chosen so the
+rest of the build — scoring, decision engine, all four workspaces, the audit trail —
+does not have to wait on real ITS Integrator API access being granted: a
+`MockDebtorSourceAdapter` implements the port today with the same 26-record
+demonstration book used elsewhere, and swapping in a real integration later is a
+single-class change (implement `DebtorSourceAdapter` against the real APIs, wire it in
+place of the mock via Spring's `@Primary`/profile mechanism) — nothing in
+`NightlyExtractService`, the scoring engine, or the web app needs to change.
+
+**Still genuinely open, needs the platform team's real numbers** (not something this
+codebase can resolve on its own):
+- Which of the 5 modules expose a queryable read API *today* vs. need new work on ITS
+  Integrator's side.
+- The current debtor-book size and the nightly job's available completion window (used
+  to size batching/scheduling — see Section 7).
+- Confirmation that the 8-value `fundStatus` enumeration in Section 3.3 is complete;
+  Student Funding is the source of truth here, not this spec.
 
 ---
 
@@ -155,6 +172,23 @@ this table.
 One row per financial year: `{ year, registeredCount }` — sourced from Student Records,
 used only to compute the "registered students" KPI and its "% of book" context. Not
 joined to individual debtors.
+
+### 3.4.1 Nightly extraction job (issue #2)
+
+`NightlyExtractService` (backend) pulls the full `Debtor` and `RegisteredCount` sets
+from the `DebtorSourceAdapter` (Section 2) on a schedule, plus a manually-triggerable
+`POST /api/admin/extract/run` for testing without waiting for the schedule to fire:
+
+- **Idempotent:** each record is upserted by its natural key (`Debtor.debtorKey`,
+  `RegisteredCount.financialYear`) — an existing row is updated in place, not
+  duplicated, so re-running the same night's extract twice is a no-op on row count.
+- **Negative ageing preserved:** credit balances (negative bucket totals) are copied
+  through as-is, never clamped to zero — Section 3.1/3.2 depend on this.
+- **Failure is logged, not silent:** every run — success or failure — writes one
+  `JobRunLog` row (`status`, `startedAt`/`finishedAt`, `recordsProcessed`,
+  `errorMessage`), queryable via `GET /api/admin/extract/history`. A thrown exception
+  from the adapter is caught, logged at `ERROR`, and recorded as a `FAILURE` run rather
+  than propagating an unhandled error or failing silently.
 
 ### 3.5 `Case` (persisted; one per picked-up debtor or credit debtor, per scoring run)
 
@@ -546,10 +580,13 @@ constraint and should be reconciled with the platform team before build.]`
 
 ## 10. Open Items Before Build (`[TO CONFIRM]` roll-up)
 
-1. Exact API/endpoint availability on Debtors, Student Fees, Student Funding, Student
-   Records, Cashiering (Section 2) — needs an integration spike.
-2. Where the Debt Tracker Service physically runs relative to ITS Integrator (Section 2).
-3. Complete set of `fundStatus` values Student Funding can produce (Section 3.3).
+1. ~~Exact API/endpoint availability on Debtors, Student Fees, Student Funding, Student
+   Records, Cashiering (Section 2)~~ — **[RESOLVED, issue #1]** decoupled via the
+   `DebtorSourceAdapter` port so build isn't blocked on this; book size, completion
+   window and the real per-module API surface still need the platform team's numbers.
+2. ~~Where the Debt Tracker Service physically runs relative to ITS Integrator (Section 2)~~
+   — **[RESOLVED, issue #1]**: its own Spring Boot service, not embedded.
+3. Complete set of `fundStatus` values Student Funding can produce (Section 3.3) — still open.
 4. Refund-queue sort order intent (Section 6.2).
 5. Engagement-channel button gating rules by autonomy level (Section 6.3).
 6. Officer portfolio/access scoping model (Section 7).
