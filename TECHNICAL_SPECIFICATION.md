@@ -103,14 +103,37 @@ single-class change (implement `DebtorSourceAdapter` against the real APIs, wire
 place of the mock via Spring's `@Primary`/profile mechanism) — nothing in
 `NightlyExtractService`, the scoring engine, or the web app needs to change.
 
-**Still genuinely open, needs the platform team's real numbers** (not something this
-codebase can resolve on its own):
-- Which of the 5 modules expose a queryable read API *today* vs. need new work on ITS
-  Integrator's side.
-- The current debtor-book size and the nightly job's available completion window (used
-  to size batching/scheduling — see Section 7).
-- Confirmation that the 8-value `fundStatus` enumeration in Section 3.3 is complete;
-  Student Funding is the source of truth here, not this spec.
+**[ANSWERED, issue #1 — platform team, 2026-09-08]** None of the 5 modules (Debtors,
+Student Fees, Student Funding, Student Records, Cashiering) currently expose a
+queryable read API — all five need new API work built on the ITS Integrator side
+before the real integration can replace `MockDebtorSourceAdapter`. This does not block
+this codebase's own build, but it does mean the real-data cutover is now gated on the
+platform team's own API delivery, not just a config/permissions change — flag this as
+a project-level timeline risk to whoever owns the epic.
+
+**[ANSWERED, issue #1 — platform team, 2026-09-08]** Write-back access into the student
+activity log does not exist today either — it needs to be built, same as the 5 read
+APIs above. The Write-back Adapter (Section 2 table) should be developed against a
+stub in the meantime, following the same port/adapter pattern as
+`DebtorSourceAdapter`, so issues #3 and #13 (activity log entries, officer decisions)
+aren't blocked while ITS Integrator builds the real path.
+
+**[ANSWERED, issue #1 — platform team, 2026-09-08]** Debtor-book size, the nightly
+job's available completion window (Section 7), and confirmation that the 8-value
+`fundStatus` enumeration (Section 3.3) is complete — none of these can be answered yet
+either: **no reporting exists today** in Student Funding / Student Records that could
+produce these numbers. It's not that the values are unknown, it's that there's nothing
+to query for them. This reporting needs to be built before either number can be
+confirmed. Development proceeds against the assumed 8-value `fundStatus` list carried
+over from the prototype and an assumed batching/schedule (Section 7) until real
+numbers exist.
+
+**Net picture (all 4 items now answered):** every real-data touchpoint this module
+needs — 5 read APIs, write-back, and the 2 reporting numbers — requires new build work
+on the ITS Integrator side; none of it exists today. This does not block this
+codebase's own build (mock adapter + assumed values cover dev), but the real cutover
+now has four separate upstream dependencies, none built yet. Flag as a project-level
+scope/timeline risk to whoever owns the epic before treating this issue as closeable.
 
 ---
 
@@ -580,18 +603,24 @@ constraint and should be reconciled with the platform team before build.]`
 
 ## 10. Open Items Before Build (`[TO CONFIRM]` roll-up)
 
-1. ~~Exact API/endpoint availability on Debtors, Student Fees, Student Funding, Student
-   Records, Cashiering (Section 2)~~ — **[RESOLVED, issue #1]** decoupled via the
-   `DebtorSourceAdapter` port so build isn't blocked on this; book size, completion
-   window and the real per-module API surface still need the platform team's numbers.
+1. Exact API/endpoint availability on Debtors, Student Fees, Student Funding, Student
+   Records, Cashiering (Section 2) — build isn't *blocked* on this (decoupled via the
+   `DebtorSourceAdapter` port), but the answer is now known: **[ANSWERED, issue #1,
+   2026-09-08]** none of the 5 modules expose a queryable read API today, and the
+   write-back path (activity log) doesn't exist either — all of it needs new build work
+   on ITS Integrator's side before real cutover. Treat as a project-level timeline risk.
 2. ~~Where the Debt Tracker Service physically runs relative to ITS Integrator (Section 2)~~
    — **[RESOLVED, issue #1]**: its own Spring Boot service, not embedded.
-3. Complete set of `fundStatus` values Student Funding can produce (Section 3.3) — still open.
+3. Complete set of `fundStatus` values Student Funding can produce (Section 3.3) —
+   **[ANSWERED, issue #1, 2026-09-08]**: no reporting exists yet to confirm this;
+   developing against the prototype's assumed 8-value list until it does.
 4. Refund-queue sort order intent (Section 6.2).
 5. Engagement-channel button gating rules by autonomy level (Section 6.3).
 6. Officer portfolio/access scoping model (Section 7).
 7. Data retention period for case history (Section 7).
-8. Nightly job completion window and current debtor-book size (Section 7).
+8. Nightly job completion window and current debtor-book size (Section 7) —
+   **[ANSWERED, issue #1, 2026-09-08]**: no reporting exists yet to confirm either
+   number.
 9. Browser support matrix (Section 7).
 10. Tech stack alignment with existing ITS Integrator services (Section 8).
 11. Existing SMS/WhatsApp gateway to integrate with, if any (Section 8).
