@@ -46,10 +46,10 @@ findings to unblock two downstream tickets that are explicitly waiting on it:
   - A risk register (risk, likelihood/impact, mitigation, owner)
   - An explicit recommendation section for portfolio/access scoping (feeds #18) and one
     for retention period (feeds #20)
-- [ ] Any risk the assessment flags as unresolved is captured as a follow-up GitHub issue
-      (linked from the assessment doc and from #19 itself) — **still open**: the BA's
-      2026-09-08 answer confirms the student privacy-notice gap (condition 6, Openness)
-      is real and has a deadline (2026-09-25), but no GitHub issue tracks it yet
+- [x] Any risk the assessment flags as unresolved is captured as a follow-up GitHub issue
+      (linked from the assessment doc and from #19 itself) — the student privacy-notice
+      gap (condition 6, Openness) is now tracked as
+      [#36](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/36)
 - [ ] Assessment reviewed and signed off by the institution's Information Officer /
       compliance function; sign-off recorded in the document (name/role, date, decision)
       via a dedicated **Sign-off** section — **still open**: reviewer body identified

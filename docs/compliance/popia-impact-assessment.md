@@ -123,7 +123,7 @@ rows already named there are carried through, with POPIA-condition references ad
 | Data quality drives a wrong automated recommendation (e.g. incorrect registration hold) | Medium | High | Pre-go-live reconciliation pass; nightly reconciliation-exceptions report (existing Business Case mitigation) | Engineering / Debtors | Information Quality |
 | No officer portfolio scoping — any officer can view any student's financial position | High (until #18 ships) | High | Caseload-scoped, tiered access **model confirmed** by Finance/Debtors management (Section 5) — implementation still pending | Engineering (#18) | Security Safeguards |
 | No defined retention period — case history/audit data could be kept indefinitely or deleted prematurely | Medium (7yr figure now confirmed; drops once #20 ships) | Medium | 7-year retention **confirmed** by BA compliance answer (Section 6) — implementation still pending | Engineering (#20) | Processing Limitation |
-| Students not informed their financial data feeds an automated decision system | High (unaddressed today; plan and deadline now set — 2026-09-25) | Medium | Privacy notice across 4 channels, per BA answer (Follow-up item 3) — **no tracking issue filed yet** | Compliance / Registrar | Openness |
+| Students not informed their financial data feeds an automated decision system | High (unaddressed today; plan and deadline now set — 2026-09-25) | Medium | Privacy notice across 4 channels, per BA answer (Follow-up item 3) — tracked as [#36](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/36) | Compliance / Registrar | Openness |
 | Funding-status weighting effectively penalises a student for a delay outside their control (e.g. NSFAS pending) | Medium (recommendation given; formal sign-off due 2026-09-30) | High | Keep weights, add contextual flags + officer override + monthly fairness audit ("Option B", BA answer, Follow-up item 5); human approval required on every funding-related action during rollout regardless of autonomy level (existing Business Case mitigation) | Student Funding office | Processing Limitation, fairness (not a POPIA condition per se, but adjacent) |
 | Autonomy over-reach — an automated action taken without adequate human oversight | Low (mitigated by design) | High | Registration holds and refunds permanently excluded from autonomous action at any level (existing Business Case mitigation, TECHNICAL_SPECIFICATION.md §5.10, implemented in #8) | Engineering | Accountability |
 | No named Information Officer / sign-off authority for this specific module | Medium (reviewer body identified — Registrar's Office; named individual and actual sign-off still pending, due 2026-09-22) | Medium (blocks go-live gate, not a live processing risk) | Sign-off scheduled per Section 8 | Compliance | Accountability |
@@ -210,9 +210,8 @@ Status as of the BA's 2026-09-08 answer to this assessment's open questions:
    (what data, who processes it, how it's used, retention, student rights, contact)
    must go live across four channels — registration privacy notice, student portal,
    first debt SMS, and debt-office website/signage — all due **2026-09-25**. Owner:
-   Registrar/Debt Management Office, not engineering. **This is compliance-mandated
-   work with no existing GitHub issue tracking it** — recommend filing a new issue
-   before 2026-09-25 so it isn't lost.
+   Registrar/Debt Management Office, not engineering. Tracked as
+   [#36](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/36).
 4. **Re-assess this document** when the SMS/WhatsApp engagement-channel gateway and
    the Adapt Connect hand-over integration are built (Section 2.3) — unchanged,
    still future work, not addressed by the BA's answer.
