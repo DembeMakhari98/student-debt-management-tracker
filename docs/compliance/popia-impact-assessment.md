@@ -1,7 +1,9 @@
 # POPIA Impact Assessment — Student Pro-active Debt Management Tracker
 
 **Ticket:** [#19](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/19)
-**Status:** Draft — pending Information Officer / compliance sign-off (see Section 8)
+**Status:** Reviewer identified, sign-off pending (due 2026-09-22) — see Section 8.
+Access-scoping (Section 5) and retention (Section 6) recommendations are confirmed;
+see Section 7 for what's still open.
 **Spec reference:** TECHNICAL_SPECIFICATION.md §7 (Non-Functional Requirements — POPIA);
 Business Case §6 (Risk and Mitigation — "POPIA / privacy")
 
@@ -119,97 +121,134 @@ rows already named there are carried through, with POPIA-condition references ad
 | Risk | Likelihood | Impact | Mitigation | Owner | POPIA condition(s) |
 |---|---|---|---|---|---|
 | Data quality drives a wrong automated recommendation (e.g. incorrect registration hold) | Medium | High | Pre-go-live reconciliation pass; nightly reconciliation-exceptions report (existing Business Case mitigation) | Engineering / Debtors | Information Quality |
-| No officer portfolio scoping — any officer can view any student's financial position | High (until #18 ships) | High | Implement caseload-scoped access per Section 5 recommendation | Engineering (#18) | Security Safeguards |
-| No defined retention period — case history/audit data could be kept indefinitely or deleted prematurely | High (until #20 ships) | Medium | Implement retention per Section 6 recommendation | Engineering (#20) | Processing Limitation |
-| Students not informed their financial data feeds an automated decision system | High (unaddressed today) | Medium | Update student-facing privacy notice / communications (follow-up, Section 7) | Compliance / Registrar | Openness |
-| Funding-status weighting effectively penalises a student for a delay outside their control (e.g. NSFAS pending) | Medium | High | Student Funding office review/sign-off of weighting table; human approval required on every funding-related action during rollout regardless of autonomy level (existing Business Case mitigation) | Student Funding office | Processing Limitation, fairness (not a POPIA condition per se, but adjacent) |
-| Autonomy over-reach — an automated action taken without adequate human oversight | Low (mitigated by design) | High | Registration holds and refunds permanently excluded from autonomous action at any level (existing Business Case mitigation, TECHNICAL_SPECIFICATION.md §5.10) | Engineering | Accountability |
-| No named Information Officer / sign-off authority for this specific module | High (currently true) | Medium (blocks go-live gate, not a live processing risk) | Assign a named reviewer (follow-up issue, Section 7) | Compliance | Accountability |
+| No officer portfolio scoping — any officer can view any student's financial position | High (until #18 ships) | High | Caseload-scoped, tiered access **model confirmed** by Finance/Debtors management (Section 5) — implementation still pending | Engineering (#18) | Security Safeguards |
+| No defined retention period — case history/audit data could be kept indefinitely or deleted prematurely | Medium (7yr figure now confirmed; drops once #20 ships) | Medium | 7-year retention **confirmed** by BA compliance answer (Section 6) — implementation still pending | Engineering (#20) | Processing Limitation |
+| Students not informed their financial data feeds an automated decision system | High (unaddressed today; plan and deadline now set — 2026-09-25) | Medium | Privacy notice across 4 channels, per BA answer (Follow-up item 3) — **no tracking issue filed yet** | Compliance / Registrar | Openness |
+| Funding-status weighting effectively penalises a student for a delay outside their control (e.g. NSFAS pending) | Medium (recommendation given; formal sign-off due 2026-09-30) | High | Keep weights, add contextual flags + officer override + monthly fairness audit ("Option B", BA answer, Follow-up item 5); human approval required on every funding-related action during rollout regardless of autonomy level (existing Business Case mitigation) | Student Funding office | Processing Limitation, fairness (not a POPIA condition per se, but adjacent) |
+| Autonomy over-reach — an automated action taken without adequate human oversight | Low (mitigated by design) | High | Registration holds and refunds permanently excluded from autonomous action at any level (existing Business Case mitigation, TECHNICAL_SPECIFICATION.md §5.10, implemented in #8) | Engineering | Accountability |
+| No named Information Officer / sign-off authority for this specific module | Medium (reviewer body identified — Registrar's Office; named individual and actual sign-off still pending, due 2026-09-22) | Medium (blocks go-live gate, not a live processing risk) | Sign-off scheduled per Section 8 | Compliance | Accountability |
 
 ---
 
 ## 5. Recommendation → Officer Portfolio Access Scoping (input to #18)
 
-**Draft recommendation:** scope officer portfolio access by **explicit caseload
-assignment** — the narrowest of the options TECHNICAL_SPECIFICATION.md §7 lists
-(campus / programme / caseload assignment).
+**CONFIRMED by Finance/Debtors management (BA answer, 2026-09-08).** Business Analyst
+DembeMakhari98 reviewed this section's original draft (below) against actual
+operations and confirmed a **hybrid tiered model**, satisfying #18's "agreed with
+Finance/Debtors management" acceptance criterion:
 
-Rationale (privacy-minimisation lens, per Processing Limitation and Security
-Safeguards, Section 3): campus- or programme-level scoping still exposes an officer to
-every student's financial position within a large population, most of whom they will
-never actually work a case for. A caseload-assignment model means an officer's default
-visible set already matches the set they are expected to act on, so no unnecessary
-individual can access financial and funding information belonging to a student they
-have no role in serving.
+| Level | Scope | Approval needed |
+|---|---|---|
+| 1 (Narrow, primary) | Officer sees only students on their own caseload | None — default |
+| 2 (Medium) | Same-team officers can view peer cases (vacation/absence coverage) | None — same-team access |
+| 3 (Broad, override) | Debt manager escalates to full portfolio view (performance monitoring) | Manager approval required; logged |
 
-**This is a draft, privacy-lens position, not a final decision.** #18's own acceptance
-criteria call for the scoping model to be "agreed with Finance/Debtors management" —
-that operational conversation (workload balancing, coverage during officer absence,
-how a caseload gets assigned in the first place) is #18's to own. This assessment's
-role is to ensure the privacy-minimisation option is on the table and its rationale is
-recorded, not to pre-empt that discussion.
+**Explicitly never permitted:** campus-wide access, programme-wide access, or a
+finance officer viewing all students — all ruled too broad / unnecessary exposure by
+the BA review.
+
+**Operational confirmation:** caseload assignment already matches how this
+institution runs debt recovery today — cases are assigned individually to officers,
+who are organised into 3 debt recovery teams, and a supervisor needs the Level 3
+portfolio view for performance monitoring. This is not a new operating model; #18 is
+building access control around an assignment structure that already exists.
+
+Original privacy-minimisation rationale (still the basis for Level 1 being the
+default, narrowest tier): campus- or programme-level scoping would expose an officer
+to every student's financial position within a large population, most of whom they
+will never actually work a case for. Caseload assignment keeps an officer's default
+visible set matching the set they're expected to act on.
 
 ---
 
 ## 6. Recommendation → Retention Period (input to #20)
 
-**Draft recommendation:** retain case history and activity-log records for
-**7 years after the student's last financial-year record with the institution**,
-pending confirmation against an actual institutional records-management policy — none
-was available to this assessment (unconfirmed either way at time of writing).
+**CONFIRMED by BA compliance answer (2026-09-08):** retain case history and
+activity-log records for **7 years after the end of a student's final financial
+year** — this assessment's original draft figure (below) is correct and #20 can
+implement it as the enforced rule, subject only to the institutional-policy
+cross-check still pending (Follow-up item 2).
 
-Rationale: 7 years is a commonly used general default for financial/audit records
-under South African record-keeping norms (e.g. aligned with typical tax/financial
-record retention practice) and satisfies POPIA's Processing Limitation condition's
-"no longer than necessary" test by tying retention to a concrete, bounded event (last
-financial-year record) rather than "indefinitely." It also comfortably covers
-TECHNICAL_SPECIFICATION.md §7's requirement that the activity log and decision fields
-be "immutable and permanently retained" as the audit trail **for the period the
-institution needs to defend a decision** — which in practice is not truly "forever"
-but bounded by applicable prescription/limitation periods.
+| Phase | Timeline | Action |
+|---|---|---|
+| Active (enrolled) | Indefinite | Keep all records; full access for officers |
+| Post-graduation | 7 years after final financial year | Read-only access; audit/compliance only |
+| After retention | Past the 7-year mark | Permanent deletion, with a certificate of destruction |
 
-**This is explicitly a placeholder pending compliance confirmation** — the user
-confirmed no institutional retention policy is currently known to exist or has been
-located. #20 should not treat this figure as settled; it should be validated against
-the institution's actual records-management policy (or against legal advice, if no
-such policy exists yet) before being implemented as an enforced retention rule.
+Rationale (BA-supplied, corroborating the original draft's basis): SARS requires a
+5-year minimum on financial records; AGSA sets a 7-year minimum for audit trails;
+7 years is the standard post-transaction retention window among South African
+financial institutions; students can challenge a decision up to 2 years after; and
+typical debt-recovery cycles in South Africa run 3–6 years. 7 years comfortably
+covers all of these and satisfies POPIA's Processing Limitation "no longer than
+necessary" test by tying retention to a concrete, bounded event rather than
+"indefinitely."
+
+Two loose ends remain, tracked as action items in the BA's answer, not blockers to
+#20 starting implementation: confirming this doesn't conflict with an existing
+institutional records-management policy (owner: Records Management, due 2026-09-10),
+and Finance Director confirmation (due 2026-09-12).
 
 ---
 
 ## 7. Follow-up Items
 
-The following gaps surfaced by this assessment are not resolved here and need a named
-owner and their own tracking:
+Status as of the BA's 2026-09-08 answer to this assessment's open questions:
 
-1. **Assign an Information Officer / compliance sign-off authority for this module.**
-   Blocks closing this assessment's sign-off (Section 8) and, by extension, the
-   module's go-live gate. No owner identified yet — needs a decision from whoever
-   holds that role for the institution before this can move forward.
-2. **Confirm (or establish) an institutional records-retention policy** to validate or
-   correct the draft 7-year recommendation in Section 6. No existing policy confirmed
-   at time of writing — needs input from compliance/records-management before #20
-   treats this figure as final.
-3. **Student-facing openness/notification** — update the relevant privacy
-   notice/student communications to disclose that financial and funding data feeds an
-   automated risk-scoring and recommendation system (Section 3, condition 6). Owner:
-   Compliance / Registrar, not engineering — raised here as a gap, not filed as an
-   engineering issue.
+1. **Assign an Information Officer / compliance sign-off authority for this module —
+   IN PROGRESS, no longer unowned.** The Registrar's Office (Information
+   Officer/Compliance Officer) has been identified as the designated reviewer — they
+   hold institutional authority over student records management and POPIA
+   compliance. Written sign-off is due **2026-09-22** (blocking — see Section 8) after
+   a formal review meeting scheduled for 2026-09-15.
+2. **Confirm the institutional records-retention policy — RESOLVED, 7 years
+   confirmed** (Section 6). Only the cross-check against any existing institutional
+   policy (Records Management, due 2026-09-10) and Finance Director confirmation
+   (due 2026-09-12) remain — non-blocking to #20 starting implementation.
+3. **Student-facing openness/notification — CONFIRMED AS A GAP, still not done,
+   now has an owner and a plan.** No such process exists today. A privacy notice
+   (what data, who processes it, how it's used, retention, student rights, contact)
+   must go live across four channels — registration privacy notice, student portal,
+   first debt SMS, and debt-office website/signage — all due **2026-09-25**. Owner:
+   Registrar/Debt Management Office, not engineering. **This is compliance-mandated
+   work with no existing GitHub issue tracking it** — recommend filing a new issue
+   before 2026-09-25 so it isn't lost.
 4. **Re-assess this document** when the SMS/WhatsApp engagement-channel gateway and
-   the Adapt Connect hand-over integration are built (Section 2.3) — both introduce
-   new external data recipients not covered by this assessment's scope.
+   the Adapt Connect hand-over integration are built (Section 2.3) — unchanged,
+   still future work, not addressed by the BA's answer.
+5. **Funding-status weighting fairness review — AWAITING FORMAL SIGN-OFF.** The BA's
+   answer recommends "Option B": keep the existing weights (they're predictively
+   sound), but add contextual flags for officers (e.g. "High risk due to NSFAS delay
+   — external factor"), allow an officer override/skip when funding is in process,
+   and run a monthly fairness audit. Student Funding Director sign-off is due
+   2026-09-30; if approved, the contextual-flags work (Engineering, due 2026-09-25)
+   is new scope not currently tracked by any issue — likely folds into #7/#8's
+   decision-engine and recommendation-display work once confirmed.
 
 ---
 
 ## 8. Sign-off
 
-**Status: PENDING.** No Information Officer / compliance reviewer has been identified
-for this module yet (see Follow-up item 1). This section is a placeholder to be
-completed once a reviewer is assigned — it must be completed before the module
-processes real student data in production (TECHNICAL_SPECIFICATION.md §7).
+**Status: REVIEWER IDENTIFIED, SIGN-OFF STILL PENDING.** The Registrar's Office
+Information Officer/Compliance Officer has been designated as the sign-off authority
+(BA answer, 2026-09-08 — see Follow-up item 1). Written sign-off is due **2026-09-22**
+and is a **blocking** requirement — this module must not process real student data in
+production before this section is completed (TECHNICAL_SPECIFICATION.md §7). Deploying
+without it is a POPIA violation with institutional exposure up to 10% of annual
+revenue, per the BA's risk note.
 
 | Field | Value |
 |---|---|
-| Reviewer name/role | _Not yet assigned_ |
-| Date reviewed | _—_ |
-| Decision | _—_ |
+| Reviewer name/role | Registrar's Office — Information Officer/Compliance Officer (named individual TBC — due 2026-09-10) |
+| Date reviewed | _Scheduled 2026-09-15 — not yet held_ |
+| Decision | _Pending_ |
 | Conditions attached to approval, if any | _—_ |
+
+**Pre-launch compliance checklist** (BA answer, 2026-09-08 — all still outstanding):
+
+- [ ] POPIA sign-off — Registrar's Info Officer approval (due 2026-09-22)
+- [ ] Retention policy confirmed against institutional policy (due 2026-09-15)
+- [ ] Access controls — caseload scoping implemented, #18 (due 2026-10-07)
+- [ ] Student privacy notice live (due 2026-09-25)
+- [ ] Funding fairness review sign-off (due 2026-09-30)
+- [ ] Audit logging of case access and decisions confirmed in place

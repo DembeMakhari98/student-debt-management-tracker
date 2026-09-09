@@ -35,7 +35,7 @@ findings to unblock two downstream tickets that are explicitly waiting on it:
 
 ## Deliverable → Acceptance Criteria
 
-- [ ] A POPIA Impact Assessment document exists at
+- [x] A POPIA Impact Assessment document exists at
       `docs/compliance/popia-impact-assessment.md`, covering (at minimum):
   - Project/processing description (what personal information moves where — see Data
     Model below)
@@ -47,12 +47,15 @@ findings to unblock two downstream tickets that are explicitly waiting on it:
   - An explicit recommendation section for portfolio/access scoping (feeds #18) and one
     for retention period (feeds #20)
 - [ ] Any risk the assessment flags as unresolved is captured as a follow-up GitHub issue
-      (linked from the assessment doc and from #19 itself)
+      (linked from the assessment doc and from #19 itself) — **still open**: the BA's
+      2026-09-08 answer confirms the student privacy-notice gap (condition 6, Openness)
+      is real and has a deadline (2026-09-25), but no GitHub issue tracks it yet
 - [ ] Assessment reviewed and signed off by the institution's Information Officer /
       compliance function; sign-off recorded in the document (name/role, date, decision)
-      via a dedicated **Sign-off** section
-- [ ] The document explicitly states its findings inform #18 and #20, with direct links
-- [ ] Sign-off is a precondition of go-live — this is stated in the document itself and
+      via a dedicated **Sign-off** section — **still open**: reviewer body identified
+      (Registrar's Office), named individual and actual sign-off due 2026-09-22
+- [x] The document explicitly states its findings inform #18 and #20, with direct links
+- [x] Sign-off is a precondition of go-live — this is stated in the document itself and
       cross-referenced from TECHNICAL_SPECIFICATION.md §7
 
 ## Technical Design → Assessment Structure
@@ -128,16 +131,25 @@ workflow (Test agent) for this ticket should verify:
   it produces no visible UI change. **Mitigation:** acceptance criteria require an actual
   named sign-off record, not just a document's existence.
 
-## Open Questions
+## Open Questions — answered 2026-09-08 by BA (DembeMakhari98)
 
-1. **Who is the institution's Information Officer / compliance function for sign-off?**
-   Not yet identified in any repo artifact — needed before the sign-off criterion can be
-   closed.
-2. **Legal minimum retention period for student financial/audit records** — is there an
-   existing institutional records-management policy to align with, or does this
-   assessment set the precedent? Directly feeds #20.
-3. **Portfolio scoping model preference** (campus / programme / caseload) — does the
-   assessment recommend one on privacy-minimisation grounds, or defer entirely to #18's
-   own stakeholder discussion (Finance/Debtors management, per #18's body)? This spec
-   assumes the assessment provides a privacy-lens *recommendation*, and #18 still owns
-   the final operational decision.
+1. **Who is the institution's Information Officer / compliance function for
+   sign-off?** — **Answered:** the Registrar's Office (Information
+   Officer/Compliance Officer). Named individual and actual written sign-off still
+   pending, due 2026-09-22 (blocking).
+2. **Legal minimum retention period for student financial/audit records** —
+   **Answered:** 7 years after a student's final financial year, confirmed against
+   SARS/AGSA/financial-institution norms. Matches this document's original draft
+   figure exactly. #20 can now implement it directly (docs/compliance/
+   popia-impact-assessment.md §6).
+3. **Portfolio scoping model preference** (campus / programme / caseload) —
+   **Answered:** hybrid tiered model (caseload primary, team coverage secondary,
+   supervisor-override tertiary), confirmed against actual operations (3 debt
+   recovery teams, individually-assigned caseloads). #18 can now implement it
+   directly (docs/compliance/popia-impact-assessment.md §5).
+
+Two items the BA's answer surfaced that were **not** among this spec's original open
+questions, carried into the assessment doc's Follow-up section instead of here since
+they don't block this ticket's own acceptance criteria: the student privacy-notice
+gap (no tracking issue exists yet) and the funding-status fairness review (formal
+sign-off still due 2026-09-30).
