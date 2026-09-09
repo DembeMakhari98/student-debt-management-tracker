@@ -1,7 +1,7 @@
 version: "3.9"
 
-# Local Postgres for the Student Debt Tracker API. `docker compose up -d`, then
-# `cd backend && ./mvnw spring-boot:run` — Liquibase creates and seeds every table on first run.
+# Full local stack for the Student Debt Tracker: Postgres + Spring Boot API + Angular UI.
+# `docker compose up -d --build` runs everything in containers, isolated from other projects.
 services:
   postgres:
     image: postgres:16-alpine
@@ -20,6 +20,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build: ./backend
+    container_name: student-debt-tracker-backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/student_debt_tracker
+      DB_USERNAME: debt_tracker
+      DB_PASSWORD: debt_tracker
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: student-debt-tracker-frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
 
 volumes:
   student-debt-tracker-data:
