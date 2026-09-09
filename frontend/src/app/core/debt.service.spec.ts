@@ -164,6 +164,138 @@ describe('DebtService — decision engine (issue #7)', () => {
   });
 });
 
+describe('DebtService — autonomy gating (issue #8)', () => {
+  let service: DebtService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(DebtService);
+  });
+
+  // One fixture per rule, matching the fixtures proven in the issue #7 describe above.
+  const RULE_FIXTURES: [string, Partial<Debtor>][] = [
+    ['Refund', { ageing: { current: -4200, d30: 0, d60: 0, d90: 0, d120: 0 } }],
+    ['Registration hold', { arrangement: 'Defaulted', lastPay: null, missed: 4 }],
+    ['Hardship fund', { fundStatus: 'NSFAS lapsed', ageing: { current: 0, d30: 0, d60: 0, d90: 0, d120: 20000 } }],
+    [
+      'Holding arrangement',
+      { fundStatus: 'NSFAS pending', missed: 2, ageing: { current: 12000, d30: 0, d60: 0, d90: 0, d120: 0 } },
+    ],
+    [
+      'Funding chase',
+      { fundStatus: 'NSFAS pending', missed: 1, ageing: { current: 12000, d30: 0, d60: 0, d90: 0, d120: 0 } },
+    ],
+    [
+      'Payment arrangement',
+      { fundStatus: 'Self-funded', missed: 2, ageing: { current: 12000, d30: 0, d60: 0, d90: 0, d120: 0 } },
+    ],
+    ['Reminder cadence', { fundStatus: 'Self-funded', missed: 1 }],
+    ['Monitor', { fundStatus: 'Self-funded', missed: 0 }],
+  ];
+
+  it('autoEligible — truth table across all 8 rules × levels 1-4', () => {
+    for (const [label, overrides] of RULE_FIXTURES) {
+      const rec = service.recommend(debtor(overrides));
+      const isHardManual = rec.type === 'Refund' || rec.type === 'Registration hold';
+      const isAgentActing = rec.status === 'Agent acting';
+      const isMonitoring = rec.status === 'Monitoring';
+
+      expect(service.autoEligible(rec, 1)).withContext(`${label} @ level 1`).toBeFalse();
+      expect(service.autoEligible(rec, 2)).withContext(`${label} @ level 2`).toBeFalse();
+      expect(service.autoEligible(rec, 3)).withContext(`${label} @ level 3`).toBe(!isHardManual && isAgentActing);
+      expect(service.autoEligible(rec, 4)).withContext(`${label} @ level 4`).toBe(!isHardManual && !isMonitoring);
+    }
+  });
+
+  it('autoEligible — hard rule blocks Refund and Registration hold at every level, including 4', () => {
+    const refund = service.recommend(debtor({ ageing: { current: -4200, d30: 0, d60: 0, d90: 0, d120: 0 } }));
+    const hold = service.recommend(debtor({ arrangement: 'Defaulted', lastPay: null, missed: 4 }));
+
+    for (const level of [1, 2, 3, 4]) {
+      expect(service.autoEligible(refund, level)).withContext(`Refund @ level ${level}`).toBeFalse();
+      expect(service.autoEligible(hold, level)).withContext(`Registration hold @ level ${level}`).toBeFalse();
+    }
+  });
+
+  it('runAutonomousExecution() at level 1 or 2 decides nothing across the real dataset', () => {
+    for (const level of [1, 2]) {
+      service.setAutonomy(level);
+      service.runAutonomousExecution();
+      for (const d of service.caseRows()) {
+        expect(service.caseOf(d).decision).withContext(`level ${level}, ${d.id}`).toBeNull();
+      }
+    }
+  });
+
+  it('runAutonomousExecution() at level 4 decides exactly the eligible cases and stamps the autonomous actor', () => {
+    service.setAutonomy(4);
+    service.runAutonomousExecution();
+
+    let sawAutoDecision = false;
+    for (const d of service.caseRows()) {
+      const c = service.caseOf(d);
+      const eligible = service.autoEligible(c.rec, 4);
+      if (eligible) {
+        sawAutoDecision = true;
+        expect(c.decision).withContext(d.id).not.toBeNull();
+        expect(c.decision!.decidedBy).toContain('Autonomous Agent');
+        expect(c.decision!.action).toBe('Approved');
+      } else {
+        expect(c.decision).withContext(d.id).toBeNull();
+      }
+    }
+    // Sanity: the mock dataset actually exercises at least one eligible case at level 4.
+    expect(sawAutoDecision).toBeTrue();
+  });
+
+  it('does not overwrite a case a human officer already decided', () => {
+    const c = service.caseOf(service.caseRows()[0]);
+    service.approveCase(c.d);
+
+    service.setAutonomy(4);
+    service.runAutonomousExecution();
+
+    const after = service.caseOf(c.d);
+    expect(after.decision!.decidedBy).not.toContain('Autonomous Agent');
+  });
+
+  it('runAutonomousExecution() is not limited to the officer\'s currently selected year filter', () => {
+    // The officer is viewing only 2026 (a realistic default) when the run happens.
+    service.setYear(2026);
+    const inViewIds = new Set(service.caseRows().map((d) => d.id));
+
+    service.setYear('all');
+    const outsideViewEligible = service
+      .caseRows()
+      .filter((d) => !inViewIds.has(d.id) && service.autoEligible(service.caseOf(d).rec, 4));
+    expect(outsideViewEligible.length).toBeGreaterThan(0); // sanity: other years have eligible cases too
+
+    service.setYear(2026); // back to the officer's narrow view before the run
+    service.setAutonomy(4);
+    service.runAutonomousExecution();
+
+    service.setYear('all');
+    for (const d of outsideViewEligible) {
+      expect(service.caseOf(d).decision).withContext(`${d.id} (year ${d.year}, outside the 2026 view)`).not.toBeNull();
+    }
+  });
+
+  it('level-change invariant: a later run at a higher level leaves an earlier run\'s decisions untouched', () => {
+    service.setAutonomy(3);
+    service.runAutonomousExecution();
+    const level3Decided = service.caseRows().filter((d) => service.caseOf(d).decision).map((d) => d.id);
+    expect(level3Decided.length).toBeGreaterThan(0);
+
+    service.setAutonomy(4);
+    service.runAutonomousExecution();
+
+    for (const id of level3Decided) {
+      const d = service.caseRows().find((x) => x.id === id)!;
+      expect(service.caseOf(d).decision!.decidedBy).toContain('Level 3');
+    }
+  });
+});
+
 describe('DebtService — engagement log (issue #14)', () => {
   let service: DebtService;
 
