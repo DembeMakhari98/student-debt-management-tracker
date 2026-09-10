@@ -105,12 +105,18 @@ export class DebtService {
     return stored && stored.recommendationType === rec.type ? stored : null;
   }
 
-  private decide(d: Debtor, action: DecisionAction, extra: Partial<Pick<Decision, 'amendedTerms' | 'reason'>>): void {
-    const rec = this.recommend(d);
+  private decide(
+    d: Debtor,
+    action: DecisionAction,
+    extra: Partial<Pick<Decision, 'amendedTerms' | 'reason'>>,
+    actor: string = CURRENT_OFFICER,
+    precomputedRec?: Recommendation,
+  ): void {
+    const rec = precomputedRec ?? this.recommend(d);
     const decision: Decision = {
       recommendationType: rec.type,
       action,
-      decidedBy: CURRENT_OFFICER,
+      decidedBy: actor,
       decidedAt: new Date().toISOString(),
       ...extra,
     };
@@ -118,11 +124,50 @@ export class DebtService {
     next.set(d.id, decision);
     this.decisions.set(next);
 
+    const isAuto = actor !== CURRENT_OFFICER;
     const verb = action === 'Approved' ? 'approved' : action === 'Amended' ? 'amended and approved' : 'declined';
     this.logEngagementAction(d.id, {
-      t: `Recommendation ${verb} by ${CURRENT_OFFICER}` + (action === 'Declined' ? ` — ${extra.reason}` : ''),
-      m: `Officer decision · ${CURRENT_OFFICER}`,
+      t: `Recommendation ${verb} by ${actor}` + (action === 'Declined' ? ` — ${extra.reason}` : ''),
+      m: `${isAuto ? 'Auto-decision' : 'Officer decision'} · ${actor}`,
     });
+  }
+
+  /* =========================================================================
+     AUTONOMY-LEVEL GATING (issue #8, technical spec §5.10) — whether the system
+     is allowed to resolve a recommendation itself, and the explicit "scoring
+     run" that acts on that. Kept out of any computed()/caseOf() read path:
+     Angular forbids writing signals during a computed's evaluation, and the
+     ticket's own "takes effect from the next scoring run" wording calls for a
+     discrete, explicitly-invoked pass rather than continuous reactivity.
+     ========================================================================= */
+
+  private static readonly HARD_MANUAL_TYPES = new Set(['Refund', 'Registration hold']);
+
+  /** Pure — safe to call from anywhere, including a computed(). */
+  autoEligible(rec: Recommendation, level: number): boolean {
+    if (DebtService.HARD_MANUAL_TYPES.has(rec.type)) return false;
+    if (rec.status === 'Monitoring') return false;
+    if (level >= 4) return true;
+    if (level === 3) return rec.status === 'Agent acting';
+    return false;
+  }
+
+  /** Same case-selection rule as pickedRows()/refundRows() (picked-up or in-credit), but over
+   *  the full dataset rather than caseRows() — a scoring run must not silently skip cases
+   *  outside whatever year/funding filter the officer currently has selected in the UI. */
+  private allCases(): Debtor[] {
+    return DEBTORS.filter((d) => this.pickedUp(d) || this.owedToStudent(d));
+  }
+
+  /** Auto-resolves every not-yet-decided, eligible case at the current autonomy level. */
+  runAutonomousExecution(): void {
+    const level = this.autonomy();
+    for (const d of this.allCases()) {
+      const rec = this.recommend(d);
+      if (this.decisionOf(d, rec)) continue;
+      if (!this.autoEligible(rec, level)) continue;
+      this.decide(d, 'Approved', {}, `Autonomous Agent (Level ${level})`, rec);
+    }
   }
 
   /** Approves the case's current recommendation as-is (subject to the hard-rule autonomy gating

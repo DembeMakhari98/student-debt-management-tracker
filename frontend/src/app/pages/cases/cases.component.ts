@@ -72,6 +72,11 @@ export class CasesComponent {
   displayStatus(c: CaseView): string {
     return c.decision?.action ?? c.rec.status;
   }
+  /** Distinguishes an autonomy-level auto-decision (issue #8) from a human officer's, so the
+   *  audit trail never misrepresents which one made the call. */
+  decisionLabel(c: CaseView): string {
+    return c.decision?.decidedBy.startsWith('Autonomous Agent') ? 'Auto-decision' : 'Officer decision';
+  }
   statusColor(status: string): string {
     return status === 'Needs approval' || status === 'Declined'
       ? 'var(--red-text)'
