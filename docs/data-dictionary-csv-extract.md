@@ -1,85 +1,62 @@
 # Data Dictionary — Daily CSV Extract (interim source, issue #33)
 
 **Source file analysed:** `1523677863_10-SEP-2026-093322.csv` (`C:\Working\Files`, not committed to
-this repo — contains real student PII).
+this repo). **Confirmed test/mockup data** — not real students. Data-quality issues found during
+analysis (below) are noted for structural/parsing purposes only; they do not need to be resolved
+or validated against a real source at this stage. Real-looking identifiers observed during
+analysis have still been redacted from this doc as a matter of habit, not because they're real.
 **Status:** Interim replacement for `MockDebtorSourceAdapter` until the 5 ITS Integrator read
 APIs and the write-back path exist (see #1, #33). Cadence: **daily** file drop, filename pattern
 `<id>_<DD-MON-YYYY>-<HHMMSS>.csv`.
 **Rows analysed:** 2,712 lines (2,705 usable data rows once the footer and malformed rows below
 are excluded), 65 columns.
-**PII note:** this repo is public. Real student numbers and names observed during analysis have
-been redacted from this document — where a specific record needs to be located (e.g. to fix the
-XSS payload or the corrupted balances), get the real identifiers from whoever ran this analysis
-rather than from git history.
 
 ---
 
-## 0. Findings that need action before this file is wired into anything
+## 0. Structural/parsing notes (informational — this is mock data, not a quality audit)
 
-These aren't schema notes — they're things that will bite in production if ignored.
+These are things a `CsvDebtorSourceAdapter` parser needs to handle mechanically. None of them
+need sign-off or escalation at this stage — they're just artifacts of this being a test file.
 
-### 0.1 SECURITY — stored XSS payload present in the extract
-6 rows contain a literal `"><SCRIPT>ALERT(1)</SCRIPT>` payload in `FirstNames` (real
-`StudentNo` values are redacted from this doc since this repo is public — see them in the
-private follow-up communication instead). This is either a leftover penetration-test
-artifact or an actual injection that landed in the source system. Either way:
-- **Never render `FirstNames`/`Surname`/any free-text field from this file unescaped** in the
-  Angular frontend — Angular's default interpolation escapes HTML, so this is only a risk if
-  anything binds these fields via `[innerHTML]` or similar. Worth a quick grep of the frontend
-  for that pattern regardless.
-- The same rows also carry an unescaped `"` inside a quoted CSV field, which breaks naive CSV
-  parsing (see 0.3). This should be escalated to whoever owns the export — production extracts
-  should not contain test-injection strings.
-- Recommend flagging this to data governance / whoever owns the source system, not just quietly
-  filtering it.
+### 0.1 A few rows contain an XSS-style test string in `FirstNames`
+6 rows contain a literal `"><SCRIPT>ALERT(1)</SCRIPT>` string in `FirstNames` — clearly test-data
+filler, not a real incident. Worth keeping in mind for later (never render free-text fields from
+any future real extract via `[innerHTML]` in the Angular frontend), but nothing to act on for this
+mock file.
 
-### 0.2 Two records have corrupted balance totals
-`LocalBal`/`StudCurrBal` are non-sensical for 2 rows (real `StudentNo` values redacted from this
-public doc): one shows **-R109,790,240,494.77** and the other **+R869,761,778.65**. Both students'
-`AgeLastCol`/`AgePayable` fields (the ageing-bucket totals) hold sane, small values for the same
-rows — so `LocalBal`/`StudCurrBal` are the corrupted fields, not the ageing buckets.
-**Recommendation:** don't trust `LocalBal`/`StudCurrBal` as the source of truth for a debtor's
-total. Derive the total from the ageing buckets (Section 2 below) and reject/quarantine any row
-where `LocalBal` disagrees with the bucket-derived total by an implausible margin (e.g. >R5m) —
-log it to `JobRunLog` as a partial-failure rather than silently ingesting a nine-digit garbage
-balance into risk scoring.
+### 0.2 A couple of records have unrealistic balance totals
+`LocalBal`/`StudCurrBal` are implausible for 2 rows (one shows -R109.79 billion, another
++R869.76 million) — obviously synthetic/placeholder values, not something to validate against.
+Worth noting for the real adapter later: `AgeLastCol`/`AgePayable` (the bucket-derived totals) are
+sane for the same rows, so those are the safer field to trust once real data is in play.
 
 ### 0.3 Malformed CSV rows (unescaped quote inside a quoted field)
 6 of 2,712 raw lines fail strict CSV parsing because a field contains an unescaped `"` (the same
-rows as 0.1). A `CsvDebtorSourceAdapter` needs a tolerant parser (e.g. Apache Commons CSV with
-lenient quote handling, or pre-clean with a regex) rather than a naive `split(',')` or a strict
-RFC-4180 parser that would throw and fail the whole nightly job over 6 bad rows.
+rows as 0.1). **This is a real structural requirement, mock data or not:** a
+`CsvDebtorSourceAdapter` needs a tolerant parser (e.g. Apache Commons CSV with lenient quote
+handling, or pre-clean with a regex) rather than a naive `split(',')` or a strict RFC-4180 parser
+that would throw and fail the whole nightly job over a handful of bad rows. Malformed rows can
+simply be skipped/logged, not rejected-and-retried.
 
 ### 0.4 Trailing footer line
 The last line of the file is `*** End of Report ***`, not data. Strip it (and any other non-CSV
-trailer) before parsing, or the row-count/column-count check will misfire on it.
+trailer) before parsing — a structural parsing requirement regardless of data quality.
 
-### 0.5 Test/QA records mixed into the extract
-311 rows (~11.5%) carry a `TEST` token in `StatusCodes`; other rows have `FacultyName` = "Test
-Offering Type", `CancDesc` = "Test Reason" / "Test Two Chars", and a cluster of obviously-dummy
-`IdNumber` values (`1234567890123` ×6, `1111111111111` ×16, `9999999999999` ×2, sequential
-`7XXXXXXXXXXXX` patterns, non-numeric IDs like `8349172KX`, `R985879849598`). If this is a genuine
-production nightly extract, QA/test records should not be in it. **Open question for the data
-owner:** is `TEST` in `StatusCodes` a reliable, complete filter for excluding these, or are there
-test records without that tag? Until confirmed, treat any row with `TEST` in `StatusCodes` OR an
-`IdNumber` matching an obvious dummy pattern as excluded from risk scoring, and log the excluded
-count per run.
+### 0.5 Test/QA-flavoured rows mixed into the file
+~11.5% of rows carry a `TEST` token in `StatusCodes`, plus other obviously-synthetic values
+(`FacultyName` = "Test Offering Type", dummy `IdNumber` patterns like repeating digits). Since this
+whole file is mock data, no filtering logic is needed for these *now* — noted only because a real
+extract might reasonably still contain a handful of QA records, and the adapter could choose to
+skip anything tagged `TEST` in `StatusCodes` as a cheap, low-risk filter later.
 
-### 0.6 20% of rows have no financial year
-540 of 2,705 rows have a blank `RegYear` (and, in the same rows, blank `Block`/`Campus`/
-`Faculty`/`Qualification` etc.) — these look like historical/balance-carry-forward records with
-no year attribution. Since `financialYear` is part of this app's primary key
-(`debtorKey = studentId + "-" + year`), **these rows cannot be loaded as-is.** Needs a business
-decision: exclude them, or assign them to a synthetic "unknown/legacy" year bucket.
+### 0.6 ~20% of rows have no financial year
+540 of 2,705 rows have a blank `RegYear`. Since `financialYear` is part of this app's primary key
+(`debtorKey = studentId + "-" + year`), **rows with no year simply can't be loaded and should be
+skipped** — not a data-quality problem to chase for this mock file, just a parsing rule.
 
-### 0.7 Currency mix is unexplained
-2,505 of 2,705 rows (92.6%) are in `SAR` (Saudi Arabian Riyal), not `ZAR`. Only 111 rows are
-`ZAR`. If this extract is meant to represent the institution's South African student debt book,
-this is either (a) evidence this file is a test/staging extract rather than representative
-production data, or (b) this institution has a large offshore/international cohort billed in
-local currency and the app needs an FX-conversion step it doesn't currently have. **Needs
-business confirmation before this file is treated as ground truth** — Section 3.1 of the spec
-assumes ZAR throughout.
+### 0.7 Currency field is mostly non-ZAR
+92.6% of rows are `SAR` rather than `ZAR` — consistent with this being placeholder/mock data
+rather than a real ZAR-denominated debt book. Not an issue to resolve now.
 
 ---
 
@@ -212,16 +189,13 @@ production scoring.
 
 ## 4. Open questions for the data/business owner
 
+Structural questions only — these matter once real data replaces this mock file, not before:
+
 1. Does `Private` in `TypeOfFunding` map to the app's `SELF` (self-funded) or `PRIVATE`
    (bursary/sponsor)? Given it's 99.5% of records, this materially changes the risk profile of
    almost the whole book depending on the answer.
 2. What is `AWTB_0` (9 records)? Looks like a specific sponsor/bursary code.
 3. Is there a legend for the 128 `StatusCodes` tokens, specifically the `FIN`/`FINB`/`FINW`/
    `FIND`/`FINT`/`FINR`/`FINS` family — could any of these reliably derive `fundingStatus`?
-4. Is `TEST` in `StatusCodes` a complete and reliable filter for excluding QA/test records (0.5)?
-5. Should the 540 rows with blank `RegYear` (0.6) be excluded, or assigned an "unknown year"
-   bucket?
-6. Is the `SAR`/`ZAR` currency mix (0.7) expected for this institution's real debtor book, or is
-   this extract test/staging data?
-7. Can `missedInstalments`, `lastPaymentDate`, and `arrangementStatus` be added to the daily
+4. Can `missedInstalments`, `lastPaymentDate`, and `arrangementStatus` be added to the daily
    export? These are currently the biggest gap against the app's data model.
