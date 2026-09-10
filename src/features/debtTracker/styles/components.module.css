@@ -1,0 +1,315 @@
+/**
+ * Components Module Styles
+ *
+ * Styles for individual components like badges, pills, chips, amounts, etc.
+ */
+
+@import './variables.css';
+
+/* ============================================
+   RISK BADGE
+   ============================================ */
+
+.riskBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.riskBadgeLabel {
+  flex: 0 1 auto;
+}
+
+.riskBadgeScore {
+  flex: 0 0 auto;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 0 var(--spacing-xs);
+  border-radius: 2px;
+  font-weight: var(--font-weight-bold);
+}
+
+/* ============================================
+   STUDENT INFO
+   ============================================ */
+
+.studentInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}
+
+.studentName {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studentEmail {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studentPhone {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+}
+
+/* ============================================
+   FUNDING PILL
+   ============================================ */
+
+.fundingPill {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.fundingNsfas {
+  background-color: rgba(25, 118, 210, 0.1);
+  color: var(--color-funding-nsfas);
+}
+
+.fundingPrivate {
+  background-color: rgba(123, 31, 162, 0.1);
+  color: var(--color-funding-private);
+}
+
+.fundingOther {
+  background-color: rgba(0, 150, 167, 0.1);
+  color: var(--color-funding-other);
+}
+
+/* ============================================
+   SIGNAL CHIPS
+   ============================================ */
+
+.signalChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+/* ============================================
+   ACTION INFO
+   ============================================ */
+
+.actionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}
+
+.actionTaken {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actionDate {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* ============================================
+   STATUS PILL
+   ============================================ */
+
+.statusPill {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.statusPickedUp {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: var(--color-status-low);
+}
+
+.statusRefund {
+  background-color: rgba(255, 152, 0, 0.1);
+  color: var(--color-refund-pending);
+}
+
+.statusNotPickedUp {
+  background-color: rgba(211, 47, 47, 0.1);
+  color: var(--color-status-critical);
+}
+
+/* ============================================
+   AMOUNT DISPLAY
+   ============================================ */
+
+.amountDisplay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  text-align: left;
+}
+
+.amountLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: var(--font-weight-medium);
+}
+
+.amountValue {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+}
+
+.amountDebt .amountValue {
+  color: var(--color-status-critical);
+}
+
+.amountCredit .amountValue {
+  color: var(--color-status-low);
+}
+
+/* ============================================
+   CREDIT AMOUNT DISPLAY
+   ============================================ */
+
+.creditAmountDisplay {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.creditStatusIcon {
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.creditAmount {
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-mono);
+  color: var(--color-text-primary);
+}
+
+.creditStatus {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.creditStatusPending {
+  background-color: rgba(255, 152, 0, 0.1);
+  border-color: var(--color-refund-pending);
+}
+
+.creditStatusPending .creditStatusIcon {
+  color: var(--color-refund-pending);
+}
+
+.creditStatusProcessed {
+  background-color: rgba(76, 175, 80, 0.1);
+  border-color: var(--color-refund-processed);
+}
+
+.creditStatusProcessed .creditStatusIcon {
+  color: var(--color-refund-processed);
+}
+
+.creditStatusFailed {
+  background-color: rgba(211, 47, 47, 0.1);
+  border-color: var(--color-refund-failed);
+}
+
+.creditStatusFailed .creditStatusIcon {
+  color: var(--color-refund-failed);
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 1039px) {
+  .studentEmail,
+  .studentPhone,
+  .actionDate {
+    display: none;
+  }
+}
+
+@media (max-width: 819px) {
+  .riskBadge {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 10px;
+  }
+
+  .fundingPill {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 10px;
+  }
+
+  .statusPill {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 10px;
+  }
+
+  .amountValue {
+    font-size: var(--font-size-sm);
+  }
+
+  .creditAmountDisplay {
+    padding: var(--spacing-sm);
+    gap: var(--spacing-xs);
+  }
+
+  .creditStatusIcon {
+    font-size: var(--font-size-base);
+  }
+
+  .creditAmount {
+    font-size: var(--font-size-sm);
+  }
+}

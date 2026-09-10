@@ -1,0 +1,456 @@
+/**
+ * Lists Module Styles
+ *
+ * Styles for list containers, rows, tables, and pagination.
+ * Supports all responsive breakpoints.
+ */
+
+@import './variables.css';
+
+/* ============================================
+   LIST CONTAINER
+   ============================================ */
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--color-background);
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-background-dark);
+  gap: var(--spacing-md);
+}
+
+.listTitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.listCount {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background-color: var(--color-background);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================
+   LIST CONTENT
+   ============================================ */
+
+.listContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.listRows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================
+   LIST ROWS
+   ============================================ */
+
+.listRow {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr 1fr 1fr 1fr 80px;
+  gap: var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background-color var(--transition-fast);
+}
+
+.listRow:hover {
+  background-color: var(--color-background-dark);
+}
+
+.listRow.selected {
+  background-color: #e3f2fd;
+}
+
+.rowCheckbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rowCheckbox input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.rowCell {
+  display: flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  min-width: 0; /* Prevent text overflow */
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+.actionButton {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background-color: var(--color-background-dark);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionButton:hover {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.actionButton:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   TABLE ROWS
+   ============================================ */
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr 1fr 1fr 1fr 80px;
+  gap: var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-lg);
+  background-color: var(--color-background-dark);
+  border-bottom: 2px solid var(--color-border);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tableHeaderCell {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr 1fr 1fr 1fr 80px;
+  gap: var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background-color var(--transition-fast);
+}
+
+.tableRow:hover {
+  background-color: var(--color-background-dark);
+}
+
+.tableRow.selected {
+  background-color: #e3f2fd;
+}
+
+.tableCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  flex: 1;
+}
+
+.spinner {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  flex: 1;
+  background-color: var(--color-background-alt);
+}
+
+.emptyStateText {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin: 0;
+}
+
+/* ============================================
+   ERROR STATE
+   ============================================ */
+
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  flex: 1;
+}
+
+.errorMessage {
+  font-size: var(--font-size-sm);
+  color: var(--color-status-critical);
+  background-color: #ffebee;
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-md);
+  border-left: 4px solid var(--color-status-critical);
+}
+
+/* ============================================
+   PAGINATION
+   ============================================ */
+
+.paginationContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-background-dark);
+  gap: var(--spacing-lg);
+}
+
+.paginationInfo {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.paginationControls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.paginationButton {
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-text-primary);
+}
+
+.paginationButton:hover:not(:disabled) {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.paginationButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageNumbers {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.pageNumber {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-text-primary);
+}
+
+.pageNumber:hover:not(:disabled) {
+  background-color: var(--color-background-dark);
+  border-color: var(--color-primary);
+}
+
+.pageNumber.active {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.pageNumber:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paginationCompact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-background-dark);
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+/* LG Tablet and above */
+@media (max-width: 1239px) {
+  .listRow,
+  .tableRow,
+  .tableHeader {
+    grid-template-columns: 40px 1fr 1fr 1fr 1fr 60px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+  }
+
+  .listTitle {
+    font-size: var(--font-size-base);
+  }
+}
+
+/* MD Tablet */
+@media (max-width: 1039px) {
+  .listRow,
+  .tableRow,
+  .tableHeader {
+    grid-template-columns: 40px 1fr 1fr 1fr 60px;
+    gap: var(--spacing-sm);
+  }
+}
+
+/* SM Tablet */
+@media (max-width: 899px) {
+  .listHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .listRow,
+  .tableRow,
+  .tableHeader {
+    grid-template-columns: 40px 1fr 80px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+  }
+
+  .rowCell,
+  .tableCell {
+    display: none;
+  }
+
+  .rowCell:nth-child(2),
+  .tableCell:nth-child(2) {
+    display: flex;
+  }
+
+  .paginationContainer {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    align-items: stretch;
+  }
+
+  .paginationInfo {
+    text-align: center;
+  }
+
+  .paginationControls {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Mobile */
+@media (max-width: 819px) {
+  .listHeader {
+    padding: var(--spacing-md);
+  }
+
+  .listRow,
+  .tableRow,
+  .tableHeader {
+    grid-template-columns: 40px 1fr 60px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+  }
+
+  .actionButton {
+    width: 28px;
+    height: 28px;
+    font-size: var(--font-size-base);
+  }
+
+  .paginationContainer {
+    padding: var(--spacing-md);
+  }
+
+  .paginationButton,
+  .pageNumber {
+    padding: var(--spacing-sm) var(--spacing-md);
+    width: auto;
+    height: auto;
+  }
+
+  .pageNumbers {
+    gap: var(--spacing-xs);
+  }
+}
