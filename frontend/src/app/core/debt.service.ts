@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { AGE_BUCKETS, AGENTS, AS_AT, CURRENT_OFFICER, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
 import { DEBTORS, YEARS } from './mock-data';
+import { OFFICERS } from './officers';
 import {
   ActivityEntry,
   CaseView,
@@ -9,6 +10,8 @@ import {
   DecisionAction,
   DebtSummary,
   FundKey,
+  Officer,
+  PortfolioScope,
   Recommendation,
   RiskBand,
   Signal as CaseSignal,
@@ -51,6 +54,50 @@ export class DebtService {
   readonly caseId = signal<string | null>(null);
   readonly autonomy = signal<number>(2);
 
+  /* =========================================================================
+     OFFICER IDENTITY & PORTFOLIO SCOPING (issue #18, POPIA impact assessment §5)
+     ========================================================================= */
+
+  readonly currentOfficerId = signal<string>('nomsa-mahlangu');
+  readonly portfolioScope = signal<PortfolioScope>('own');
+
+  officerOf(id: string): Officer | undefined {
+    return OFFICERS.find((o) => o.id === id);
+  }
+
+  readonly currentOfficer = computed<Officer>(() => this.officerOf(this.currentOfficerId())!);
+
+  /** Switching officer always resets to the narrowest scope — no carried-over broad view. */
+  setCurrentOfficer(id: string): void {
+    this.currentOfficerId.set(id);
+    this.portfolioScope.set('own');
+  }
+
+  /** Every Level 3 escalation, logged — not tied to any one debtor, so kept separate from
+   *  the per-case activity feed (`engagementLog`) below. */
+  private readonly portfolioEscalationLog = signal<{ by: string; team: string; at: string }[]>([]);
+  readonly portfolioEscalations = this.portfolioEscalationLog.asReadonly();
+
+  /** 'all' (Level 3) is manager-only, per the BA's model — a non-manager request is a no-op. */
+  setPortfolioScope(scope: PortfolioScope): void {
+    if (scope === 'all' && this.currentOfficer().role !== 'manager') return;
+    this.portfolioScope.set(scope);
+    if (scope === 'all') {
+      const officer = this.currentOfficer();
+      this.portfolioEscalationLog.set([
+        ...this.portfolioEscalationLog(),
+        { by: officer.name, team: officer.team, at: new Date().toISOString() },
+      ]);
+    }
+  }
+
+  /** Pure — safe to call from a computed(). */
+  inPortfolio(d: Debtor, officer: Officer, scope: PortfolioScope): boolean {
+    if (scope === 'all') return true;
+    if (scope === 'team') return this.officerOf(d.assignedOfficer)?.team === officer.team;
+    return d.assignedOfficer === officer.id;
+  }
+
   readonly yearLabel = computed(() => (this.year() === 'all' ? `all years (${YEAR_SPAN})` : String(this.year())));
   readonly yearShort = computed(() => (this.year() === 'all' ? 'all years' : String(this.year())));
   readonly scopeLabel = computed(
@@ -69,7 +116,17 @@ export class DebtService {
     this.funding.set(v);
     this.caseId.set(null);
   }
+  /** Logs an access entry (issue #18 — every read of a student's financial detail must be
+   *  attributable to a logged-in user) when opening a *different* case; re-selecting the
+   *  already-open one doesn't re-log. */
   setCase(id: string): void {
+    if (id !== this.caseId()) {
+      const officer = this.currentOfficer();
+      this.logEngagementAction(id, {
+        t: `Case detail viewed by ${officer.name}`,
+        m: `Access log · ${officer.name} (${officer.team})`,
+      });
+    }
     this.caseId.set(id);
   }
   setAutonomy(level: number): void {
@@ -196,20 +253,32 @@ export class DebtService {
     return DEBTORS.filter((d) => (year === 'all' || d.year === year) && (funding === 'all' || d.funding === funding));
   });
 
-  readonly pickedRows = computed<Debtor[]>(() =>
+  /** Institution-wide, deliberately NOT portfolio-scoped (issue #18 non-goal) — Home's
+   *  aggregate dashboard KPIs are the only intended consumers. Everything else (Tracker,
+   *  Cases, CSV export) must use the scoped `pickedRows`/`refundRows`/`payingRows` below. */
+  readonly allPickedRows = computed<Debtor[]>(() =>
     this.rows()
       .filter((d) => this.pickedUp(d))
       .sort((a, b) => this.riskScore(b) - this.riskScore(a)),
   );
-
-  readonly refundRows = computed<Debtor[]>(() =>
+  readonly allRefundRows = computed<Debtor[]>(() =>
     this.rows()
       .filter((d) => this.owedToStudent(d))
       .sort((a, b) => this.rowTotal(a) - this.rowTotal(b)),
   );
-
-  readonly payingRows = computed<Debtor[]>(() =>
+  readonly allPayingRows = computed<Debtor[]>(() =>
     this.rows().filter((d) => this.rowDebt(d) > 0 && !this.pickedUp(d)),
+  );
+
+  /** Scoped to the current officer's portfolio (issue #18) — Tracker (#11) and Cases (#12). */
+  readonly pickedRows = computed<Debtor[]>(() =>
+    this.allPickedRows().filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope())),
+  );
+  readonly refundRows = computed<Debtor[]>(() =>
+    this.allRefundRows().filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope())),
+  );
+  readonly payingRows = computed<Debtor[]>(() =>
+    this.allPayingRows().filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope())),
   );
 
   readonly caseRows = computed<Debtor[]>(() => [...this.pickedRows(), ...this.refundRows()]);
@@ -495,17 +564,21 @@ export class DebtService {
       'AI recommendation', 'Status', 'Policy',
     ];
     const lines = [head.join(',')];
-    this.rows().forEach((d) => {
-      const c = this.caseOf(d);
-      lines.push(
-        [
-          d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
-          d.missed || 0, d.lastPay || 'none', d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
-          this.rowTotal(d), c.score, this.owedToStudent(d) ? 'Credit' : c.band, this.pickedUp(d) ? 'Yes' : 'No',
-          `"${c.rec.action}"`, c.rec.status, this.policyClauseOf(c.rec.type),
-        ].join(','),
-      );
-    });
+    // Scoped (issue #18) — CSV export lists named, identifiable students, so it must
+    // respect the officer's portfolio the same way Tracker/Cases do, not the whole book.
+    this.rows()
+      .filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope()))
+      .forEach((d) => {
+        const c = this.caseOf(d);
+        lines.push(
+          [
+            d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
+            d.missed || 0, d.lastPay || 'none', d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
+            this.rowTotal(d), c.score, this.owedToStudent(d) ? 'Credit' : c.band, this.pickedUp(d) ? 'Yes' : 'No',
+            `"${c.rec.action}"`, c.rec.status, this.policyClauseOf(c.rec.type),
+          ].join(','),
+        );
+      });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
