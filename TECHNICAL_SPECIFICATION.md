@@ -489,10 +489,20 @@ Band, Picked up by agent, AI recommendation, Status, Policy
 
 ## 7. Non-Functional Requirements
 
-- **Security / access control:** an officer must only see debtors in their assigned
-  portfolio `[TO CONFIRM scope — campus? programme? caseload assignment?]`. Every read
-  of a student's financial detail and every action taken must be attributable to a
-  logged-in user.
+- **Security / access control (issue #18):** an officer must only see debtors in
+  their assigned portfolio. **Confirmed model** (agreed with Finance/Debtors
+  management via the POPIA impact assessment,
+  `docs/compliance/popia-impact-assessment.md` §5) — a hybrid tiered scope, not
+  campus- or programme-wide:
+  - **Level 1 (own caseload, default):** the officer sees only debtors explicitly
+    assigned to them.
+  - **Level 2 (team coverage):** same-team officers can also view each other's
+    cases (e.g. vacation/absence coverage), no approval needed.
+  - **Level 3 (full portfolio):** manager-only, self-service (the manager role *is*
+    the approval authority) — every escalation is logged.
+
+  Every read of a student's financial detail and every action taken must be
+  attributable to a logged-in user.
 - **POPIA:** this module processes special personal information (identifiable
   students' financial position and funding status). A POPIA impact assessment is a
   prerequisite to go-live (see business case, Section 6). Data retention period for
