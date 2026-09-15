@@ -22,7 +22,7 @@
   </div>
   <div style="width:130px;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
     <span class="mono" style="font-size:16px;font-weight:700;color:var(--fg-1)">{{ R(case.debt || case.credit) }}</span>
-    <span class="status" [style.background]="statusBg(case.rec.status)" [style.color]="statusColor(case.rec.status)">{{ case.rec.status }}</span>
+    <span class="status" [style.background]="statusBg(case.rec.status)" [style.color]="statusColor(case.rec.status)">{{ displayStatus }}</span>
     <span class="link" style="font-size:11.5px">Open case →</span>
   </div>
 </div>

@@ -327,18 +327,19 @@ describe('DebtService — engagement log (issue #14)', () => {
 
     const after = service.caseOf(service.caseRows()[0]).activity;
     expect(after.length).toBe(before + 1);
-    expect(after[after.length - 1]).toEqual({ t: 'SMS sent to student', m: 'Engagement Agent · Officer action' });
+    // Newest-first (#12): the entry just logged must be at the top of the panel.
+    expect(after[0]).toEqual({ t: 'SMS sent to student', m: 'Engagement Agent · Officer action' });
   });
 
-  it('preserves append order across multiple engagement actions (append-only)', () => {
+  it('renders the most recently logged action first (newest-first, #12)', () => {
     const id = firstDebtorId();
 
     service.logEngagementAction(id, { t: 'SMS sent to student', m: 'Engagement Agent · Officer action' });
     service.logEngagementAction(id, { t: 'Call logged with student', m: 'Engagement Agent · Officer action' });
 
     const activity = service.caseOf(service.caseRows()[0]).activity;
-    const tail = activity.slice(-2).map((e) => e.t);
-    expect(tail).toEqual(['SMS sent to student', 'Call logged with student']);
+    const head = activity.slice(0, 2).map((e) => e.t);
+    expect(head).toEqual(['Call logged with student', 'SMS sent to student']);
   });
 
   it('does not leak engagement entries between different debtors', () => {
@@ -385,7 +386,7 @@ describe('DebtService — officer decisions (issue #13)', () => {
     expect(after.decision).not.toBeNull();
     expect(after.decision!.action).toBe('Approved');
     expect(after.decision!.recommendationType).toBe(c.rec.type);
-    expect(after.activity[after.activity.length - 1].t).toContain('approved by');
+    expect(after.activity[0].t).toContain('approved by');
     expect(service.needsApproval(after)).toBeFalse();
   });
 
@@ -397,7 +398,7 @@ describe('DebtService — officer decisions (issue #13)', () => {
     const after = service.caseOf(c.d);
     expect(after.decision!.action).toBe('Amended');
     expect(after.decision!.amendedTerms).toEqual(amended);
-    expect(after.activity[after.activity.length - 1].t).toContain('amended and approved by');
+    expect(after.activity[0].t).toContain('amended and approved by');
   });
 
   it('declineCase() requires a reason to be stored and documents it on the decision and activity log', () => {
@@ -407,8 +408,8 @@ describe('DebtService — officer decisions (issue #13)', () => {
     const after = service.caseOf(c.d);
     expect(after.decision!.action).toBe('Declined');
     expect(after.decision!.reason).toBe('Student already on a verbal arrangement with the faculty');
-    expect(after.activity[after.activity.length - 1].t).toContain('declined by');
-    expect(after.activity[after.activity.length - 1].t).toContain('Student already on a verbal arrangement');
+    expect(after.activity[0].t).toContain('declined by');
+    expect(after.activity[0].t).toContain('Student already on a verbal arrangement');
   });
 
   it('does not leak a decision between different debtors', () => {

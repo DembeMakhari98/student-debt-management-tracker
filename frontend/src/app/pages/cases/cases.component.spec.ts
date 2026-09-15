@@ -103,14 +103,27 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
   it('AC6 — the activity log renders every entry with its text and source, newest-first per Section 4.6', () => {
     const sel = component.selected()!;
     expect(sel.activity.length).toBeGreaterThan(0);
-    expect(sel.activity[0].t).toContain('Risk scored');
-    expect(sel.activity[0].m).toContain('Risk Sentinel');
+    // "Risk scored" is the nightly run's very first step chronologically, so newest-first
+    // ordering must sort it last, not first.
+    const riskScoredIndex = sel.activity.findIndex((a) => a.t.includes('Risk scored'));
+    expect(riskScoredIndex).toBe(sel.activity.length - 1);
+    expect(sel.activity[riskScoredIndex].m).toContain('Risk Sentinel');
 
     const text = fixture.nativeElement.textContent as string;
     sel.activity.forEach((a) => {
       expect(text).toContain(a.t);
       expect(text).toContain(a.m);
     });
+  });
+
+  it('AC6 — an action logged after the nightly run appears above it, confirming newest-first ordering', () => {
+    const id = component.selected()!.d.id;
+    debt.logEngagementAction(id, { t: 'Follow-up call logged', m: 'Officer decision · Test Officer' });
+    fixture.detectChanges();
+
+    const sel = component.selected()!;
+    expect(sel.activity[0].t).toBe('Follow-up call logged');
+    expect(sel.activity[sel.activity.length - 1].t).toContain('Risk scored');
   });
 });
 
