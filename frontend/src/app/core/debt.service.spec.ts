@@ -13,6 +13,7 @@ function debtor(overrides: Partial<Debtor>): Debtor {
     missed: 0,
     lastPay: '01 Jan 2026',
     arrangement: null,
+    assignedOfficer: 'nomsa-mahlangu',
     ageing: { current: 0, d30: 0, d60: 0, d90: 0, d120: 0 },
     ...overrides,
   };
@@ -170,6 +171,10 @@ describe('DebtService — autonomy gating (issue #8)', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({});
     service = TestBed.inject(DebtService);
+    // These tests predate portfolio scoping (issue #18) and assert against the whole
+    // mock dataset — widen to the full portfolio so that behaviour is unaffected.
+    service.setCurrentOfficer('grace-van-rooyen');
+    service.setPortfolioScope('all');
   });
 
   // One fixture per rule, matching the fixtures proven in the issue #7 describe above.
@@ -302,6 +307,10 @@ describe('DebtService — engagement log (issue #14)', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({});
     service = TestBed.inject(DebtService);
+    // Predates portfolio scoping (issue #18) and assumes caseRows() spans the whole
+    // mock dataset — widen to the full portfolio so that assumption still holds.
+    service.setCurrentOfficer('grace-van-rooyen');
+    service.setPortfolioScope('all');
   });
 
   function firstDebtorId(): string {
@@ -350,6 +359,10 @@ describe('DebtService — officer decisions (issue #13)', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({});
     service = TestBed.inject(DebtService);
+    // Predates portfolio scoping (issue #18) and assumes caseRows() spans the whole
+    // mock dataset — widen to the full portfolio so that assumption still holds.
+    service.setCurrentOfficer('grace-van-rooyen');
+    service.setPortfolioScope('all');
   });
 
   function firstCase() {
@@ -406,5 +419,134 @@ describe('DebtService — officer decisions (issue #13)', () => {
     service.approveCase(a);
 
     expect(service.caseOf(b).decision).toBeNull();
+  });
+});
+
+describe('DebtService — portfolio access control (issue #18)', () => {
+  let service: DebtService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(DebtService);
+  });
+
+  it('inPortfolio() — own scope only matches the exact assigned officer', () => {
+    const d = debtor({ assignedOfficer: 'sibusiso-khoza' });
+    const nomsa = service.currentOfficer(); // default signed-in officer
+    const sibusiso = service.officerOf('sibusiso-khoza')!;
+
+    expect(service.inPortfolio(d, nomsa, 'own')).toBeFalse();
+    expect(service.inPortfolio(d, sibusiso, 'own')).toBeTrue();
+  });
+
+  it('inPortfolio() — team scope matches same-team officers, not other teams', () => {
+    const d = debtor({ assignedOfficer: 'sibusiso-khoza' }); // Team A
+    const nomsa = service.officerOf('nomsa-mahlangu')!; // Team A
+    const anele = service.officerOf('anele-dube')!; // Team B
+
+    expect(service.inPortfolio(d, nomsa, 'team')).toBeTrue();
+    expect(service.inPortfolio(d, anele, 'team')).toBeFalse();
+  });
+
+  it('inPortfolio() — all scope matches every debtor regardless of assignment or team', () => {
+    const d = debtor({ assignedOfficer: 'thato-mokoena' });
+    const manager = service.officerOf('grace-van-rooyen')!;
+
+    expect(service.inPortfolio(d, manager, 'all')).toBeTrue();
+  });
+
+  it('setPortfolioScope("all") is a no-op for a non-manager officer', () => {
+    expect(service.currentOfficer().role).toBe('officer'); // default nomsa-mahlangu
+
+    service.setPortfolioScope('all');
+
+    expect(service.portfolioScope()).toBe('own');
+    expect(service.portfolioEscalations().length).toBe(0);
+  });
+
+  it('setPortfolioScope("all") succeeds for a manager and logs the escalation', () => {
+    service.setCurrentOfficer('grace-van-rooyen');
+
+    service.setPortfolioScope('all');
+
+    expect(service.portfolioScope()).toBe('all');
+    expect(service.portfolioEscalations().length).toBe(1);
+    expect(service.portfolioEscalations()[0].by).toBe('Grace van Rooyen');
+  });
+
+  it('setCurrentOfficer() resets scope back to "own"', () => {
+    service.setCurrentOfficer('grace-van-rooyen');
+    service.setPortfolioScope('all');
+    expect(service.portfolioScope()).toBe('all');
+
+    service.setCurrentOfficer('anele-dube');
+
+    expect(service.portfolioScope()).toBe('own');
+  });
+
+  it('caseRows() reflects the current officer\'s own caseload by default, and changes with the officer', () => {
+    const nomsaIds = service.caseRows().map((d) => d.id);
+    expect(nomsaIds.length).withContext('the default officer must have at least one case').toBeGreaterThan(0);
+    expect(service.caseRows().every((d) => d.assignedOfficer === 'nomsa-mahlangu')).toBeTrue();
+
+    service.setCurrentOfficer('sibusiso-khoza');
+
+    expect(service.caseRows().every((d) => d.assignedOfficer === 'sibusiso-khoza')).toBeTrue();
+    expect(service.caseRows().map((d) => d.id)).not.toEqual(nomsaIds);
+  });
+
+  it('team scope only ever grows the visible set relative to own scope, never shrinks it', () => {
+    const ownIds = new Set(service.caseRows().map((d) => d.id));
+
+    service.setPortfolioScope('team');
+    const teamIds = new Set(service.caseRows().map((d) => d.id));
+
+    ownIds.forEach((id) => expect(teamIds.has(id)).withContext(id).toBeTrue());
+  });
+
+  it('setCase() logs exactly one access entry per distinct case, not on re-selecting the same one', () => {
+    const d = service.caseRows()[0];
+    expect(service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log')).length).toBe(0);
+
+    service.setCase(d.id);
+    let entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
+    expect(entries.length).toBe(1);
+    expect(entries[0].t).toContain('Nomsa Mahlangu');
+
+    service.setCase(d.id); // re-selecting the same case
+    entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
+    expect(entries.length).toBe(1);
+  });
+
+  it('exportCsv() only exports the officer\'s own portfolio, not the whole book', async () => {
+    const scopedCount = service
+      .rows()
+      .filter((d) => service.inPortfolio(d, service.currentOfficer(), service.portfolioScope())).length;
+    expect(scopedCount).withContext('sanity: the default officer\'s portfolio must be a strict subset').toBeLessThan(service.rows().length);
+
+    let capturedBlob!: Blob;
+    spyOn(URL, 'createObjectURL').and.callFake((b: Blob) => {
+      capturedBlob = b;
+      return 'blob:mock-url';
+    });
+    spyOn(URL, 'revokeObjectURL');
+    spyOn(HTMLAnchorElement.prototype, 'click');
+
+    service.exportCsv();
+
+    const text = await capturedBlob.text();
+    const dataLineCount = text.trim().split('\n').length - 1; // minus the header row
+    expect(dataLineCount).toBe(scopedCount);
+  });
+
+  it('Home\'s allPickedRows()/allPayingRows() stay institution-wide regardless of officer/scope', () => {
+    const beforeIds = service.allPickedRows().map((d) => d.id);
+    const nomsaScopedIds = service.pickedRows().map((d) => d.id);
+
+    service.setCurrentOfficer('sibusiso-khoza');
+
+    expect(service.allPickedRows().map((d) => d.id)).toEqual(beforeIds); // unchanged by officer switch
+    expect(service.pickedRows().map((d) => d.id)).not.toEqual(nomsaScopedIds); // the scoped counterpart does change
+    expect(service.pickedRows().every((d) => d.assignedOfficer === 'sibusiso-khoza')).toBeTrue();
   });
 });

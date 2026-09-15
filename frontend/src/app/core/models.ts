@@ -27,7 +27,24 @@ export interface Debtor {
   creditSince?: string;
   creditDays?: number;
   creditReason?: string;
+  /** Which officer's caseload this debtor belongs to (issue #18) — an Officer.id. */
+  assignedOfficer: string;
 }
+
+/** Whether an officer can self-escalate to the full portfolio view (issue #18). */
+export type OfficerRole = 'officer' | 'manager';
+
+/** A debt-recovery officer or manager (issue #18, POPIA impact assessment §5). */
+export interface Officer {
+  id: string;
+  name: string;
+  team: string;
+  role: OfficerRole;
+}
+
+/** How wide a slice of the book the current officer can see (issue #18, POPIA §5):
+ *  own caseload / same-team coverage / full portfolio (manager-only). */
+export type PortfolioScope = 'own' | 'team' | 'all';
 
 export type RiskBand = 'Watch' | 'Elevated' | 'High';
 

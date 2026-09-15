@@ -45,8 +45,10 @@ export class HomeComponent {
 
   constructor(public debt: DebtService) {}
 
-  readonly picked = computed(() => this.debt.pickedRows().length);
-  readonly paying = computed(() => this.debt.payingRows().length);
+  /** Institution-wide counts, deliberately not portfolio-scoped (issue #18 non-goal) —
+   *  Home is an aggregate dashboard, not case-level work. */
+  readonly picked = computed(() => this.debt.allPickedRows().length);
+  readonly paying = computed(() => this.debt.allPayingRows().length);
 
   onYearChange(value: string): void {
     this.debt.setYear(value === 'all' ? 'all' : Number(value));

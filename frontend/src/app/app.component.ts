@@ -2,7 +2,8 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { DebtService } from './core/debt.service';
 import { LEVELS } from './core/constants';
-import { FundKey } from './core/models';
+import { OFFICERS } from './core/officers';
+import { FundKey, PortfolioScope } from './core/models';
 
 interface TabDef {
   path: string;
@@ -20,6 +21,7 @@ interface TabDef {
 })
 export class AppComponent {
   readonly levels = LEVELS;
+  readonly officers = OFFICERS;
 
   readonly tabs: TabDef[] = [
     { path: 'home', label: 'Home', badge: () => '' },
@@ -42,6 +44,18 @@ export class AppComponent {
   }
   onAutonomyChange(value: string): void {
     this.debt.setAutonomy(Number(value));
+  }
+  onOfficerChange(value: string): void {
+    this.debt.setCurrentOfficer(value);
+  }
+  onScopeChange(value: string): void {
+    this.debt.setPortfolioScope(value as PortfolioScope);
+  }
+  initialsOf(name: string): string {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('');
   }
   export(): void {
     this.debt.exportCsv();
