@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { AGE_BUCKETS, AGENTS, AS_AT, CURRENT_OFFICER, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
+import { AGE_BUCKETS, AGENTS, AS_AT, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
 import { DEBTORS, YEARS } from './mock-data';
 import { OFFICERS } from './officers';
 import {
@@ -166,8 +166,9 @@ export class DebtService {
     d: Debtor,
     action: DecisionAction,
     extra: Partial<Pick<Decision, 'amendedTerms' | 'reason'>>,
-    actor: string = CURRENT_OFFICER,
+    actor: string = this.currentOfficer().name,
     precomputedRec?: Recommendation,
+    isAuto = false,
   ): void {
     const rec = precomputedRec ?? this.recommend(d);
     const decision: Decision = {
@@ -181,7 +182,6 @@ export class DebtService {
     next.set(d.id, decision);
     this.decisions.set(next);
 
-    const isAuto = actor !== CURRENT_OFFICER;
     const verb = action === 'Approved' ? 'approved' : action === 'Amended' ? 'amended and approved' : 'declined';
     this.logEngagementAction(d.id, {
       t: `Recommendation ${verb} by ${actor}` + (action === 'Declined' ? ` — ${extra.reason}` : ''),
@@ -223,7 +223,7 @@ export class DebtService {
       const rec = this.recommend(d);
       if (this.decisionOf(d, rec)) continue;
       if (!this.autoEligible(rec, level)) continue;
-      this.decide(d, 'Approved', {}, `Autonomous Agent (Level ${level})`, rec);
+      this.decide(d, 'Approved', {}, `Autonomous Agent (Level ${level})`, rec, true);
     }
   }
 
@@ -535,7 +535,9 @@ export class DebtService {
       signals: this.signalsOf(d),
       rec,
       evidence: this.evidenceOf(d),
-      activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])],
+      /* activityOf() + engagementLog are built oldest-first (nightly run, then same-day
+         officer/agent actions); reverse for display so the panel reads newest-first (#12). */
+      activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])].reverse(),
       decision: this.decisionOf(d, rec),
     };
   }
