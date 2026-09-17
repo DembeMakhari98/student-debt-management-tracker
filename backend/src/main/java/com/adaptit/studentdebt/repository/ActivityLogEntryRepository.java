@@ -8,4 +8,6 @@ import java.util.List;
 public interface ActivityLogEntryRepository extends JpaRepository<ActivityLogEntry, java.util.UUID> {
 
     List<ActivityLogEntry> findAllByDebtorKeyOrderByCreatedAtDesc(String debtorKey);
+
+    void deleteAllByDebtorKey(String debtorKey);
 }
