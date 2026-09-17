@@ -228,20 +228,21 @@ Status as of the BA's 2026-09-08 answer to this assessment's open questions:
 
 ## 8. Sign-off
 
-**Status: REVIEWER IDENTIFIED, SIGN-OFF STILL PENDING.** The Registrar's Office
-Information Officer/Compliance Officer has been designated as the sign-off authority
-(BA answer, 2026-09-08 — see Follow-up item 1). Written sign-off is due **2026-09-22**
-and is a **blocking** requirement — this module must not process real student data in
-production before this section is completed (TECHNICAL_SPECIFICATION.md §7). Deploying
-without it is a POPIA violation with institutional exposure up to 10% of annual
-revenue, per the BA's risk note.
+**Status: REVIEWER CONFIRMED, SIGN-OFF STILL PENDING.** Dembe Makhari has been
+confirmed (2026-09-10, in person) as the Registrar's Office Information
+Officer/Compliance Officer — the sign-off authority for this module (BA answer,
+2026-09-08 — see Follow-up item 1). Written sign-off is due **2026-09-22** and is a
+**blocking** requirement — this module must not process real student data in
+production before this section is completed (TECHNICAL_SPECIFICATION.md §7).
+Deploying without it is a POPIA violation with institutional exposure up to 10% of
+annual revenue, per the BA's risk note.
 
 | Field | Value |
 |---|---|
-| Reviewer name/role | Registrar's Office — Information Officer/Compliance Officer (named individual TBC — due 2026-09-10) |
+| Reviewer name/role | Dembe Makhari — Information Officer/Compliance Officer, Registrar's Office |
 | Date reviewed | _Scheduled 2026-09-15 — not yet held_ |
-| Decision | _Pending_ |
-| Conditions attached to approval, if any | _—_ |
+| Decision (Approved / Not Approved) | _Pending_ |
+| Reason (if not approved) | _—_ |
 
 **Pre-launch compliance checklist** (BA answer, 2026-09-08 — all still outstanding):
 
