@@ -10,4 +10,6 @@ public interface DebtorRepository extends JpaRepository<Debtor, String> {
     List<Debtor> findAllByFinancialYear(Integer financialYear);
 
     List<Debtor> findAllByOrderByFinancialYearAsc();
+
+    List<Debtor> findAllByStudentId(String studentId);
 }
