@@ -1,7 +1,7 @@
 # POPIA Impact Assessment — Student Pro-active Debt Management Tracker
 
 **Ticket:** [#19](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/19)
-**Status:** Reviewer identified, sign-off pending (due 2026-09-22) — see Section 8.
+**Status:** Signed off — **Approved**, no conditions (2026-09-22) — see Section 8.
 Access-scoping (Section 5) and retention (Section 6) recommendations are confirmed;
 see Section 7 for what's still open.
 **Spec reference:** TECHNICAL_SPECIFICATION.md §7 (Non-Functional Requirements — POPIA);
@@ -68,8 +68,11 @@ ordinary financial data.
 
 ### 2.2 Sources (read) and write-back
 
-- **Read:** ITS Integrator — Debtors, Student Fees, Student Funding, Student Records,
-  Cashiering (reconciliation only).
+- **Read:** Mock data — Debtors, Student Fees, Student Funding, Student Records,
+  Cashiering (reconciliation only). Reviewer sign-off (Section 8, 2026-09-22) is
+  explicitly scoped to this current mock-data implementation; a live ITS Integrator
+  read connection is a re-assessment trigger before go-live with real student data,
+  per Follow-up item 4.
 - **Write-back:** every agent action, its rationale, and its evidence is written to the
   student's ITS Integrator record. This write-back *is* the audit trail
   (TECHNICAL_SPECIFICATION.md §4.6, §7 Auditability) and must itself be treated as
@@ -126,7 +129,7 @@ rows already named there are carried through, with POPIA-condition references ad
 | Students not informed their financial data feeds an automated decision system | High (unaddressed today; plan and deadline now set — 2026-09-25) | Medium | Privacy notice across 4 channels, per BA answer (Follow-up item 3) — tracked as [#36](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/36) | Compliance / Registrar | Openness |
 | Funding-status weighting effectively penalises a student for a delay outside their control (e.g. NSFAS pending) | Medium (recommendation given; formal sign-off due 2026-09-30) | High | Keep weights, add contextual flags + officer override + monthly fairness audit ("Option B", BA answer, Follow-up item 5); human approval required on every funding-related action during rollout regardless of autonomy level (existing Business Case mitigation) | Student Funding office | Processing Limitation, fairness (not a POPIA condition per se, but adjacent) |
 | Autonomy over-reach — an automated action taken without adequate human oversight | Low (mitigated by design) | High | Registration holds and refunds permanently excluded from autonomous action at any level (existing Business Case mitigation, TECHNICAL_SPECIFICATION.md §5.10, implemented in #8) | Engineering | Accountability |
-| No named Information Officer / sign-off authority for this specific module | Medium (reviewer body identified — Registrar's Office; named individual and actual sign-off still pending, due 2026-09-22) | Medium (blocks go-live gate, not a live processing risk) | Sign-off scheduled per Section 8 | Compliance | Accountability |
+| No named Information Officer / sign-off authority for this specific module | **Resolved** — signed off, Approved, 2026-09-22 (Section 8) | Medium (was blocking go-live gate) | Sign-off obtained from Dembe Makhari, Registrar's Office, no conditions | Compliance | Accountability |
 
 ---
 
@@ -196,11 +199,9 @@ and Finance Director confirmation (due 2026-09-12).
 Status as of the BA's 2026-09-08 answer to this assessment's open questions:
 
 1. **Assign an Information Officer / compliance sign-off authority for this module —
-   IN PROGRESS, no longer unowned.** The Registrar's Office (Information
-   Officer/Compliance Officer) has been identified as the designated reviewer — they
-   hold institutional authority over student records management and POPIA
-   compliance. Written sign-off is due **2026-09-22** (blocking — see Section 8) after
-   a formal review meeting scheduled for 2026-09-15.
+   RESOLVED.** The Registrar's Office (Information Officer/Compliance Officer, Dembe
+   Makhari) reviewed and signed off **Approved, no conditions**, on **2026-09-22**
+   (see Section 8).
 2. **Confirm the institutional records-retention policy — RESOLVED, 7 years
    confirmed** (Section 6). Only the cross-check against any existing institutional
    policy (Records Management, due 2026-09-10) and Finance Director confirmation
@@ -228,25 +229,25 @@ Status as of the BA's 2026-09-08 answer to this assessment's open questions:
 
 ## 8. Sign-off
 
-**Status: REVIEWER CONFIRMED, SIGN-OFF STILL PENDING.** Dembe Makhari has been
-confirmed (2026-09-10, in person) as the Registrar's Office Information
-Officer/Compliance Officer — the sign-off authority for this module (BA answer,
-2026-09-08 — see Follow-up item 1). Written sign-off is due **2026-09-22** and is a
-**blocking** requirement — this module must not process real student data in
-production before this section is completed (TECHNICAL_SPECIFICATION.md §7).
-Deploying without it is a POPIA violation with institutional exposure up to 10% of
-annual revenue, per the BA's risk note.
+**Status: SIGNED OFF — APPROVED.** Dembe Makhari, Registrar's Office Information
+Officer/Compliance Officer — the confirmed sign-off authority for this module (BA
+answer, 2026-09-08 — see Follow-up item 1) — reviewed and approved this assessment on
+**2026-09-22**, within the **2026-09-22** deadline (TECHNICAL_SPECIFICATION.md §7).
+This approval is explicitly scoped to the current mock-data implementation (Section
+2.2) — a live ITS Integrator connection is a re-assessment trigger before go-live with
+real student data.
 
 | Field | Value |
 |---|---|
 | Reviewer name/role | Dembe Makhari — Information Officer/Compliance Officer, Registrar's Office |
-| Date reviewed | _Scheduled 2026-09-15 — not yet held_ |
-| Decision (Approved / Not Approved) | _Pending_ |
-| Reason (if not approved) | _—_ |
+| Date reviewed | 2026-09-22 |
+| Decision (Approved / Not Approved) | **Approved** |
+| Reason (if not approved) | — |
+| Conditions attached to approval | None |
 
-**Pre-launch compliance checklist** (BA answer, 2026-09-08 — all still outstanding):
+**Pre-launch compliance checklist** (BA answer, 2026-09-08):
 
-- [ ] POPIA sign-off — Registrar's Info Officer approval (due 2026-09-22)
+- [x] POPIA sign-off — Registrar's Info Officer approval (Approved, 2026-09-22)
 - [ ] Retention policy confirmed against institutional policy (due 2026-09-15)
 - [ ] Access controls — caseload scoping implemented, #18 (due 2026-10-07)
 - [ ] Student privacy notice live (due 2026-09-25)
