@@ -24,7 +24,8 @@ import static org.mockito.Mockito.when;
 /**
  * Verifies a decided case resolves out of "Needs approval" only while the decision still matches
  * the current recommendation type — a re-score that changes the recommendation reopens the case
- * (issue #13, AC6).
+ * (issue #13, AC6). Also verifies a debtor in credit is never scored/banded (issue #4,
+ * TECHNICAL_SPECIFICATION.md §4.2).
  */
 class RowAssemblerTest {
 
@@ -98,5 +99,28 @@ class RowAssemblerTest {
 
         assertThat(row.recommendation().status()).isEqualTo("Needs approval");
         assertThat(row.lastDecision()).isNull();
+    }
+
+    @Test
+    void creditDebtorIsBandedCreditNotWatchElevatedOrHigh() {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(any(), any()))
+                .thenReturn(Optional.empty());
+
+        Debtor d = new Debtor();
+        d.setDebtorKey("STU-CREDIT-2026");
+        d.setStudentId("STU-CREDIT");
+        d.setName("Credit Student");
+        d.setFinancialYear(2026);
+        d.setProgramme("Test Programme");
+        d.setFundingSource(FundingSource.SELF);
+        d.setFundingStatus("Self-funded");
+        d.setAgeingCurrent(BigDecimal.valueOf(-20000)); // institution owes the student
+
+        DebtorRowDto row = rowAssembler.toRow(d, Map.of("Self-funded", 4));
+
+        assertThat(row.owedToStudent()).isTrue();
+        assertThat(row.riskBand()).isEqualTo("CREDIT");
+        assertThat(row.riskScore()).isZero();
+        assertThat(row.credit()).isEqualByComparingTo(BigDecimal.valueOf(20000));
     }
 }
