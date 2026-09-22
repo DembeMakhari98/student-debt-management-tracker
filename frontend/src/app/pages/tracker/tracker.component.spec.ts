@@ -19,6 +19,10 @@ describe('TrackerComponent — Debt Management Tracker workspace (issue #11)', (
     fixture = TestBed.createComponent(TrackerComponent);
     component = fixture.componentInstance;
     debt = TestBed.inject(DebtService);
+    // Predates portfolio scoping (issue #18) and assumes the rendered lists span the
+    // whole mock dataset — widen to the full portfolio so that assumption still holds.
+    debt.setCurrentOfficer('grace-van-rooyen');
+    debt.setPortfolioScope('all');
     fixture.detectChanges();
   });
 
