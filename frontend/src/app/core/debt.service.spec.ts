@@ -366,6 +366,10 @@ describe('DebtService — CSV export (issue #17)', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({});
     service = TestBed.inject(DebtService);
+    // Predates portfolio scoping (issue #18) and assumes exportCsv()/rows() span the whole
+    // mock dataset — widen to the full portfolio so that assumption still holds.
+    service.setCurrentOfficer('grace-van-rooyen');
+    service.setPortfolioScope('all');
   });
 
   /** Runs exportCsv() without triggering a real download; returns the generated anchor and CSV text. */
