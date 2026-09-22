@@ -567,21 +567,20 @@ Band, Picked up by agent, AI recommendation, Status, Policy
   900px, and 820px that progressively collapse the KPI grid, two-column layouts, and
   chrome to single-column/stacked layouts. Match this behaviour or replace it with the
   organisation's standard responsive breakpoints if one exists.
-- **Browser support** `[TO CONFIRM against Adapt IT's standard support matrix]`.
+- **Browser support** — **[ANSWERED, issue #21, 2026-09-22]**: Microsoft Edge version 10
+  and above, and Google Chrome.
 
 ---
 
 ## 8. Suggested Tech Stack
 
-`[TO CONFIRM against ITS Integrator's existing stack — the below assumes no existing
-constraint and should be reconciled with the platform team before build.]`
+**[ANSWERED, issue #21, 2026-09-22]** Angular (web app) and Spring Boot (Debt Tracker
+Service) are confirmed as aligned with ITS Integrator's existing stack.
 
-- **Web app:** any component framework consistent with ITS Integrator's existing
-  front-end (the prototype is framework-agnostic vanilla JS/HTML/CSS and can be treated
-  as a design/behaviour reference, not a code base to extend).
-- **Debt Tracker Service:** a scheduled job (nightly) plus a query API the web app
-  calls — language/runtime should match ITS Integrator's existing service stack for
-  operability.
+- **Web app:** Angular (the prototype is framework-agnostic vanilla JS/HTML/CSS and can
+  be treated as a design/behaviour reference, not a code base to extend).
+- **Debt Tracker Service:** Spring Boot — a scheduled job (nightly) plus a query API the
+  web app calls.
 - **Notification dispatch:** integrate with Adapt IT's existing SMS/WhatsApp gateway,
   if one exists, rather than procuring a new one `[TO CONFIRM]`.
 
@@ -621,6 +620,8 @@ constraint and should be reconciled with the platform team before build.]`
 8. Nightly job completion window and current debtor-book size (Section 7) —
    **[ANSWERED, issue #1, 2026-09-08]**: no reporting exists yet to confirm either
    number.
-9. Browser support matrix (Section 7).
-10. Tech stack alignment with existing ITS Integrator services (Section 8).
+9. Browser support matrix (Section 7) — **[ANSWERED, issue #21, 2026-09-22]**: Edge
+   version 10+ and Chrome.
+10. Tech stack alignment with existing ITS Integrator services (Section 8) —
+    **[ANSWERED, issue #21, 2026-09-22]**: Angular + Spring Boot confirmed.
 11. Existing SMS/WhatsApp gateway to integrate with, if any (Section 8).
