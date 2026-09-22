@@ -1,13 +1,15 @@
 # Student Privacy Notice — Automated Debt Risk-Scoring and Recommendations
 
 **Ticket:** [#36](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/36)
-**Status:** Draft — awaiting Compliance/Registrar approval before publishing to any channel.
+**Status:** **Wording approved** by Dembe Makhari (Registrar's Office Information
+Officer/Compliance Officer), 2026-09-22, via Teams. Still blocked on Debt Management
+Office and Information Officer contact details (see §4 open items) before any channel
+can go live.
 **Source:** Addresses the Openness-condition gap identified in the POPIA impact
 assessment ([#19](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/19),
 `docs/compliance/popia-impact-assessment.md` §3 condition 6, §7 follow-up item 3).
 **Owner:** Registrar / Debt Management Office — engineering drafted this as a starting
-point; content and final wording require Compliance/Registrar sign-off before going
-live.
+point; wording is now approved by Compliance/Registrar (above).
 
 ---
 
@@ -94,7 +96,8 @@ still open — so this insert is ready for when that channel exists.)*
 
 ## 4. Open items before publishing
 
-- [ ] Compliance/Registrar review and approval of wording above
+- [x] Compliance/Registrar review and approval of wording above — approved by Dembe
+      Makhari, 2026-09-22 (Teams)
 - [ ] Fill in Debt Management Office and Information Officer contact details
 - [ ] Confirm the institution's existing POPIA/PAIA request channel to reference
 - [ ] Registration team to insert §2 into the registration privacy notice
