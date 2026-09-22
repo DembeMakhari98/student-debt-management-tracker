@@ -1,11 +1,10 @@
 {
-  "$schema": "../dev-its-workflow/config.schema.json",
+  "$schema": "./config.schema.json",
   "version": "1.0",
   "team": {
-    "name": "Student Debt Management Tracker",
+    "name": "Adapt IT",
     "reviewers": [
-      { "name": "DembeMakhari98", "github": "DembeMakhari98" },
-      { "name": "Oamogetswe-Makgopela", "github": "Oamogetswe-Makgopela" },
+      { "name": "Dembe Makhari", "github": "DembeMakhari98" },
       { "name": "Linda50-adaptit", "github": "Linda50-adaptit" }
     ]
   },
@@ -13,8 +12,8 @@
     "backend": "github",
     "org": "DembeMakhari98",
     "name": "student-debt-management-tracker",
-    "base_branch": "feat/frontend-backend-scaffold",
-    "branch_prefix": "feat/",
+    "base_branch": "main",
+    "branch_prefix": "feature/",
     "commit_style": "conventional"
   },
   "tools": {
