@@ -21,9 +21,21 @@
           <option [value]="i + 1" [selected]="debt.autonomy() === i + 1">Autonomy {{ l.name }} — {{ l.hint }}</option>
         }
       </select>
+      <select class="aut-select" aria-label="Portfolio scope" (change)="onScopeChange($any($event.target).value)">
+        <option value="own" [selected]="debt.portfolioScope() === 'own'">My caseload</option>
+        <option value="team" [selected]="debt.portfolioScope() === 'team'">My team</option>
+        @if (debt.currentOfficer().role === 'manager') {
+          <option value="all" [selected]="debt.portfolioScope() === 'all'">Full portfolio</option>
+        }
+      </select>
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="avatar">NM</div>
-        <div class="who"><b>Nomsa Mahlangu</b><span>Student debt officer</span></div>
+        <select class="aut-select" aria-label="Signed in as" (change)="onOfficerChange($any($event.target).value)">
+          @for (o of officers; track o.id) {
+            <option [value]="o.id" [selected]="debt.currentOfficerId() === o.id">{{ o.name }} — {{ o.team }}{{ o.role === 'manager' ? ' (Manager)' : '' }}</option>
+          }
+        </select>
+        <div class="avatar">{{ initialsOf(debt.currentOfficer().name) }}</div>
+        <div class="who"><b>{{ debt.currentOfficer().name }}</b><span>{{ debt.currentOfficer().role === 'manager' ? 'Debt manager' : 'Student debt officer' }}</span></div>
       </div>
     </div>
   </div>

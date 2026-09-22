@@ -7,7 +7,6 @@ import com.adaptit.studentdebt.dto.DecisionDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
-import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.web.NotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +52,7 @@ public class CaseService {
 
         DecisionDto lastDecision = officerDecisionRepository.findAllByDebtorKeyOrderByDecidedAtDesc(debtorKey)
                 .stream().findFirst()
-                .map(this::toDecisionDto)
+                .map(DecisionDto::from)
                 .orElse(null);
 
         return new CaseDetailDto(
@@ -61,9 +60,5 @@ public class CaseService {
                 caseAssemblyService.evidenceOf(d),
                 activity,
                 lastDecision);
-    }
-
-    private DecisionDto toDecisionDto(OfficerDecision od) {
-        return new DecisionDto(od.getAction().name(), od.getAmendedTerms(), od.getReason(), od.getDecidedBy(), od.getDecidedAt());
     }
 }
