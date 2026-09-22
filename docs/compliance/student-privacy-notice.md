@@ -2,9 +2,10 @@
 
 **Ticket:** [#36](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/36)
 **Status:** **Wording approved** by Dembe Makhari (Registrar's Office Information
-Officer/Compliance Officer), 2026-09-22, via Teams. Still blocked on Debt Management
-Office and Information Officer contact details (see §4 open items) before any channel
-can go live.
+Officer/Compliance Officer), 2026-09-22, via Teams. Contact details filled in as an
+interim placeholder (Dembe.Makhari@adaptit.com — see §4). Remaining blockers are
+outside engineering: each channel owner (registration, student portal, debt office)
+still needs to actually publish §1/§2, and §3 waits on #9 (SMS dispatch).
 **Source:** Addresses the Openness-condition gap identified in the POPIA impact
 assessment ([#19](https://github.com/DembeMakhari98/student-debt-management-tracker/issues/19),
 `docs/compliance/popia-impact-assessment.md` §3 condition 6, §7 follow-up item 3).
@@ -63,10 +64,9 @@ point; wording is now approved by Compliance/Registrar (above).
 > student account through normal Debtors/Fees channels.
 >
 > **Questions or concerns**
-> Contact the Debt Management Office: _[contact details — email/phone/office
-> location to be filled in by Registrar's Office]_
+> Contact the Debt Management Office: Dembe.Makhari@adaptit.com
 > For formal data-protection queries, contact the Institution's Information Officer:
-> _[contact details — to be filled in by Registrar's Office]_
+> Dembe.Makhari@adaptit.com
 
 ---
 
@@ -98,7 +98,9 @@ still open — so this insert is ready for when that channel exists.)*
 
 - [x] Compliance/Registrar review and approval of wording above — approved by Dembe
       Makhari, 2026-09-22 (Teams)
-- [ ] Fill in Debt Management Office and Information Officer contact details
+- [x] Fill in Debt Management Office and Information Officer contact details —
+      using Dembe.Makhari@adaptit.com for both, as an interim contact, per user
+      instruction 2026-09-22
 - [ ] Confirm the institution's existing POPIA/PAIA request channel to reference
 - [ ] Registration team to insert §2 into the registration privacy notice
 - [ ] Student portal owner to publish §1
