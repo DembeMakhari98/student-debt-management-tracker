@@ -1,15 +1,21 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { AGE_BUCKETS, AGENTS, AS_AT, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
 import { DEBTORS, YEARS } from './mock-data';
+import { OFFICERS } from './officers';
 import {
   ActivityEntry,
   CaseView,
   Debtor,
+  Decision,
+  DecisionAction,
   DebtSummary,
   FundKey,
+  Officer,
+  PortfolioScope,
   Recommendation,
   RiskBand,
   Signal as CaseSignal,
+  Term,
 } from './models';
 
 /** ZAR formatting matching the prototype's R(n) / R0(n) helpers. */
@@ -48,6 +54,50 @@ export class DebtService {
   readonly caseId = signal<string | null>(null);
   readonly autonomy = signal<number>(2);
 
+  /* =========================================================================
+     OFFICER IDENTITY & PORTFOLIO SCOPING (issue #18, POPIA impact assessment §5)
+     ========================================================================= */
+
+  readonly currentOfficerId = signal<string>('nomsa-mahlangu');
+  readonly portfolioScope = signal<PortfolioScope>('own');
+
+  officerOf(id: string): Officer | undefined {
+    return OFFICERS.find((o) => o.id === id);
+  }
+
+  readonly currentOfficer = computed<Officer>(() => this.officerOf(this.currentOfficerId())!);
+
+  /** Switching officer always resets to the narrowest scope — no carried-over broad view. */
+  setCurrentOfficer(id: string): void {
+    this.currentOfficerId.set(id);
+    this.portfolioScope.set('own');
+  }
+
+  /** Every Level 3 escalation, logged — not tied to any one debtor, so kept separate from
+   *  the per-case activity feed (`engagementLog`) below. */
+  private readonly portfolioEscalationLog = signal<{ by: string; team: string; at: string }[]>([]);
+  readonly portfolioEscalations = this.portfolioEscalationLog.asReadonly();
+
+  /** 'all' (Level 3) is manager-only, per the BA's model — a non-manager request is a no-op. */
+  setPortfolioScope(scope: PortfolioScope): void {
+    if (scope === 'all' && this.currentOfficer().role !== 'manager') return;
+    this.portfolioScope.set(scope);
+    if (scope === 'all') {
+      const officer = this.currentOfficer();
+      this.portfolioEscalationLog.set([
+        ...this.portfolioEscalationLog(),
+        { by: officer.name, team: officer.team, at: new Date().toISOString() },
+      ]);
+    }
+  }
+
+  /** Pure — safe to call from a computed(). */
+  inPortfolio(d: Debtor, officer: Officer, scope: PortfolioScope): boolean {
+    if (scope === 'all') return true;
+    if (scope === 'team') return this.officerOf(d.assignedOfficer)?.team === officer.team;
+    return d.assignedOfficer === officer.id;
+  }
+
   readonly yearLabel = computed(() => (this.year() === 'all' ? `all years (${YEAR_SPAN})` : String(this.year())));
   readonly yearShort = computed(() => (this.year() === 'all' ? 'all years' : String(this.year())));
   readonly scopeLabel = computed(
@@ -66,7 +116,17 @@ export class DebtService {
     this.funding.set(v);
     this.caseId.set(null);
   }
+  /** Logs an access entry (issue #18 — every read of a student's financial detail must be
+   *  attributable to a logged-in user) when opening a *different* case; re-selecting the
+   *  already-open one doesn't re-log. */
   setCase(id: string): void {
+    if (id !== this.caseId()) {
+      const officer = this.currentOfficer();
+      this.logEngagementAction(id, {
+        t: `Case detail viewed by ${officer.name}`,
+        m: `Access log · ${officer.name} (${officer.team})`,
+      });
+    }
     this.caseId.set(id);
   }
   setAutonomy(level: number): void {
@@ -87,6 +147,103 @@ export class DebtService {
   }
 
   /* =========================================================================
+     OFFICER DECISIONS (issue #13) — approve, amend or decline a case's current
+     recommendation. Frontend-only and session-lifetime, mirroring the backend's
+     OfficerDecision entity (technical spec §3.5): a decision is keyed to the
+     recommendation `type` it was made against, so a later re-score into a
+     different recommendation reopens the case instead of hiding it forever.
+     ========================================================================= */
+
+  private readonly decisions = signal<Map<string, Decision>>(new Map());
+
+  /** The stored decision for this debtor, or null if it's stale against the current recommendation. */
+  private decisionOf(d: Debtor, rec: Recommendation): Decision | null {
+    const stored = this.decisions().get(d.id);
+    return stored && stored.recommendationType === rec.type ? stored : null;
+  }
+
+  private decide(
+    d: Debtor,
+    action: DecisionAction,
+    extra: Partial<Pick<Decision, 'amendedTerms' | 'reason'>>,
+    actor: string = this.currentOfficer().name,
+    precomputedRec?: Recommendation,
+    isAuto = false,
+  ): void {
+    const rec = precomputedRec ?? this.recommend(d);
+    const decision: Decision = {
+      recommendationType: rec.type,
+      action,
+      decidedBy: actor,
+      decidedAt: new Date().toISOString(),
+      ...extra,
+    };
+    const next = new Map(this.decisions());
+    next.set(d.id, decision);
+    this.decisions.set(next);
+
+    const verb = action === 'Approved' ? 'approved' : action === 'Amended' ? 'amended and approved' : 'declined';
+    this.logEngagementAction(d.id, {
+      t: `Recommendation ${verb} by ${actor}` + (action === 'Declined' ? ` — ${extra.reason}` : ''),
+      m: `${isAuto ? 'Auto-decision' : 'Officer decision'} · ${actor}`,
+    });
+  }
+
+  /* =========================================================================
+     AUTONOMY-LEVEL GATING (issue #8, technical spec §5.10) — whether the system
+     is allowed to resolve a recommendation itself, and the explicit "scoring
+     run" that acts on that. Kept out of any computed()/caseOf() read path:
+     Angular forbids writing signals during a computed's evaluation, and the
+     ticket's own "takes effect from the next scoring run" wording calls for a
+     discrete, explicitly-invoked pass rather than continuous reactivity.
+     ========================================================================= */
+
+  private static readonly HARD_MANUAL_TYPES = new Set(['Refund', 'Registration hold']);
+
+  /** Pure — safe to call from anywhere, including a computed(). */
+  autoEligible(rec: Recommendation, level: number): boolean {
+    if (DebtService.HARD_MANUAL_TYPES.has(rec.type)) return false;
+    if (rec.status === 'Monitoring') return false;
+    if (level >= 4) return true;
+    if (level === 3) return rec.status === 'Agent acting';
+    return false;
+  }
+
+  /** Same case-selection rule as pickedRows()/refundRows() (picked-up or in-credit), but over
+   *  the full dataset rather than caseRows() — a scoring run must not silently skip cases
+   *  outside whatever year/funding filter the officer currently has selected in the UI. */
+  private allCases(): Debtor[] {
+    return DEBTORS.filter((d) => this.pickedUp(d) || this.owedToStudent(d));
+  }
+
+  /** Auto-resolves every not-yet-decided, eligible case at the current autonomy level. */
+  runAutonomousExecution(): void {
+    const level = this.autonomy();
+    for (const d of this.allCases()) {
+      const rec = this.recommend(d);
+      if (this.decisionOf(d, rec)) continue;
+      if (!this.autoEligible(rec, level)) continue;
+      this.decide(d, 'Approved', {}, `Autonomous Agent (Level ${level})`, rec, true);
+    }
+  }
+
+  /** Approves the case's current recommendation as-is (subject to the hard-rule autonomy gating
+   *  in technical spec §5.10: Registration hold and Refund always require this explicit click). */
+  approveCase(d: Debtor): void {
+    this.decide(d, 'Approved', {});
+  }
+
+  /** Officer-modified terms (e.g. instalment amount/count) approved in place of the AI's proposal. */
+  amendCase(d: Debtor, amendedTerms: Term[]): void {
+    this.decide(d, 'Amended', { amendedTerms });
+  }
+
+  /** Requires documented reasoning — the case remains unactioned. */
+  declineCase(d: Debtor, reason: string): void {
+    this.decide(d, 'Declined', { reason });
+  }
+
+  /* =========================================================================
      DERIVED SELECTORS — recomputed whenever year/funding change.
      ========================================================================= */
 
@@ -96,20 +253,32 @@ export class DebtService {
     return DEBTORS.filter((d) => (year === 'all' || d.year === year) && (funding === 'all' || d.funding === funding));
   });
 
-  readonly pickedRows = computed<Debtor[]>(() =>
+  /** Institution-wide, deliberately NOT portfolio-scoped (issue #18 non-goal) — Home's
+   *  aggregate dashboard KPIs are the only intended consumers. Everything else (Tracker,
+   *  Cases, CSV export) must use the scoped `pickedRows`/`refundRows`/`payingRows` below. */
+  readonly allPickedRows = computed<Debtor[]>(() =>
     this.rows()
       .filter((d) => this.pickedUp(d))
       .sort((a, b) => this.riskScore(b) - this.riskScore(a)),
   );
-
-  readonly refundRows = computed<Debtor[]>(() =>
+  readonly allRefundRows = computed<Debtor[]>(() =>
     this.rows()
       .filter((d) => this.owedToStudent(d))
       .sort((a, b) => this.rowTotal(a) - this.rowTotal(b)),
   );
-
-  readonly payingRows = computed<Debtor[]>(() =>
+  readonly allPayingRows = computed<Debtor[]>(() =>
     this.rows().filter((d) => this.rowDebt(d) > 0 && !this.pickedUp(d)),
+  );
+
+  /** Scoped to the current officer's portfolio (issue #18) — Tracker (#11) and Cases (#12). */
+  readonly pickedRows = computed<Debtor[]>(() =>
+    this.allPickedRows().filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope())),
+  );
+  readonly refundRows = computed<Debtor[]>(() =>
+    this.allRefundRows().filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope())),
+  );
+  readonly payingRows = computed<Debtor[]>(() =>
+    this.allPayingRows().filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope())),
   );
 
   readonly caseRows = computed<Debtor[]>(() => [...this.pickedRows(), ...this.refundRows()]);
@@ -356,6 +525,7 @@ export class DebtService {
 
   caseOf(d: Debtor): CaseView {
     const sc = this.riskScore(d);
+    const rec = this.recommend(d);
     return {
       d,
       score: sc,
@@ -363,10 +533,18 @@ export class DebtService {
       debt: this.rowDebt(d),
       credit: Math.abs(Math.min(0, this.rowTotal(d))),
       signals: this.signalsOf(d),
-      rec: this.recommend(d),
+      rec,
       evidence: this.evidenceOf(d),
-      activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])],
+      /* activityOf() + engagementLog are built oldest-first (nightly run, then same-day
+         officer/agent actions); reverse for display so the panel reads newest-first (#12). */
+      activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])].reverse(),
+      decision: this.decisionOf(d, rec),
     };
+  }
+
+  /** Still awaiting a human call — used to badge the Cases tab and the "N awaiting a decision" copy. */
+  needsApproval(c: CaseView): boolean {
+    return c.rec.status === 'Needs approval' && !c.decision;
   }
 
   policyClauseOf(recType: string): string {
@@ -388,17 +566,21 @@ export class DebtService {
       'AI recommendation', 'Status', 'Policy',
     ];
     const lines = [head.join(',')];
-    this.rows().forEach((d) => {
-      const c = this.caseOf(d);
-      lines.push(
-        [
-          d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
-          d.missed || 0, d.lastPay || 'none', d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
-          this.rowTotal(d), c.score, this.owedToStudent(d) ? 'Credit' : c.band, this.pickedUp(d) ? 'Yes' : 'No',
-          `"${c.rec.action}"`, c.rec.status, this.policyClauseOf(c.rec.type),
-        ].join(','),
-      );
-    });
+    // Scoped (issue #18) — CSV export lists named, identifiable students, so it must
+    // respect the officer's portfolio the same way Tracker/Cases do, not the whole book.
+    this.rows()
+      .filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope()))
+      .forEach((d) => {
+        const c = this.caseOf(d);
+        lines.push(
+          [
+            d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
+            d.missed || 0, d.lastPay || 'none', d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
+            this.rowTotal(d), c.score, this.owedToStudent(d) ? 'Credit' : c.band, this.pickedUp(d) ? 'Yes' : 'No',
+            `"${c.rec.action}"`, c.rec.status, this.policyClauseOf(c.rec.type),
+          ].join(','),
+        );
+      });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
