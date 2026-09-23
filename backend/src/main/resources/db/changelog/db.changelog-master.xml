@@ -15,5 +15,6 @@
     <include file="db/changelog/003-seed-debtors.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/004-seed-activity-log.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/005-job-run-log.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/005-create-reminder-cadence-progress.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

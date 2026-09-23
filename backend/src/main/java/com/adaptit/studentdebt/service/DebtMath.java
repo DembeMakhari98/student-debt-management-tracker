@@ -55,7 +55,7 @@ public final class DebtMath {
      * arrears, OR funding-status risk weight is 8 or more).
      */
     public static boolean pickedUp(Debtor d, Map<String, Integer> fundingRiskWeights) {
-        if (rowDebt(d).signum() <= 0) {
+        if (owedToStudent(d) || rowDebt(d).signum() <= 0) {
             return false;
         }
         int missed = d.getMissedInstalments() == null ? 0 : d.getMissedInstalments();

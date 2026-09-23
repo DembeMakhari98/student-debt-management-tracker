@@ -29,6 +29,7 @@ public record DebtorRowDto(
         int riskScore,
         String riskBand,
         List<SignalDto> signals,
-        RecommendationDto recommendation
+        RecommendationDto recommendation,
+        DecisionDto lastDecision
 ) {
 }
