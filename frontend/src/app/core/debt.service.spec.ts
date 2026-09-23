@@ -301,6 +301,134 @@ describe('DebtService — autonomy gating (issue #8)', () => {
   });
 });
 
+describe('DebtService — reminder cadence dispatch (issue #9)', () => {
+  let service: DebtService;
+
+  // Real dataset case: Bursary partial, 1 missed instalment -> recommend() resolves to
+  // "Reminder cadence" (Rule 7), not "Funding chase" (Rule 5, which only fires for
+  // pending/lapsed/declined funding statuses). runReminderCadence() iterates allCases(),
+  // which reads the shared DEBTORS array, so cadence tests work against this fixed id
+  // rather than a synthetic debtor() (same constraint runAutonomousExecution's tests have).
+  const CADENCE_CASE_ID = 'STU-100288';
+  const START = new Date('2026-08-01T00:00:00Z');
+  const day = (n: number) => new Date(START.getTime() + n * 24 * 60 * 60 * 1000);
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    service = TestBed.inject(DebtService);
+    // The fixture case (STU-100288) belongs to 'anele-dube', outside the default officer's
+    // own portfolio (issue #18) — widen scope so caseRows() surfaces it, same setup the
+    // engagement-log spec below uses.
+    service.setCurrentOfficer('grace-van-rooyen');
+    service.setPortfolioScope('all');
+  });
+
+  function cadenceEntries(id: string) {
+    return service.caseOf(service.caseRows().find((d) => d.id === id)!).activity
+      .filter((a) => a.m === 'Engagement Agent · Reminder cadence');
+  }
+
+  it('sanity: the fixture case currently recommends Reminder cadence', () => {
+    const d = service.caseRows().find((x) => x.id === CADENCE_CASE_ID)!;
+    expect(service.recommend(d).type).toBe('Reminder cadence');
+    expect(service.recommend(d).status).toBe('Agent acting');
+  });
+
+  it('day 0: starts the clock but dispatches nothing', () => {
+    service.setAutonomy(4);
+    service.runReminderCadence(START);
+
+    expect(cadenceEntries(CADENCE_CASE_ID).length).toBe(0);
+    expect(service.cadenceProgress().get(CADENCE_CASE_ID)?.startedAt).toBe(START.toISOString());
+  });
+
+  it('day 1 at level 4: dispatches step 1 (SMS) only', () => {
+    service.setAutonomy(4);
+    service.runReminderCadence(START);
+    service.runReminderCadence(day(1));
+
+    const entries = cadenceEntries(CADENCE_CASE_ID);
+    expect(entries.length).toBe(1);
+    expect(entries[0].t).toContain('SMS reminder sent');
+  });
+
+  it('day 10 catch-up: dispatches all three steps in one run when none have fired yet', () => {
+    service.setAutonomy(4);
+    service.runReminderCadence(START); // day 0 — nothing due
+    service.runReminderCadence(day(10)); // first run since — every step is now due
+
+    const texts = cadenceEntries(CADENCE_CASE_ID).map((e) => e.t);
+    expect(texts.length).toBe(3);
+    expect(texts.some((t) => t.includes('SMS reminder sent'))).toBeTrue();
+    expect(texts.some((t) => t.includes('WhatsApp reminder sent'))).toBeTrue();
+    expect(texts.some((t) => t.includes('Officer call task created'))).toBeTrue();
+  });
+
+  it('never resends a step that already fired, across sequential runs', () => {
+    service.setAutonomy(4);
+    service.runReminderCadence(START);
+    service.runReminderCadence(day(1));
+    service.runReminderCadence(day(5));
+    service.runReminderCadence(day(10));
+    service.runReminderCadence(day(10)); // a same-day re-run must be a no-op
+
+    expect(cadenceEntries(CADENCE_CASE_ID).length).toBe(3);
+  });
+
+  it('level 2 (default) never dispatches, but the clock keeps running', () => {
+    // autonomy defaults to 2 — Reminder cadence is "Agent acting", which only auto-executes
+    // from level 3 up (issue #8, technical spec §5.10).
+    service.runReminderCadence(START);
+    service.runReminderCadence(day(10));
+
+    expect(cadenceEntries(CADENCE_CASE_ID).length).toBe(0);
+    expect(service.cadenceProgress().get(CADENCE_CASE_ID)?.startedAt).toBe(START.toISOString());
+  });
+
+  it('level 3 dispatches, because Reminder cadence is an Agent-acting rule', () => {
+    service.setAutonomy(3);
+    service.runReminderCadence(START);
+    service.runReminderCadence(day(1));
+
+    expect(cadenceEntries(CADENCE_CASE_ID).length).toBe(1);
+  });
+
+  it('a case that resolves (paid up) has its in-flight cadence cancelled', () => {
+    const d = service.caseRows().find((x) => x.id === CADENCE_CASE_ID)!;
+    const originalMissed = d.missed;
+    try {
+      service.setAutonomy(4);
+      service.runReminderCadence(START); // cadence starts
+
+      d.missed = 0; // resolved before day 1
+      service.runReminderCadence(day(1));
+
+      expect(service.cadenceProgress().get(CADENCE_CASE_ID)).toBeUndefined();
+      expect(cadenceEntries(CADENCE_CASE_ID).length).toBe(0);
+    } finally {
+      d.missed = originalMissed;
+    }
+  });
+
+  it('a case that escalates to a different rule has its in-flight cadence cancelled', () => {
+    const d = service.caseRows().find((x) => x.id === CADENCE_CASE_ID)!;
+    const originalMissed = d.missed;
+    try {
+      service.setAutonomy(4);
+      service.runReminderCadence(START); // cadence starts
+
+      d.missed = 2; // escalates to "Payment arrangement" (Rule 6)
+      service.runReminderCadence(day(1));
+
+      expect(service.recommend(d).type).toBe('Payment arrangement');
+      expect(service.cadenceProgress().get(CADENCE_CASE_ID)).toBeUndefined();
+      expect(cadenceEntries(CADENCE_CASE_ID).length).toBe(0);
+    } finally {
+      d.missed = originalMissed;
+    }
+  });
+});
+
 describe('DebtService — engagement log (issue #14)', () => {
   let service: DebtService;
 
