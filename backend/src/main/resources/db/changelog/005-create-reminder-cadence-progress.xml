@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="005-01-create-reminder-cadence-progress" author="student-debt-tracker">
+        <createTable tableName="reminder_cadence_progress">
+            <column name="debtor_key" type="varchar(40)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="started_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+            <column name="step1_sent_at" type="timestamp with time zone"/>
+            <column name="step2_sent_at" type="timestamp with time zone"/>
+            <column name="step3_sent_at" type="timestamp with time zone"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="reminder_cadence_progress" baseColumnNames="debtor_key"
+                                  constraintName="fk_reminder_cadence_progress_debtor"
+                                  referencedTableName="debtor" referencedColumnNames="debtor_key"/>
+    </changeSet>
+
+</databaseChangeLog>

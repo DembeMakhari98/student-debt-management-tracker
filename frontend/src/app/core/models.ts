@@ -73,6 +73,15 @@ export interface ActivityEntry {
   m: string;
 }
 
+/** How far a debtor's "Reminder cadence" recommendation has progressed (issue #9). ISO
+ *  8601 timestamps, undefined step fields meaning that step hasn't fired yet. */
+export interface CadenceProgress {
+  startedAt: string;
+  step1SentAt?: string;
+  step2SentAt?: string;
+  step3SentAt?: string;
+}
+
 /** Officer's decision on a case's recommendation (issue #13, technical spec §3.5). */
 export type DecisionAction = 'Approved' | 'Amended' | 'Declined';
 
