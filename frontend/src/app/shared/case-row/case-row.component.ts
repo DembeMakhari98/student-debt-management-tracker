@@ -25,10 +25,17 @@ export class CaseRowComponent {
   get badgeColor(): string {
     return this.isCredit ? 'var(--ai-teal)' : this.debt.bandColor(this.case.band);
   }
+  /** Once an officer (or the autonomy agent) has decided this case, the row must reflect that
+   *  decision rather than the now-stale raw recommendation status (#13 AC6). */
+  get displayStatus(): string {
+    return this.case.decision?.action ?? this.case.rec.status;
+  }
   statusColor(status: string): string {
+    if (this.case.decision) return 'var(--ai-teal)';
     return status === 'Needs approval' ? 'var(--red-text)' : status === 'Agent acting' ? 'var(--ai-mid-blue)' : 'var(--fg-3)';
   }
   statusBg(status: string): string {
+    if (this.case.decision) return 'rgba(0,168,150,.08)';
     return status === 'Needs approval' ? 'rgba(232,39,39,.07)' : status === 'Agent acting' ? 'rgba(0,102,144,.07)' : 'var(--bg-2)';
   }
 }

@@ -3,7 +3,8 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { DebtService } from './core/debt.service';
 import { ExtractStatusService } from './core/extract-status.service';
 import { LEVELS } from './core/constants';
-import { FundKey } from './core/models';
+import { OFFICERS } from './core/officers';
+import { FundKey, PortfolioScope } from './core/models';
 
 interface TabDef {
   path: string;
@@ -21,6 +22,7 @@ interface TabDef {
 })
 export class AppComponent implements OnInit {
   readonly levels = LEVELS;
+  readonly officers = OFFICERS;
 
   readonly tabs: TabDef[] = [
     { path: 'home', label: 'Home', badge: () => '' },
@@ -28,7 +30,7 @@ export class AppComponent implements OnInit {
     {
       path: 'cases',
       label: 'Case management & AI recommendation',
-      badge: () => String(this.debt.caseRows().filter((d) => this.debt.recommend(d).status === 'Needs approval').length),
+      badge: () => String(this.debt.caseRows().filter((d) => this.debt.needsApproval(this.debt.caseOf(d))).length),
     },
     { path: 'ageing', label: 'Age Analysis', badge: () => '' },
   ];
@@ -54,6 +56,18 @@ export class AppComponent implements OnInit {
   }
   onAutonomyChange(value: string): void {
     this.debt.setAutonomy(Number(value));
+  }
+  onOfficerChange(value: string): void {
+    this.debt.setCurrentOfficer(value);
+  }
+  onScopeChange(value: string): void {
+    this.debt.setPortfolioScope(value as PortfolioScope);
+  }
+  initialsOf(name: string): string {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('');
   }
   export(): void {
     this.debt.exportCsv();

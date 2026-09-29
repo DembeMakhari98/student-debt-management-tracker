@@ -523,17 +523,31 @@ Band, Picked up by agent, AI recommendation, Status, Policy
 
 ## 7. Non-Functional Requirements
 
-- **Security / access control:** an officer must only see debtors in their assigned
-  portfolio `[TO CONFIRM scope — campus? programme? caseload assignment?]`. Every read
-  of a student's financial detail and every action taken must be attributable to a
-  logged-in user.
+- **Security / access control (issue #18):** an officer must only see debtors in
+  their assigned portfolio. **Confirmed model** (agreed with Finance/Debtors
+  management via the POPIA impact assessment,
+  `docs/compliance/popia-impact-assessment.md` §5) — a hybrid tiered scope, not
+  campus- or programme-wide:
+  - **Level 1 (own caseload, default):** the officer sees only debtors explicitly
+    assigned to them.
+  - **Level 2 (team coverage):** same-team officers can also view each other's
+    cases (e.g. vacation/absence coverage), no approval needed.
+  - **Level 3 (full portfolio):** manager-only, self-service (the manager role *is*
+    the approval authority) — every escalation is logged.
+
+  Every read of a student's financial detail and every action taken must be
+  attributable to a logged-in user.
 - **POPIA:** this module processes special personal information (identifiable
   students' financial position and funding status). A POPIA impact assessment is a
-  prerequisite to go-live (see business case, Section 6). Data retention period for
-  case history `[TO CONFIRM]`.
+  prerequisite to go-live (see business case, Section 6). **Data retention period for
+  case history: 7 years after a student's final financial year** (confirmed via the
+  POPIA impact assessment BA answer, 2026-09-08 — see
+  `docs/compliance/popia-impact-assessment.md` §7 and issue #20).
 - **Auditability:** the `activity` log (Section 4.6) and the officer `decision` fields
-  (Section 3.5) must be immutable and permanently retained — this *is* the audit trail
-  referenced throughout the business case.
+  (Section 3.5) must be immutable throughout their retention period — no update/delete
+  path is exposed via the API — and retained for the POPIA-confirmed period above, after
+  which they are purged by a scheduled compliance job (issue #20). This *is* the audit
+  trail referenced throughout the business case.
 - **Performance:** the nightly scoring job must complete before officers start their
   working day `[TO CONFIRM target window and current debtor-book size to size this]`.
   The web app's list views must remain responsive against the full multi-year book (the
@@ -544,21 +558,20 @@ Band, Picked up by agent, AI recommendation, Status, Policy
   900px, and 820px that progressively collapse the KPI grid, two-column layouts, and
   chrome to single-column/stacked layouts. Match this behaviour or replace it with the
   organisation's standard responsive breakpoints if one exists.
-- **Browser support** `[TO CONFIRM against Adapt IT's standard support matrix]`.
+- **Browser support** — **[ANSWERED, issue #21, 2026-09-22]**: Microsoft Edge version 10
+  and above, and Google Chrome.
 
 ---
 
 ## 8. Suggested Tech Stack
 
-`[TO CONFIRM against ITS Integrator's existing stack — the below assumes no existing
-constraint and should be reconciled with the platform team before build.]`
+**[ANSWERED, issue #21, 2026-09-22]** Angular (web app) and Spring Boot (Debt Tracker
+Service) are confirmed as aligned with ITS Integrator's existing stack.
 
-- **Web app:** any component framework consistent with ITS Integrator's existing
-  front-end (the prototype is framework-agnostic vanilla JS/HTML/CSS and can be treated
-  as a design/behaviour reference, not a code base to extend).
-- **Debt Tracker Service:** a scheduled job (nightly) plus a query API the web app
-  calls — language/runtime should match ITS Integrator's existing service stack for
-  operability.
+- **Web app:** Angular (the prototype is framework-agnostic vanilla JS/HTML/CSS and can
+  be treated as a design/behaviour reference, not a code base to extend).
+- **Debt Tracker Service:** Spring Boot — a scheduled job (nightly) plus a query API the
+  web app calls.
 - **Notification dispatch:** integrate with Adapt IT's existing SMS/WhatsApp gateway,
   if one exists, rather than procuring a new one `[TO CONFIRM]`.
 
@@ -590,8 +603,11 @@ constraint and should be reconciled with the platform team before build.]`
 4. Refund-queue sort order intent (Section 6.2).
 5. Engagement-channel button gating rules by autonomy level (Section 6.3).
 6. Officer portfolio/access scoping model (Section 7).
-7. Data retention period for case history (Section 7).
+7. ~~Data retention period for case history (Section 7).~~ **Resolved** — 7 years
+   after a student's final financial year, enforced by a scheduled purge (issue #20).
 8. Nightly job completion window and current debtor-book size (Section 7).
-9. Browser support matrix (Section 7).
-10. Tech stack alignment with existing ITS Integrator services (Section 8).
+9. Browser support matrix (Section 7) — **[ANSWERED, issue #21, 2026-09-22]**: Edge
+   version 10+ and Chrome.
+10. Tech stack alignment with existing ITS Integrator services (Section 8) —
+    **[ANSWERED, issue #21, 2026-09-22]**: Angular + Spring Boot confirmed.
 11. Existing SMS/WhatsApp gateway to integrate with, if any (Section 8).

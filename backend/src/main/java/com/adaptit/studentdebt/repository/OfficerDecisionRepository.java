@@ -12,4 +12,6 @@ public interface OfficerDecisionRepository extends JpaRepository<OfficerDecision
 
     Optional<OfficerDecision> findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
             String debtorKey, String recommendationType);
+
+    void deleteAllByDebtorKey(String debtorKey);
 }
