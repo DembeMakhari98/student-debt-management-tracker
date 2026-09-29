@@ -18,3 +18,9 @@ export {
   getCasesByRiskBand,
   getCasesByFundingSource,
 } from './casePartitionService';
+
+export { generateSignals } from './signalGenerationService';
+
+export { generateEvidence } from './evidenceGenerationService';
+
+export { appendActivityLog } from './activityLogService';

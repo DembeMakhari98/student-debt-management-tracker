@@ -6,6 +6,31 @@
  */
 
 /**
+ * Signal chip indicating a risk flag or status
+ * Implements TECHNICAL_SPECIFICATION.md §4.4
+ */
+export interface Signal {
+  text: string;
+  hot: boolean;
+}
+
+/**
+ * Evidence reference chip sourced from a system
+ * Implements TECHNICAL_SPECIFICATION.md §4.5
+ */
+export type Evidence = string;
+
+/**
+ * Activity log entry for a case, append-only
+ * Implements TECHNICAL_SPECIFICATION.md §4.6
+ */
+export interface ActivityEntry {
+  text: string;
+  source: string;
+  timestamp: Date;
+}
+
+/**
  * Represents a single student debt case
  */
 export interface Case {
@@ -27,6 +52,9 @@ export interface Case {
   notes?: string;
   creditAmount?: number; // For refund queue items
   refundStatus?: 'PENDING' | 'PROCESSED' | 'FAILED';
+  signals: Signal[]; // NEW: risk flags per §4.4
+  evidence: Evidence[]; // NEW: evidence sources per §4.5
+  activity: ActivityEntry[]; // NEW: append-only activity log per §4.6
 }
 
 /**
@@ -234,8 +262,18 @@ export interface FundingPillProps {
 }
 
 export interface SignalChipsProps {
-  riskBand: RiskBand;
-  daysNoContact?: number;
+  signals: Signal[];
+  className?: string;
+}
+
+export interface EvidenceChipsProps {
+  evidence: Evidence[];
+  className?: string;
+}
+
+export interface ActivityLogProps {
+  activity: ActivityEntry[];
+  className?: string;
 }
 
 export interface ActionInfoProps {

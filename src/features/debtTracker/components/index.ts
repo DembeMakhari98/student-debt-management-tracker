@@ -15,10 +15,14 @@ export {
   StudentInfo,
   FundingPill,
   SignalChips,
+  EvidenceChips,
   ActionInfo,
   StatusPill,
   AmountDisplay,
 } from './PickedUpList';
+
+// CaseDetail components
+export { ActivityLog } from './CaseDetail';
 
 // RefundQueueList components
 export {
