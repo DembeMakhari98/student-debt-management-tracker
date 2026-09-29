@@ -1,45 +1,47 @@
 /**
  * SignalChips Component
  *
- * Displays signal chips indicating risk signals and contact status.
- * Shows chips for critical flags, overdue items, etc.
+ * Displays signal chips indicating risk signals.
+ * Hot signals (urgent flags) use red-tinted styling.
+ * Regular signals use gray styling.
+ * Implements TECHNICAL_SPECIFICATION.md §4.4
  */
 
 import React from 'react';
+import { Signal } from '../../types/debtTrackerTypes';
 import { SignalChipsProps } from '../../types/debtTrackerTypes';
 import styles from '../../styles/components.module.css';
 
 /**
  * Signal Chips Component
  *
+ * Renders an array of signal chips from case scoring.
+ * Hot signals (missed instalments, no payment, 90+/120+ days, arrangement defaulted)
+ * are styled with red background. Regular signals use gray background.
+ *
+ * @param signals - Array of Signal objects from generateSignals()
+ * @param className - Optional CSS class name for wrapper
+ *
  * @example
- * <SignalChips riskBand="CRITICAL" daysNoContact={30} />
+ * <SignalChips signals={case.signals} />
+ * // Renders: [2 missed instalments (red)] [120+ days R5,000 (red)] [NSFAS pending (gray)]
  */
-const SignalChips: React.FC<SignalChipsProps> = ({ riskBand, daysNoContact }) => {
+const SignalChips: React.FC<SignalChipsProps> = ({ signals, className }) => {
   return (
-    <div className={styles.signalChips}>
-      {/* Risk Band Chip */}
-      {riskBand === 'CRITICAL' && (
-        <span className={styles.chip} style={{ backgroundColor: '#d32f2f', color: 'white' }}>
-          ⚠️ CRITICAL
-        </span>
+    <div className={`${styles.signalChips} ${className || ''}`}>
+      {signals.length === 0 ? (
+        <span className={styles.noSignals}>No signals</span>
+      ) : (
+        signals.map((signal, idx) => (
+          <span
+            key={idx}
+            className={`${styles.chip} ${signal.hot ? styles.hot : styles.regular}`}
+            title={signal.text}
+          >
+            {signal.text}
+          </span>
+        ))
       )}
-
-      {riskBand === 'HIGH' && (
-        <span className={styles.chip} style={{ backgroundColor: '#f57c00', color: 'white' }}>
-          ⚠️ HIGH
-        </span>
-      )}
-
-      {/* Days No Contact Chip */}
-      {daysNoContact !== undefined && daysNoContact > 30 && (
-        <span className={styles.chip} style={{ backgroundColor: '#ff9800', color: 'white' }}>
-          📞 {daysNoContact}d no contact
-        </span>
-      )}
-
-      {/* TODO: Add more signal chips as needed */}
-      {/* Examples: Overdue payment, Payment plan violation, etc. */}
     </div>
   );
 };

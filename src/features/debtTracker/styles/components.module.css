@@ -313,3 +313,164 @@
     font-size: var(--font-size-sm);
   }
 }
+
+/* ============================================
+   SIGNAL CHIPS
+   ============================================ */
+
+.signalChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+  min-height: var(--spacing-md);
+}
+
+.chip {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  transition: all 150ms ease;
+}
+
+.chip.hot {
+  background-color: var(--color-danger, #d32f2f);
+  color: white;
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 2px 4px rgba(211, 47, 47, 0.3);
+}
+
+.chip.regular {
+  background-color: var(--color-gray-light, #e0e0e0);
+  color: var(--color-text, #333);
+}
+
+.chip.evidence {
+  background-color: var(--color-info-light, #e3f2fd);
+  color: var(--color-info, #1976d2);
+  border-left: 3px solid var(--color-info, #1976d2);
+  padding-left: calc(var(--spacing-sm) - 3px);
+}
+
+.noSignals,
+.noEvidence {
+  color: var(--color-text-muted, #999);
+  font-style: italic;
+  font-size: var(--font-size-sm);
+}
+
+/* ============================================
+   EVIDENCE CHIPS
+   ============================================ */
+
+.evidenceChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+  min-height: var(--spacing-md);
+}
+
+/* ============================================
+   ACTIVITY LOG
+   ============================================ */
+
+.activityLog {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-secondary, #f9f9f9);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border, #e0e0e0);
+}
+
+.activityTitle {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text, #333);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.activityEntry {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: white;
+  border-left: 3px solid var(--color-primary, #1976d2);
+  border-radius: var(--border-radius-sm);
+  transition: box-shadow 150ms ease;
+}
+
+.activityEntry:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.entryMeta {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  align-items: center;
+}
+
+.sourceBadge {
+  display: inline-block;
+  padding: 2px var(--spacing-xs);
+  background-color: var(--color-primary-light, #e3f2fd);
+  color: var(--color-primary, #1976d2);
+  border-radius: 3px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.timestamp {
+  color: var(--color-text-muted, #999);
+  flex-shrink: 0;
+}
+
+.entryText {
+  margin: 0;
+  color: var(--color-text, #333);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.noActivity {
+  color: var(--color-text-muted, #999);
+  font-style: italic;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+/* Responsive adjustments for activity log */
+@media (max-width: 820px) {
+  .activityLog {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+  }
+
+  .activityEntry {
+    padding: var(--spacing-sm);
+  }
+
+  .entryMeta {
+    flex-wrap: wrap;
+  }
+
+  .sourceBadge {
+    padding: 2px var(--spacing-xs);
+    font-size: var(--font-size-xs);
+  }
+
+  .timestamp {
+    flex-basis: 100%;
+    margin-top: var(--spacing-xs);
+  }
+}

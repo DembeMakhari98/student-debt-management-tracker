@@ -8,6 +8,7 @@ export { default as RiskBadge } from './RiskBadge';
 export { default as StudentInfo } from './StudentInfo';
 export { default as FundingPill } from './FundingPill';
 export { default as SignalChips } from './SignalChips';
+export { default as EvidenceChips } from './EvidenceChips';
 export { default as ActionInfo } from './ActionInfo';
 export { default as StatusPill } from './StatusPill';
 export { default as AmountDisplay } from './AmountDisplay';
