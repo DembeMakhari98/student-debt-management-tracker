@@ -4,6 +4,7 @@ import { DEBTORS, YEARS } from './mock-data';
 import { OFFICERS } from './officers';
 import {
   ActivityEntry,
+  CadenceProgress,
   CaseView,
   Debtor,
   Decision,
@@ -241,6 +242,78 @@ export class DebtService {
   /** Requires documented reasoning — the case remains unactioned. */
   declineCase(d: Debtor, reason: string): void {
     this.decide(d, 'Declined', { reason });
+  }
+
+  /* =========================================================================
+     REMINDER CADENCE DISPATCH (issue #9, technical spec §5.7 rule 7) — the
+     Notification Dispatcher: SMS day 1, WhatsApp day 5, officer call day 10 for
+     every "Reminder cadence" case, gated by the same autoEligible() as #8. No
+     live SMS/WhatsApp gateway is confirmed yet (open item 11 — WhatsApp is
+     Cuedesk per #14, SMS still unconfirmed), so each step is simulated the
+     same way #14's manual engagement buttons are: an activity-log entry, not
+     a real provider call.
+     ========================================================================= */
+
+  private static readonly STEP_1_DUE_DAY = 1;
+  private static readonly STEP_2_DUE_DAY = 5;
+  private static readonly STEP_3_DUE_DAY = 10;
+
+  /** Frontend-only and session-lifetime, same lifecycle as `engagementLog`/`decisions`. */
+  private readonly cadenceProgressLog = signal<Map<string, CadenceProgress>>(new Map());
+  readonly cadenceProgress = this.cadenceProgressLog.asReadonly();
+
+  private daysSince(startedAt: string, now: Date): number {
+    return Math.floor((now.getTime() - new Date(startedAt).getTime()) / (24 * 60 * 60 * 1000));
+  }
+
+  /**
+   * Runs the cadence for every case the decision engine currently recommends a "Reminder
+   * cadence" for. A case that resolves (paid up) or escalates to a different rule has its
+   * progress cleared, so a later relapse into a fresh "1 missed instalment" case restarts the
+   * clock rather than resuming a stale one. `now` is injectable for deterministic tests.
+   */
+  runReminderCadence(now: Date = new Date()): void {
+    const level = this.autonomy();
+    const next = new Map(this.cadenceProgressLog());
+
+    for (const d of this.allCases()) {
+      const rec = this.recommend(d);
+      const existing = next.get(d.id);
+
+      if (rec.type !== 'Reminder cadence') {
+        if (existing) next.delete(d.id);
+        continue;
+      }
+
+      const progress: CadenceProgress = existing ?? { startedAt: now.toISOString() };
+      next.set(d.id, progress);
+
+      if (!this.autoEligible(rec, level)) continue; // Queued for approval — clock runs, nothing dispatched.
+
+      const daysSinceStart = this.daysSince(progress.startedAt, now);
+      if (!progress.step1SentAt && daysSinceStart >= DebtService.STEP_1_DUE_DAY) {
+        progress.step1SentAt = now.toISOString();
+        this.logEngagementAction(d.id, {
+          t: 'SMS reminder sent (step 1 of 3, day 1)',
+          m: 'Engagement Agent · Reminder cadence',
+        });
+      }
+      if (!progress.step2SentAt && daysSinceStart >= DebtService.STEP_2_DUE_DAY) {
+        progress.step2SentAt = now.toISOString();
+        this.logEngagementAction(d.id, {
+          t: 'WhatsApp reminder sent (step 2 of 3, day 5)',
+          m: 'Engagement Agent · Reminder cadence',
+        });
+      }
+      if (!progress.step3SentAt && daysSinceStart >= DebtService.STEP_3_DUE_DAY) {
+        progress.step3SentAt = now.toISOString();
+        this.logEngagementAction(d.id, {
+          t: 'Officer call task created (step 3 of 3, day 10)',
+          m: 'Engagement Agent · Reminder cadence',
+        });
+      }
+    }
+    this.cadenceProgressLog.set(next);
   }
 
   /* =========================================================================

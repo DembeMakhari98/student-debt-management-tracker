@@ -6,7 +6,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
     <!-- The nightly extraction job's audit trail (issue #2) — every run, success or failure. -->
-    <changeSet id="005-01-create-job-run-log" author="student-debt-tracker">
+    <changeSet id="006-01-create-job-run-log" author="student-debt-tracker">
         <createTable tableName="job_run_log">
             <column name="id" type="uuid">
                 <constraints primaryKey="true" nullable="false"/>
