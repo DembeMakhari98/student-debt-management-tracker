@@ -1,6 +1,5 @@
 package com.adaptit.studentdebt.web;
 
-import com.adaptit.studentdebt.domain.FundingSource;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DebtorRowDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
@@ -40,14 +39,16 @@ public class DebtorController {
 
     /** scope: picked (default) | refunds | paying | cases (picked + refunds, for the case list). */
     @GetMapping
-    public List<DebtorRowDto> list(@RequestParam(required = false) Integer year,
-                                    @RequestParam(required = false) FundingSource funding,
+    public List<DebtorRowDto> list(@RequestParam(required = false) String year,
+                                    @RequestParam(required = false) String funding,
                                     @RequestParam(defaultValue = "picked") String scope) {
+        Integer y = YearParam.parse(year);
+        var f = FundingParam.parse(funding);
         return switch (scope) {
-            case "refunds" -> debtorQueryService.refundRows(year, funding);
-            case "paying" -> debtorQueryService.payingRows(year, funding);
-            case "cases" -> debtorQueryService.caseRows(year, funding);
-            default -> debtorQueryService.pickedRows(year, funding);
+            case "refunds" -> debtorQueryService.refundRows(y, f);
+            case "paying" -> debtorQueryService.payingRows(y, f);
+            case "cases" -> debtorQueryService.caseRows(y, f);
+            default -> debtorQueryService.pickedRows(y, f);
         };
     }
 
@@ -63,10 +64,12 @@ public class DebtorController {
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
-    public ResponseEntity<String> export(@RequestParam(required = false) Integer year,
-                                          @RequestParam(required = false) FundingSource funding) {
-        String csv = csvExportService.export(year, funding);
-        String fileName = csvExportService.fileName(year, funding);
+    public ResponseEntity<String> export(@RequestParam(required = false) String year,
+                                          @RequestParam(required = false) String funding) {
+        Integer y = YearParam.parse(year);
+        var f = FundingParam.parse(funding);
+        String csv = csvExportService.export(y, f);
+        String fileName = csvExportService.fileName(y, f);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(fileName).build().toString())
                 .contentType(MediaType.parseMediaType("text/csv"))

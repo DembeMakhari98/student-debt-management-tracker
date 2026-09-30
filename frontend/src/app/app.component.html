@@ -15,6 +15,22 @@
       </div>
     </div>
     <div class="bb-right">
+      <button class="agent-chip" style="border:0;cursor:pointer;font-family:inherit"
+              [title]="extractStatus.unreachable() ? 'Backend not reachable at localhost:8080 — click to retry' : 'Click to trigger the nightly extract now (issue #2)'"
+              (click)="runExtract()">
+        <i [style.background]="extractStatus.unreachable() ? 'var(--ai-red)' : (extractStatus.latestRun()?.status === 'FAILURE' ? 'var(--ai-red)' : 'var(--ai-mint)')"></i>
+        @if (extractStatus.loading()) {
+          Extract running…
+        } @else if (extractStatus.unreachable()) {
+          Backend unreachable
+        } @else {
+          @if (extractStatus.latestRun(); as run) {
+            Last extract {{ run.status }} · {{ run.recordsProcessed }} rec.
+          } @else {
+            No extract run yet
+          }
+        }
+      </button>
       <div class="agent-chip"><i></i>Risk Sentinel active</div>
       <select class="aut-select" aria-label="Agent autonomy" (change)="onAutonomyChange($any($event.target).value)">
         @for (l of levels; track l.name; let i = $index) {

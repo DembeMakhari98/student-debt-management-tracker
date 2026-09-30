@@ -1,6 +1,5 @@
 package com.adaptit.studentdebt.web;
 
-import com.adaptit.studentdebt.domain.FundingSource;
 import com.adaptit.studentdebt.dto.AgeingResponseDto;
 import com.adaptit.studentdebt.service.AgeingService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,8 +17,8 @@ public class AgeingController {
     }
 
     @GetMapping("/api/ageing")
-    public AgeingResponseDto ageing(@RequestParam(required = false) Integer year,
-                                     @RequestParam(required = false) FundingSource funding) {
-        return ageingService.build(year, funding);
+    public AgeingResponseDto ageing(@RequestParam(required = false) String year,
+                                     @RequestParam(required = false) String funding) {
+        return ageingService.build(YearParam.parse(year), FundingParam.parse(funding));
     }
 }
