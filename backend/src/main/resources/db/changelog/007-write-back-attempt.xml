@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Write-back attempt log (issue #3) — insert-only, one row per attempt. -->
+    <changeSet id="007-01-create-write-back-attempt" author="student-debt-tracker">
+        <createTable tableName="write_back_attempt">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="activity_log_entry_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attempt_number" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error_message" type="text"/>
+            <column name="attempted_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_write_back_attempt_entry_id" tableName="write_back_attempt">
+            <column name="activity_log_entry_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
