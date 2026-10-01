@@ -73,15 +73,23 @@ AC1 is explicitly **not** satisfied this pass — see Non-Goals.
   `attemptedAt` (Instant). Insert-only.
 - **`ActivityLogWriteBackService`**:
   - `recordAndAttempt(ActivityLogEntry entry)` — called by producers right after they
-    save an entry. Calls the adapter once, synchronously, catches all exceptions
-    internally (never fails the caller's request — same never-fail pattern as
-    `NightlyExtractService.runExtract()`), and persists the resulting
-    `WriteBackAttempt` (attempt 1).
+    save an entry. Calls the adapter once, synchronously; a thrown exception from the
+    adapter is caught and converted into a failed `WriteBackResult` *before*
+    recording — a throwing adapter must still produce a row, otherwise the entry
+    would silently vanish from both the sweep and the failures endpoint.
   - `@Scheduled` retry sweep (every 15 minutes) — finds entries whose latest attempt
     is `FAILED` and attempt count < 3, retries via the adapter, records a new
     `WriteBackAttempt` row each time. After 3 attempts, an entry stays `FAILED`
     permanently and is not retried again automatically — surfaced for a human to see
     rather than looping forever.
+  - Delegates the actual row write to `WriteBackAttemptRecorder.record(...)`, a
+    separate bean running with `@Transactional(propagation = REQUIRES_NEW)` — a real
+    Spring proxy boundary, not a self-invoked private method (which would silently
+    ignore `REQUIRES_NEW`). This guarantees a DB-level failure while recording an
+    attempt runs in its own isolated transaction and can never roll back the officer
+    decision or reminder dispatch that triggered it.
+- **`WriteBackAttemptRecorder`** — the only thing that calls
+  `writeBackAttemptRepository.save(...)`, in its own `REQUIRES_NEW` transaction.
 - **`WriteBackAdminController`** — `GET /api/admin/writeback/failures`, mirroring
   `AdminExtractController`'s shape.
 - **Wiring** — `DecisionService` and `ReminderCadenceService` each get
@@ -101,6 +109,11 @@ New table `write_back_attempt` (Liquibase `007-write-back-attempt.xml`):
 | `error_message` | TEXT | nullable |
 | `attempted_at` | TIMESTAMP | NOT NULL |
 
+Unique constraint on `(activity_log_entry_id, attempt_number)` — guards against a
+double-processed sweep (e.g. overlapping runs with no distributed lock) inserting two
+rows for the same entry's next attempt number; the losing insert fails loudly with a
+constraint violation instead of silently duplicating a write-back.
+
 No change to `activity_log_entry`'s schema.
 
 ## API Design
@@ -111,14 +124,19 @@ for entries whose latest attempt is `FAILED` and attempt count has reached the m
 
 ## Testing Strategy
 
-- **Unit (`ActivityLogWriteBackServiceTest`):** a successful attempt persists one
-  `SUCCESS` row; a failing adapter persists a `FAILED` row and does not throw; the
-  scheduled sweep only re-attempts entries below the max attempt count; after the max,
-  the sweep leaves the entry alone (no further rows, no infinite retry).
+- **Unit (`ActivityLogWriteBackServiceTest`):** a successful attempt records one
+  `SUCCESS` result; a failing adapter records a `FAILED` result and does not throw; a
+  *throwing* adapter is also recorded as a failed attempt, not lost; the scheduled
+  sweep only re-attempts entries below the max attempt count; after the max, the sweep
+  leaves the entry alone (no further rows, no infinite retry); a recorder failure
+  during the sweep doesn't abort the rest of the loop; the latest-attempt grouping is
+  deterministic regardless of row order or ties.
+- **Unit (`WriteBackAdminControllerTest`):** the failures endpoint enriches each
+  exhausted attempt from its source `ActivityLogEntry`, returns an empty list when
+  nothing has exhausted retries, and degrades gracefully if the source entry is gone.
 - **Unit (extend `DecisionServiceTest`/`ReminderCadenceServiceTest`):** verify
-  `recordAndAttempt` is called with the just-saved entry, and that a write-back
-  failure does not fail the officer's decision or the reminder dispatch.
-- **Integration (`WriteBackAttemptIdempotencyTest`-style, real H2 context):** a full
+  `recordAndAttempt` is called with the just-saved entry.
+- **Integration (`WriteBackAttemptIntegrationTest`, real H2 context):** a full
   attempt-and-retry cycle, verifying `WriteBackAttempt` rows accumulate (new row per
   attempt, never updated) — mirrors `NightlyExtractIdempotencyTest`'s precedent.
 
@@ -133,8 +151,25 @@ for entries whose latest attempt is `FAILED` and attempt count has reached the m
 
 - **Risk:** a write-back failure could block or fail the officer's decision /
   reminder dispatch if not isolated. **Mitigation:** `recordAndAttempt` catches all
-  exceptions internally and runs after the primary business effect is already
-  committed, not wrapped around it.
+  exceptions internally, and the actual row write runs in `WriteBackAttemptRecorder`'s
+  own `REQUIRES_NEW` transaction — a DB-level failure there cannot poison or roll back
+  the caller's existing transaction (this was a real, confirmed bug in an earlier
+  version of this change, found by adversarial review: `@Transactional` with default
+  propagation on `recordAndAttempt` joined the caller's transaction instead of
+  isolating from it).
+- **Risk:** an adapter that throws instead of returning a `WriteBackResult` (realistic
+  for an HTTP-based real client — timeouts, connection errors) could silently drop the
+  entry from both the retry sweep and the failures endpoint forever, with no row ever
+  recorded. **Mitigation:** the adapter call is wrapped in its own try/catch inside
+  `attempt()`, converting a thrown exception into a failed result *before* recording —
+  also a confirmed bug caught by adversarial review before merge.
+- **Risk:** two overlapping sweep runs (no distributed lock) could both read the same
+  "latest = FAILED" state and double-insert the next attempt number. **Mitigation:** a
+  unique constraint on `(activity_log_entry_id, attempt_number)` — the losing insert
+  fails with a constraint violation (caught and logged) rather than silently
+  duplicating a write-back. Full distributed locking is out of scope, consistent with
+  the rest of this codebase's scheduled jobs (`NightlyExtractService`,
+  `ReminderCadenceService` have the same gap).
 - **Risk:** without a real ITS Integrator endpoint, passing tests only prove the
   retry/logging plumbing, not actual interoperability. **Mitigation:** same accepted
   risk the team already took for #1/#2 — flagged in the PR description, not hidden.

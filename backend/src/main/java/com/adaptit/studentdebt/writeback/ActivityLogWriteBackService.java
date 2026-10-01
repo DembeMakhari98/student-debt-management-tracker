@@ -9,13 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -23,7 +21,9 @@ import java.util.stream.Collectors;
  * ActivityLogWriteBackAdapter} (issue #3), retries recent failures, and never fails the caller
  * whose action triggered the entry — the same never-fail pattern as {@code
  * NightlyExtractService.runExtract()} (issue #2). Every attempt, success or failure, is recorded as
- * a {@link WriteBackAttempt} row so a failure is surfaced rather than silently dropped.
+ * a {@link WriteBackAttempt} row (via {@link WriteBackAttemptRecorder}, in its own transaction) so a
+ * failure is surfaced rather than silently dropped. The adapter call itself is also guarded — a
+ * throwing adapter is treated as a failed attempt, not a lost one.
  */
 @Service
 public class ActivityLogWriteBackService {
@@ -36,16 +36,16 @@ public class ActivityLogWriteBackService {
     private final ActivityLogWriteBackAdapter adapter;
     private final ActivityLogEntryRepository activityLogEntryRepository;
     private final WriteBackAttemptRepository writeBackAttemptRepository;
-    private final Clock clock;
+    private final WriteBackAttemptRecorder recorder;
 
     public ActivityLogWriteBackService(ActivityLogWriteBackAdapter adapter,
                                         ActivityLogEntryRepository activityLogEntryRepository,
                                         WriteBackAttemptRepository writeBackAttemptRepository,
-                                        Clock clock) {
+                                        WriteBackAttemptRecorder recorder) {
         this.adapter = adapter;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.writeBackAttemptRepository = writeBackAttemptRepository;
-        this.clock = clock;
+        this.recorder = recorder;
     }
 
     /**
@@ -53,7 +53,6 @@ public class ActivityLogWriteBackService {
      * immediately after it saves a new {@link ActivityLogEntry}. Never throws — a write-back
      * failure must not fail the officer decision or reminder dispatch that triggered it.
      */
-    @Transactional
     public void recordAndAttempt(ActivityLogEntry entry) {
         try {
             attempt(entry, 1);
@@ -68,7 +67,6 @@ public class ActivityLogWriteBackService {
      * enough not to hammer ITS Integrator once it's real.
      */
     @Scheduled(fixedRate = 15 * 60 * 1000)
-    @Transactional
     public void retryFailedWriteBacks() {
         for (WriteBackAttempt latest : latestAttemptPerEntry()) {
             if (latest.getStatus() != WriteBackStatus.FAILED || latest.getAttemptNumber() >= MAX_ATTEMPTS) {
@@ -91,16 +89,20 @@ public class ActivityLogWriteBackService {
                 .toList();
     }
 
+    /**
+     * A throwing adapter is converted to a failed result, not left unrecorded — otherwise the
+     * entry would silently disappear from both the retry sweep and the failures endpoint
+     * (adversarial review findings #1/#2).
+     */
     private void attempt(ActivityLogEntry entry, int attemptNumber) {
-        WriteBackResult result = adapter.attemptWrite(entry);
+        WriteBackResult result;
+        try {
+            result = adapter.attemptWrite(entry);
+        } catch (Exception ex) {
+            result = WriteBackResult.failed(ex.getMessage());
+        }
 
-        writeBackAttemptRepository.save(WriteBackAttempt.builder()
-                .activityLogEntryId(entry.getId())
-                .attemptNumber(attemptNumber)
-                .status(result.success() ? WriteBackStatus.SUCCESS : WriteBackStatus.FAILED)
-                .errorMessage(result.errorMessage())
-                .attemptedAt(Instant.now(clock))
-                .build());
+        recorder.record(entry.getId(), attemptNumber, result);
 
         if (!result.success()) {
             log.warn("Write-back attempt {} failed for activity log entry {}: {}",
@@ -108,13 +110,21 @@ public class ActivityLogWriteBackService {
         }
     }
 
-    /** One row per activity_log_entry_id — whichever attempt has the highest attempt number. */
+    /**
+     * One row per activity_log_entry_id — whichever attempt has the highest attempt number, tied
+     * broken by id for a deterministic result regardless of {@code findAll()}'s row order.
+     */
     private List<WriteBackAttempt> latestAttemptPerEntry() {
-        Map<java.util.UUID, WriteBackAttempt> latestById = writeBackAttemptRepository.findAll().stream()
+        Map<UUID, WriteBackAttempt> latestById = writeBackAttemptRepository.findAll().stream()
                 .collect(Collectors.toMap(
                         WriteBackAttempt::getActivityLogEntryId,
                         a -> a,
-                        (a, b) -> a.getAttemptNumber() >= b.getAttemptNumber() ? a : b));
+                        (a, b) -> {
+                            if (!a.getAttemptNumber().equals(b.getAttemptNumber())) {
+                                return a.getAttemptNumber() > b.getAttemptNumber() ? a : b;
+                            }
+                            return a.getId().compareTo(b.getId()) <= 0 ? a : b;
+                        }));
         return latestById.values().stream()
                 .sorted(Comparator.comparing(WriteBackAttempt::getAttemptedAt))
                 .toList();

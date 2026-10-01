@@ -28,6 +28,11 @@
         <createIndex indexName="idx_write_back_attempt_entry_id" tableName="write_back_attempt">
             <column name="activity_log_entry_id"/>
         </createIndex>
+        <!-- Guards against a double-processed sweep (e.g. overlapping runs) inserting two rows for
+             the same entry's next attempt number — adversarial review finding #4. -->
+        <addUniqueConstraint tableName="write_back_attempt"
+                              columnNames="activity_log_entry_id, attempt_number"
+                              constraintName="uq_write_back_attempt_entry_attempt"/>
     </changeSet>
 
 </databaseChangeLog>
