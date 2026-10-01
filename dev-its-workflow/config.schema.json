@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dev-ITS Workflow Configuration",
+  "description": "Team and repo configuration for the dev-its-workflow skill. Place at .dev-its/config.json in your repo root.",
+  "type": "object",
+  "required": ["version", "team", "repo", "tools", "workflow"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Config schema version"
+    },
+    "team": {
+      "type": "object",
+      "required": ["name", "reviewers"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Team or project name (for display)"
+        },
+        "reviewers": {
+          "type": "array",
+          "description": "Team members who review PRs. Never add the PR author.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "description": "Display name" },
+              "github": { "type": "string", "description": "GitHub username (for GitHub repos)" },
+              "azure": { "type": "string", "description": "Azure DevOps display name (for Azure repos)" },
+              "email": { "type": "string", "description": "Email (optional, for notifications)" }
+            }
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "repo": {
+      "type": "object",
+      "required": ["backend", "base_branch"],
+      "properties": {
+        "backend": {
+          "type": "string",
+          "enum": ["github", "azure-devops"],
+          "description": "Detected from git remote. 'github' for github.com, 'azure-devops' for dev.azure.com"
+        },
+        "org": {
+          "type": "string",
+          "description": "GitHub org or Azure DevOps org URL"
+        },
+        "project": {
+          "type": "string",
+          "description": "Azure DevOps project name (not needed for GitHub)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Repository name"
+        },
+        "base_branch": {
+          "type": "string",
+          "default": "main",
+          "description": "The branch PRs target (main, develop, etc.)"
+        },
+        "branch_prefix": {
+          "type": "string",
+          "default": "feature/",
+          "description": "Prefix for new branches (feature/, fix/, etc.)"
+        },
+        "commit_style": {
+          "type": "string",
+          "enum": ["conventional", "freeform"],
+          "default": "conventional",
+          "description": "Commit message style"
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "gh_path": {
+          "type": "string",
+          "default": "gh",
+          "description": "Path to the GitHub CLI binary (use full path if not on PATH)"
+        },
+        "az_path": {
+          "type": "string",
+          "default": "az",
+          "description": "Path to the Azure CLI binary"
+        },
+        "docker": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether Docker is required for this project"
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "gates": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["spec", "plan", "pr"] },
+          "default": ["spec", "plan", "pr"],
+          "description": "Which gates require human approval. Removing a gate is discouraged."
+        },
+        "fast_track_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow fast-track mode for LOW-complexity bug fixes"
+        },
+        "max_retries_per_stage": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Max attempts per failing stage before escalating to human"
+        },
+        "max_test_review_loops": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 2,
+          "maximum": 10,
+          "description": "Max iterations of the test/review adversarial loop"
+        },
+        "parallel_tests": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run unit + integration tests in parallel"
+        },
+        "auto_document": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run documentation agent after deploy"
+        }
+      }
+    },
+    "pr_template": {
+      "type": "string",
+      "default": "built-in",
+      "description": "Use 'built-in' for the included template, or a path to a custom template file"
+    }
+  }
+}

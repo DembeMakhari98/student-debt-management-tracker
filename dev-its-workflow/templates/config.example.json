@@ -1,25 +1,26 @@
 {
-  "$schema": "../dev-its-workflow/config.schema.json",
+  "$schema": "../config.schema.json",
   "version": "1.0",
   "team": {
-    "name": "Adapt IT",
+    "name": "My Team",
     "reviewers": [
-      { "name": "Dembe Makhari", "github": "DembeMakhari98" },
-      { "name": "Oamogetswe-Makgopela", "github": "Oamogetswe-Makgopela" },
-      { "name": "Linda50-adaptit", "github": "Linda50-adaptit" }
+      { "name": "Alice Smith", "github": "alice-gh", "azure": "Alice Smith" },
+      { "name": "Bob Jones", "github": "bob-jones", "azure": "Bob Jones" },
+      { "name": "Charlie Dev", "github": "charlie-d", "azure": "Charlie Dev" }
     ]
   },
   "repo": {
     "backend": "github",
-    "org": "DembeMakhari98",
-    "name": "student-debt-management-tracker",
+    "org": "my-org",
+    "name": "my-repo",
     "base_branch": "main",
     "branch_prefix": "feature/",
     "commit_style": "conventional"
   },
   "tools": {
     "gh_path": "gh",
-    "az_path": "az"
+    "az_path": "az",
+    "docker": false
   },
   "workflow": {
     "gates": ["spec", "plan", "pr"],
