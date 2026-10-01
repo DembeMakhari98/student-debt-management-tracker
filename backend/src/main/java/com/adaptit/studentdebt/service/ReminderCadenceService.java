@@ -9,6 +9,7 @@ import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.ReminderCadenceProgressRepository;
 import com.adaptit.studentdebt.repository.SystemSettingRepository;
+import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,8 @@ import java.util.List;
  * stack). Each step is recorded as an {@link ActivityLogEntry}, the same simulated-dispatch
  * approach issue #14 used for the manual engagement buttons — swap the {@code log(...)} calls
  * below for a real gateway client once a provider is confirmed; nothing else here needs to change.
+ * Each dispatch is also handed to {@link ActivityLogWriteBackService} to push to ITS Integrator
+ * (issue #3).
  */
 @Slf4j
 @Service
@@ -48,6 +51,7 @@ public class ReminderCadenceService {
     private final DecisionEngineService decisionEngineService;
     private final AutonomyGateService autonomyGateService;
     private final Clock clock;
+    private final ActivityLogWriteBackService writeBackService;
 
     public ReminderCadenceService(DebtorRepository debtorRepository,
                                    ReminderCadenceProgressRepository progressRepository,
@@ -55,7 +59,8 @@ public class ReminderCadenceService {
                                    SystemSettingRepository systemSettingRepository,
                                    DecisionEngineService decisionEngineService,
                                    AutonomyGateService autonomyGateService,
-                                   Clock clock) {
+                                   Clock clock,
+                                   ActivityLogWriteBackService writeBackService) {
         this.debtorRepository = debtorRepository;
         this.progressRepository = progressRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
@@ -63,6 +68,7 @@ public class ReminderCadenceService {
         this.decisionEngineService = decisionEngineService;
         this.autonomyGateService = autonomyGateService;
         this.clock = clock;
+        this.writeBackService = writeBackService;
     }
 
     /** Runs after the nightly scoring pass would have refreshed {@code missed_instalments}. */
@@ -124,12 +130,13 @@ public class ReminderCadenceService {
     }
 
     private void recordDispatch(String debtorKey, String text, Instant now) {
-        activityLogEntryRepository.save(ActivityLogEntry.builder()
+        ActivityLogEntry entry = activityLogEntryRepository.save(ActivityLogEntry.builder()
                 .debtorKey(debtorKey)
                 .text(text)
                 .source("Engagement Agent · Reminder cadence")
                 .createdAt(now)
                 .build());
+        writeBackService.recordAndAttempt(entry);
         log.info("Reminder cadence step dispatched for debtorKey={}: {}", debtorKey, text);
     }
 }

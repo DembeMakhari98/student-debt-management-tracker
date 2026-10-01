@@ -10,6 +10,7 @@ import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.web.NotFoundException;
+import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import jakarta.validation.ValidationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +20,8 @@ import java.time.Instant;
 /**
  * Handles an officer's approve / amend / decline on a case (issue #13). Every decision is written
  * as an immutable {@link OfficerDecision} plus a matching {@link ActivityLogEntry}, both with the
- * officer's identity and a timestamp — the auditable trail required by issue #3.
+ * officer's identity and a timestamp, then handed to {@link ActivityLogWriteBackService} to push
+ * to ITS Integrator — the auditable trail required by issue #3.
  */
 @Service
 public class DecisionService {
@@ -29,17 +31,20 @@ public class DecisionService {
     private final ActivityLogEntryRepository activityLogEntryRepository;
     private final DecisionEngineService decisionEngineService;
     private final CaseService caseService;
+    private final ActivityLogWriteBackService writeBackService;
 
     public DecisionService(DebtorRepository debtorRepository,
                             OfficerDecisionRepository officerDecisionRepository,
                             ActivityLogEntryRepository activityLogEntryRepository,
                             DecisionEngineService decisionEngineService,
-                            CaseService caseService) {
+                            CaseService caseService,
+                            ActivityLogWriteBackService writeBackService) {
         this.debtorRepository = debtorRepository;
         this.officerDecisionRepository = officerDecisionRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.decisionEngineService = decisionEngineService;
         this.caseService = caseService;
+        this.writeBackService = writeBackService;
     }
 
     @Transactional
@@ -79,13 +84,14 @@ public class DecisionService {
             case AMEND -> "amended and approved";
             case DECLINE -> "declined";
         };
-        activityLogEntryRepository.save(ActivityLogEntry.builder()
+        ActivityLogEntry entry = activityLogEntryRepository.save(ActivityLogEntry.builder()
                 .debtorKey(debtorKey)
                 .text("Recommendation " + verb + " by " + request.decidedBy()
                         + (action == DecisionAction.DECLINE ? " — " + request.reason() : ""))
                 .source("Officer decision · " + request.decidedBy())
                 .createdAt(now)
                 .build());
+        writeBackService.recordAndAttempt(entry);
 
         return caseService.detailFor(debtorKey);
     }
