@@ -1,13 +1,12 @@
 {
-  "$schema": "./config.schema.json",
+  "$schema": "../dev-its-workflow/config.schema.json",
   "version": "1.0",
   "team": {
     "name": "Adapt IT",
     "reviewers": [
-      {
-        "name": "Dembe Makhari",
-        "github": "DembeMakhari98"
-      }
+      { "name": "Dembe Makhari", "github": "DembeMakhari98" },
+      { "name": "Oamogetswe-Makgopela", "github": "Oamogetswe-Makgopela" },
+      { "name": "Linda50-adaptit", "github": "Linda50-adaptit" }
     ]
   },
   "repo": {

@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:student_debt_tracker;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      # H2's TEXT type reads back as CLOB, which trips Hibernate's cross-db "validate" check even
+      # though the same Liquibase changelog is fine on real Postgres. Tests only need to prove the
+      # changelog applies and the context loads, so schema validation is skipped here.
+      ddl-auto: none
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml

@@ -1,0 +1,100 @@
+<div class="stack">
+  <section class="hero">
+    <span class="eyebrow mint">Agentic student finance · financial year {{ debt.yearShort() }}</span>
+    <h1>Student Pro-active Debt Management Tracker</h1>
+    <div class="rule"></div>
+    <p>
+      Catch student debt while it is still recoverable. The agent reads Debtors, Student Fees and Student
+      Funding every night, picks up the students who are not paying or who have missed a payment, scores
+      them, and drafts the action — a human approves it. Every workspace opens in this same window.
+    </p>
+    <div class="cta">
+      <a class="btn-blue" routerLink="/tracker" style="text-decoration:none;display:inline-block">Open the Debt Management Tracker</a>
+      <a class="btn-onblue" routerLink="/cases" style="text-decoration:none;display:inline-block">Go to case management</a>
+    </div>
+  </section>
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span class="eyebrow">Debt summary · {{ debt.yearLabel() }}{{ debt.funding() !== 'all' ? ' · ' + debt.funding() : '' }}</span>
+      <span class="note">
+        @if (debt.year() === debt.calendarYear) {
+          Current financial year. Change the year below to look back, or choose All years for the whole book.
+        } @else if (debt.year() === 'all') {
+          Every financial year on record, {{ debt.yearSpan }}.
+        } @else {
+          Historic year. The tracker opens on {{ debt.defaultYear }} by default.
+        }
+      </span>
+    </div>
+    <div class="filters">
+      <span class="fl">
+        <label for="homeYear">Financial year</label>
+        <select class="filter" id="homeYear" (change)="onYearChange($any($event.target).value)">
+          @for (y of debt.sortedYears; track y) {
+            <option [value]="y" [selected]="debt.year() === y">{{ y }}{{ y === debt.calendarYear ? ' (current)' : '' }}</option>
+          }
+          <option value="all" [selected]="debt.year() === 'all'">All years ({{ debt.yearSpan }})</option>
+        </select>
+      </span>
+      <span class="fl">
+        <label for="homeFund">Funding source</label>
+        <select class="filter" id="homeFund" (change)="onFundingChange($any($event.target).value)">
+          <option value="all" [selected]="debt.funding() === 'all'">All funding types</option>
+          <option value="self" [selected]="debt.funding() === 'self'">Self-funded</option>
+          <option value="gov" [selected]="debt.funding() === 'gov'">Government (NSFAS)</option>
+          <option value="private" [selected]="debt.funding() === 'private'">Private / Bursary</option>
+        </select>
+      </span>
+    </div>
+  </div>
+
+  <app-summary-cards></app-summary-cards>
+
+  <div class="row-2">
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">Total debt to the institution — per year</span>
+        <span class="c-hint">Outstanding student debt at year end (ZAR), stacked by funding source. The selected year is highlighted.</span>
+      </div>
+      <app-year-chart></app-year-chart>
+      <div class="legend">
+        <span><i class="dot" style="background:#00A1ED"></i> Self-funded</span>
+        <span><i class="dot" style="background:#009FB0"></i> Government (NSFAS)</span>
+        <span><i class="dot" style="background:#FF9A00"></i> Private / Bursary</span>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="c-title">Funding mix of the {{ debt.bookLabel() }}</span>
+        <span class="c-hint">Who was meant to be paying the {{ debt.yearShort() }} balance.</span>
+      </div>
+      <app-donut-chart></app-donut-chart>
+    </div>
+  </div>
+
+  <div class="card" style="flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="c-title">The agent has picked up {{ picked() }} student{{ picked() === 1 ? '' : 's' }} for a human today</span>
+      <span class="c-hint">Missed instalments, arrears beyond current, or funding that has not resolved. {{ paying() }} debtor{{ paying() === 1 ? '' : 's' }} paying on cycle were left alone.</span>
+    </div>
+    <a class="btn-blue" routerLink="/tracker" style="text-decoration:none;display:inline-block">Review the pickup</a>
+  </div>
+
+  <div class="eyebrow">Workspaces</div>
+  <div class="grid-3">
+    @for (w of workspaces; track w.path; let i = $index) {
+      <a class="ws-card" [routerLink]="['/', w.path]">
+        <span class="n">{{ (i + 1).toString().padStart(2, '0') }}</span>
+        <h3>{{ w.label }}</h3>
+        <p>{{ w.blurb }}</p>
+        <span class="go">Open →</span>
+      </a>
+    }
+  </div>
+
+  <p class="note" style="text-align:center;margin:6px 0 0">
+    Every agent action is written to the student record in ITS with its reasoning and evidence.
+    Demonstration data · figures in South African Rand.
+  </p>
+</div>

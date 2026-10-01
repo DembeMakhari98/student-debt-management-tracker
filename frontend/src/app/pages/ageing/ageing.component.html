@@ -1,0 +1,171 @@
+<div class="stack">
+  <div class="page-head">
+    <div>
+      <h1>Age Analysis</h1>
+      <p>
+        How long the {{ debt.bookLabel() }} has been outstanding — Current, 30, 60, 90 and 120+ days —
+        by funding source and student by student. {{ totalDebt() ? o90Pct().toFixed(1) : '0.0' }}% of the selection
+        sits beyond 90 days and feeds straight into the agent's risk score. Ageing measured at the
+        last reconciliation, {{ debt.asAt }}.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="c-title">Ageing across the selection</span>
+      <span class="c-hint">Older buckets carry higher collection risk. The agent weights 90 and 120+ day balances most heavily when it picks students up.</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      @for (b of barRows(); track b.label) {
+        <div style="display:grid;grid-template-columns:90px 1fr 130px;align-items:center;gap:14px">
+          <span style="font-size:12.5px;font-weight:700;color:var(--fg-1);text-align:right">{{ b.label }}</span>
+          <div class="bar-track" style="height:22px">
+            <div style="height:100%;border-radius:999px" [style.width.%]="b.pct" [style.background]="b.color"></div>
+          </div>
+          <span class="mono" style="font-size:13px;font-weight:700;color:var(--fg-1)">{{ R(b.amount) }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="c-title">Debt per funding source × ageing bucket</span>
+      <span class="c-hint">Where the arrears sit by who was meant to be paying. NSFAS and lapsed-bursary balances concentrate in the older buckets.</span>
+    </div>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr>
+            <th>Funding source</th>
+            @for (b of buckets; track b.key) { <th class="num">{{ b.label }}</th> }
+            <th class="num">Total</th><th class="num">Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of matrixRowsWithShare(); track row.fundKey) {
+            <tr>
+              <td><span class="pill" [class]="FUND[row.fundKey].pill">{{ FUND[row.fundKey].label }}</span></td>
+              @for (v of row.values; track $index) { <td class="num">{{ v ? R(v) : '—' }}</td> }
+              <td class="num" style="font-weight:700;color:var(--fg-1)">{{ row.rowTotal ? R(row.rowTotal) : '—' }}</td>
+              <td class="num">{{ matrixGrandTotal() ? row.sharePct.toFixed(1) + '%' : '—' }}</td>
+            </tr>
+          }
+          <tr style="font-weight:700">
+            <td style="color:var(--fg-1)">Total</td>
+            @for (v of matrixColTotals(); track $index) { <td class="num" style="color:var(--fg-1)">{{ v ? R(v) : '—' }}</td> }
+            <td class="num" style="color:var(--fg-1)">{{ R(matrixGrandTotal()) }}</td>
+            <td class="num" style="color:var(--fg-1)">100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="c-title">Students owing — detail per ageing bucket</span>
+      <span class="c-hint">Every student with a balance, and how much of it sits in each bucket. Sorted by the oldest money first. Click through to Case management from the Tracker to act on a row.</span>
+    </div>
+    @if (!studentRows().length) {
+      <p class="note" style="margin:0">No outstanding balances in this selection.</p>
+    } @else {
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              @if (showYear()) { <th>Year</th> }
+              <th>Funding</th>
+              @for (b of buckets; track b.key) { <th class="num">{{ b.label }}</th> }
+              <th class="num">Total owed</th><th>Oldest arrear</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of studentRows(); track row.d.id) {
+              <tr>
+                <td><span style="color:var(--fg-1);font-weight:700">{{ row.d.name }}</span><div class="tag">{{ row.d.id }}</div></td>
+                @if (showYear()) { <td class="mono">{{ row.d.year }}</td> }
+                <td><span class="pill" [class]="FUND[row.d.funding].pill">{{ FUND[row.d.funding].label }}</span></td>
+                @for (v of row.values; track $index; let i = $index) {
+                  <td class="num" [style.color]="v ? buckets[i].color : null" [style.font-weight]="v ? 700 : 400">{{ v ? R(v) : '—' }}</td>
+                }
+                <td class="num" style="font-weight:700;color:var(--fg-1)">{{ R(row.totalOwed) }}</td>
+                <td><span class="pill" [style.background]="row.oldestColor + '1a'" [style.border]="'1px solid ' + row.oldestColor + '59'" [style.color]="row.oldestColor">{{ row.oldestLabel }}</span></td>
+              </tr>
+            }
+            <tr style="font-weight:700">
+              <td style="color:var(--fg-1)">Total · {{ studentRows().length }} student{{ studentRows().length === 1 ? '' : 's' }}</td>
+              @if (showYear()) { <td></td> }
+              <td></td>
+              @for (v of studentColTotals(); track $index) { <td class="num" style="color:var(--fg-1)">{{ v ? R(v) : '—' }}</td> }
+              <td class="num" style="color:var(--fg-1)">{{ R(studentGrandTotal()) }}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="c-title">The institution owes these students — {{ creditCount() }} credit balance{{ creditCount() === 1 ? '' : 's' }}</span>
+      <span class="c-hint">Credit balances run the other way: the student is owed a refund. These age exactly like a debt does, so the days owing and ageing band below show how long the institution has been holding the money.</span>
+    </div>
+    @if (!creditRows().length) {
+      <p class="note" style="margin:0">The institution does not owe any student in this selection.</p>
+    } @else {
+      @if (staleCredits().length) {
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:6px;background:rgba(192,0,66,.06);border:1px solid rgba(192,0,66,.22)">
+          <span class="dot" style="background:var(--ai-blush);margin-top:4px"></span>
+          <span style="font-size:12.5px;line-height:1.5;color:var(--fg-2)">
+            <b style="color:var(--fg-1)">{{ R(staleAmount()) }}</b> has been owed back to
+            {{ staleCredits().length }} student{{ staleCredits().length === 1 ? '' : 's' }} for more than 90 days.
+            @if (oldestCredit(); as oc) {
+              The oldest is {{ oc.d.name }} at {{ oc.days }} days, since {{ oc.d.creditSince }}.
+            }
+            Unreleased student credits past 90 days are an audit finding.
+          </span>
+        </div>
+      }
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              @if (showYear()) { <th>Year</th> }
+              <th>Funding</th><th>Why the credit arose</th><th>Credit since</th>
+              <th class="num">Days owing</th><th>Ageing band</th><th class="num">Owed to student</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of creditRows(); track row.d.id) {
+              <tr>
+                <td><span style="color:var(--fg-1);font-weight:700">{{ row.d.name }}</span><div class="tag">{{ row.d.id }}</div></td>
+                @if (showYear()) { <td class="mono">{{ row.d.year }}</td> }
+                <td><span class="pill" [class]="FUND[row.d.funding].pill">{{ FUND[row.d.funding].label }}</span></td>
+                <td style="font-size:12.5px">{{ row.d.creditReason || '—' }}</td>
+                <td class="tag" style="font-size:12px">{{ row.d.creditSince || '—' }}</td>
+                <td class="num" style="font-weight:700" [style.color]="row.bandColor">{{ row.days }}</td>
+                <td style="min-width:150px">
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    <span class="pill" style="align-self:flex-start" [style.background]="row.bandColor + '1a'" [style.border]="'1px solid ' + row.bandColor + '59'" [style.color]="row.bandColor">{{ row.bandLabel }}</span>
+                    <div class="bar-track"><div style="height:100%;border-radius:999px" [style.width.%]="row.pct" [style.background]="row.bandColor"></div></div>
+                  </div>
+                </td>
+                <td class="num pos">{{ R(row.amount) }}</td>
+              </tr>
+            }
+            <tr style="font-weight:700">
+              <td [attr.colspan]="showYear() ? 6 : 5" style="color:var(--fg-1)">Total owed to students</td>
+              <td></td>
+              <td class="num pos">{{ R(creditTotal()) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

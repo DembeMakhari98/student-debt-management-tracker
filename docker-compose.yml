@@ -1,0 +1,25 @@
+version: "3.9"
+
+# Local Postgres for the Student Debt Tracker API. `docker compose up -d`, then
+# `cd backend && ./mvnw spring-boot:run` — Liquibase creates and seeds every table on first run.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: student-debt-tracker-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: student_debt_tracker
+      POSTGRES_USER: debt_tracker
+      POSTGRES_PASSWORD: debt_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - student-debt-tracker-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U debt_tracker -d student_debt_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  student-debt-tracker-data:

@@ -1,0 +1,30 @@
+@if (total() <= 0) {
+  <div style="display:flex;justify-content:center">
+    <svg viewBox="0 0 220 220" style="width:200px;height:200px">
+      <circle [attr.cx]="cx" [attr.cy]="cy" [attr.r]="r" fill="none" stroke="var(--bg-3)" [attr.stroke-width]="sw"/>
+      <text [attr.x]="cx" [attr.y]="cy + 4" text-anchor="middle">No debt</text>
+    </svg>
+  </div>
+} @else {
+  <div style="display:flex;justify-content:center">
+    <svg viewBox="0 0 220 220" style="width:200px;height:200px">
+      @for (s of slices(); track s.color) {
+        <circle [attr.cx]="cx" [attr.cy]="cy" [attr.r]="r" fill="none" [attr.stroke]="s.color" [attr.stroke-width]="sw"
+                [attr.stroke-dasharray]="s.dasharray" [attr.stroke-dashoffset]="s.dashoffset"
+                [attr.transform]="'rotate(-90 ' + cx + ' ' + cy + ')'">
+          <title>{{ s.title }}</title>
+        </circle>
+      }
+      <text [attr.x]="cx" [attr.y]="cy - 4" text-anchor="middle" fill="var(--fg-1)" style="font-size:15px;font-weight:700">{{ centerLabel() }}</text>
+      <text [attr.x]="cx" [attr.y]="cy + 16" text-anchor="middle" style="font-size:11px">total debt</text>
+    </svg>
+  </div>
+  <div class="legend" style="flex-direction:column;gap:10px">
+    @for (row of legend(); track row.label) {
+      <span style="justify-content:space-between;width:100%">
+        <span style="display:inline-flex;align-items:center;gap:7px"><i class="dot" [style.background]="row.color"></i> {{ row.label }}</span>
+        <span class="mono" style="color:var(--fg-1);font-weight:700">{{ row.text }}</span>
+      </span>
+    }
+  </div>
+}

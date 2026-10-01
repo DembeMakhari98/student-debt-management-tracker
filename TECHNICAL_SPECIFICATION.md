@@ -90,10 +90,50 @@ does not replace them).
 | Web App | The 4 workspaces (Home, Tracker, Case Management, Age Analysis) — Section 6. |
 | Write-back Adapter | Pushes every agent/officer action and its rationale into the ITS Integrator student activity log. |
 
-`[TO CONFIRM]` Whether the Debt Tracker Service runs as a new microservice alongside
-ITS Integrator, or as a module inside the existing ITS Integrator codebase — depends on
-ITS Integrator's extensibility model and should be settled with the platform team before
-build.
+**[RESOLVED, issue #1]** The Debt Tracker Service runs as its own Spring Boot service,
+alongside ITS Integrator rather than embedded in it. It talks to every source system
+(Debtors, Student Fees, Student Funding, Student Records, Cashiering) through one
+`DebtorSourceAdapter` port (`backend/.../extract/DebtorSourceAdapter.java`) rather than
+calling each module's real API directly from the extraction job. This was chosen so the
+rest of the build — scoring, decision engine, all four workspaces, the audit trail —
+does not have to wait on real ITS Integrator API access being granted: a
+`MockDebtorSourceAdapter` implements the port today with the same 26-record
+demonstration book used elsewhere, and swapping in a real integration later is a
+single-class change (implement `DebtorSourceAdapter` against the real APIs, wire it in
+place of the mock via Spring's `@Primary`/profile mechanism) — nothing in
+`NightlyExtractService`, the scoring engine, or the web app needs to change.
+
+**[ANSWERED, issue #1 — platform team, 2026-09-08]** None of the 5 modules (Debtors,
+Student Fees, Student Funding, Student Records, Cashiering) currently expose a
+queryable read API — all five need new API work built on the ITS Integrator side
+before the real integration can replace `MockDebtorSourceAdapter`. This does not block
+this codebase's own build, but it does mean the real-data cutover is now gated on the
+platform team's own API delivery, not just a config/permissions change — flag this as
+a project-level timeline risk to whoever owns the epic.
+
+**[ANSWERED, issue #1 — platform team, 2026-09-08]** Write-back access into the student
+activity log does not exist today either — it needs to be built, same as the 5 read
+APIs above. The Write-back Adapter (Section 2 table) should be developed against a
+stub in the meantime, following the same port/adapter pattern as
+`DebtorSourceAdapter`, so issues #3 and #13 (activity log entries, officer decisions)
+aren't blocked while ITS Integrator builds the real path.
+
+**[ANSWERED, issue #1 — platform team, 2026-09-08]** Debtor-book size, the nightly
+job's available completion window (Section 7), and confirmation that the 8-value
+`fundStatus` enumeration (Section 3.3) is complete — none of these can be answered yet
+either: **no reporting exists today** in Student Funding / Student Records that could
+produce these numbers. It's not that the values are unknown, it's that there's nothing
+to query for them. This reporting needs to be built before either number can be
+confirmed. Development proceeds against the assumed 8-value `fundStatus` list carried
+over from the prototype and an assumed batching/schedule (Section 7) until real
+numbers exist.
+
+**Net picture (all 4 items now answered):** every real-data touchpoint this module
+needs — 5 read APIs, write-back, and the 2 reporting numbers — requires new build work
+on the ITS Integrator side; none of it exists today. This does not block this
+codebase's own build (mock adapter + assumed values cover dev), but the real cutover
+now has four separate upstream dependencies, none built yet. Flag as a project-level
+scope/timeline risk to whoever owns the epic before treating this issue as closeable.
 
 ---
 
@@ -155,6 +195,23 @@ this table.
 One row per financial year: `{ year, registeredCount }` — sourced from Student Records,
 used only to compute the "registered students" KPI and its "% of book" context. Not
 joined to individual debtors.
+
+### 3.4.1 Nightly extraction job (issue #2)
+
+`NightlyExtractService` (backend) pulls the full `Debtor` and `RegisteredCount` sets
+from the `DebtorSourceAdapter` (Section 2) on a schedule, plus a manually-triggerable
+`POST /api/admin/extract/run` for testing without waiting for the schedule to fire:
+
+- **Idempotent:** each record is upserted by its natural key (`Debtor.debtorKey`,
+  `RegisteredCount.financialYear`) — an existing row is updated in place, not
+  duplicated, so re-running the same night's extract twice is a no-op on row count.
+- **Negative ageing preserved:** credit balances (negative bucket totals) are copied
+  through as-is, never clamped to zero — Section 3.1/3.2 depend on this.
+- **Failure is logged, not silent:** every run — success or failure — writes one
+  `JobRunLog` row (`status`, `startedAt`/`finishedAt`, `recordsProcessed`,
+  `errorMessage`), queryable via `GET /api/admin/extract/history`. A thrown exception
+  from the adapter is caught, logged at `ERROR`, and recorded as a `FAILURE` run rather
+  than propagating an unhandled error or failing silently.
 
 ### 3.5 `Case` (persisted; one per picked-up debtor or credit debtor, per scoring run)
 
@@ -489,17 +546,31 @@ Band, Picked up by agent, AI recommendation, Status, Policy
 
 ## 7. Non-Functional Requirements
 
-- **Security / access control:** an officer must only see debtors in their assigned
-  portfolio `[TO CONFIRM scope — campus? programme? caseload assignment?]`. Every read
-  of a student's financial detail and every action taken must be attributable to a
-  logged-in user.
+- **Security / access control (issue #18):** an officer must only see debtors in
+  their assigned portfolio. **Confirmed model** (agreed with Finance/Debtors
+  management via the POPIA impact assessment,
+  `docs/compliance/popia-impact-assessment.md` §5) — a hybrid tiered scope, not
+  campus- or programme-wide:
+  - **Level 1 (own caseload, default):** the officer sees only debtors explicitly
+    assigned to them.
+  - **Level 2 (team coverage):** same-team officers can also view each other's
+    cases (e.g. vacation/absence coverage), no approval needed.
+  - **Level 3 (full portfolio):** manager-only, self-service (the manager role *is*
+    the approval authority) — every escalation is logged.
+
+  Every read of a student's financial detail and every action taken must be
+  attributable to a logged-in user.
 - **POPIA:** this module processes special personal information (identifiable
   students' financial position and funding status). A POPIA impact assessment is a
-  prerequisite to go-live (see business case, Section 6). Data retention period for
-  case history `[TO CONFIRM]`.
+  prerequisite to go-live (see business case, Section 6). **Data retention period for
+  case history: 7 years after a student's final financial year** (confirmed via the
+  POPIA impact assessment BA answer, 2026-09-08 — see
+  `docs/compliance/popia-impact-assessment.md` §7 and issue #20).
 - **Auditability:** the `activity` log (Section 4.6) and the officer `decision` fields
-  (Section 3.5) must be immutable and permanently retained — this *is* the audit trail
-  referenced throughout the business case.
+  (Section 3.5) must be immutable throughout their retention period — no update/delete
+  path is exposed via the API — and retained for the POPIA-confirmed period above, after
+  which they are purged by a scheduled compliance job (issue #20). This *is* the audit
+  trail referenced throughout the business case.
 - **Performance:** the nightly scoring job must complete before officers start their
   working day `[TO CONFIRM target window and current debtor-book size to size this]`.
   The web app's list views must remain responsive against the full multi-year book (the
@@ -510,21 +581,20 @@ Band, Picked up by agent, AI recommendation, Status, Policy
   900px, and 820px that progressively collapse the KPI grid, two-column layouts, and
   chrome to single-column/stacked layouts. Match this behaviour or replace it with the
   organisation's standard responsive breakpoints if one exists.
-- **Browser support** `[TO CONFIRM against Adapt IT's standard support matrix]`.
+- **Browser support** — **[ANSWERED, issue #21, 2026-09-22]**: Microsoft Edge version 10
+  and above, and Google Chrome.
 
 ---
 
 ## 8. Suggested Tech Stack
 
-`[TO CONFIRM against ITS Integrator's existing stack — the below assumes no existing
-constraint and should be reconciled with the platform team before build.]`
+**[ANSWERED, issue #21, 2026-09-22]** Angular (web app) and Spring Boot (Debt Tracker
+Service) are confirmed as aligned with ITS Integrator's existing stack.
 
-- **Web app:** any component framework consistent with ITS Integrator's existing
-  front-end (the prototype is framework-agnostic vanilla JS/HTML/CSS and can be treated
-  as a design/behaviour reference, not a code base to extend).
-- **Debt Tracker Service:** a scheduled job (nightly) plus a query API the web app
-  calls — language/runtime should match ITS Integrator's existing service stack for
-  operability.
+- **Web app:** Angular (the prototype is framework-agnostic vanilla JS/HTML/CSS and can
+  be treated as a design/behaviour reference, not a code base to extend).
+- **Debt Tracker Service:** Spring Boot — a scheduled job (nightly) plus a query API the
+  web app calls.
 - **Notification dispatch:** integrate with Adapt IT's existing SMS/WhatsApp gateway,
   if one exists, rather than procuring a new one `[TO CONFIRM]`.
 
@@ -547,14 +617,26 @@ constraint and should be reconciled with the platform team before build.]`
 ## 10. Open Items Before Build (`[TO CONFIRM]` roll-up)
 
 1. Exact API/endpoint availability on Debtors, Student Fees, Student Funding, Student
-   Records, Cashiering (Section 2) — needs an integration spike.
-2. Where the Debt Tracker Service physically runs relative to ITS Integrator (Section 2).
-3. Complete set of `fundStatus` values Student Funding can produce (Section 3.3).
+   Records, Cashiering (Section 2) — build isn't *blocked* on this (decoupled via the
+   `DebtorSourceAdapter` port), but the answer is now known: **[ANSWERED, issue #1,
+   2026-09-08]** none of the 5 modules expose a queryable read API today, and the
+   write-back path (activity log) doesn't exist either — all of it needs new build work
+   on ITS Integrator's side before real cutover. Treat as a project-level timeline risk.
+2. ~~Where the Debt Tracker Service physically runs relative to ITS Integrator (Section 2)~~
+   — **[RESOLVED, issue #1]**: its own Spring Boot service, not embedded.
+3. Complete set of `fundStatus` values Student Funding can produce (Section 3.3) —
+   **[ANSWERED, issue #1, 2026-09-08]**: no reporting exists yet to confirm this;
+   developing against the prototype's assumed 8-value list until it does.
 4. Refund-queue sort order intent (Section 6.2).
 5. Engagement-channel button gating rules by autonomy level (Section 6.3).
 6. Officer portfolio/access scoping model (Section 7).
-7. Data retention period for case history (Section 7).
-8. Nightly job completion window and current debtor-book size (Section 7).
-9. Browser support matrix (Section 7).
-10. Tech stack alignment with existing ITS Integrator services (Section 8).
+7. ~~Data retention period for case history (Section 7).~~ **Resolved** — 7 years
+   after a student's final financial year, enforced by a scheduled purge (issue #20).
+8. Nightly job completion window and current debtor-book size (Section 7) —
+   **[ANSWERED, issue #1, 2026-09-08]**: no reporting exists yet to confirm either
+   number.
+9. Browser support matrix (Section 7) — **[ANSWERED, issue #21, 2026-09-22]**: Edge
+   version 10+ and Chrome.
+10. Tech stack alignment with existing ITS Integrator services (Section 8) —
+    **[ANSWERED, issue #21, 2026-09-22]**: Angular + Spring Boot confirmed.
 11. Existing SMS/WhatsApp gateway to integrate with, if any (Section 8).
