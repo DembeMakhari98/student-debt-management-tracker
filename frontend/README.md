@@ -14,7 +14,7 @@ npm start          # ng serve, http://localhost:4200
 `npm run build` produces a production bundle in `dist/frontend/`.
 
 Signing in needs the backend running (see `../backend`). The demo accounts are listed in the root
-README, and the sign-in screen shows them in dev builds.
+README.
 
 ## Authentication
 

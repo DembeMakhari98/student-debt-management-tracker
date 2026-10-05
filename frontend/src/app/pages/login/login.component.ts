@@ -1,28 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, inject, isDevMode, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
-import { UserRole, roleLabel } from '../../core/auth/auth.models';
-
-interface DemoAccount {
-  username: string;
-  name: string;
-  role: UserRole;
-  team: string;
-}
-
-/** Seeded by backend/src/main/resources/db/changelog/007-app-user.xml (not in prod). */
-const DEMO_PASSWORD = 'Debt@2026!';
-const DEMO_ACCOUNTS: DemoAccount[] = [
-  { username: 'nomsa.mahlangu', name: 'Nomsa Mahlangu', role: 'OFFICER', team: 'Team A' },
-  { username: 'sibusiso.khoza', name: 'Sibusiso Khoza', role: 'OFFICER', team: 'Team A' },
-  { username: 'anele.dube', name: 'Anele Dube', role: 'OFFICER', team: 'Team B' },
-  { username: 'priya.naidoo', name: 'Priya Naidoo', role: 'OFFICER', team: 'Team B' },
-  { username: 'thato.mokoena', name: 'Thato Mokoena', role: 'OFFICER', team: 'Team C' },
-  { username: 'grace.vanrooyen', name: 'Grace van Rooyen', role: 'MANAGER', team: 'Team C' },
-  { username: 'admin', name: 'System Administrator', role: 'ADMIN', team: 'All teams' },
-];
 
 /** The sign-in screen: exchanges credentials for a JWT, then returns to where the user was headed. */
 @Component({
@@ -38,17 +18,11 @@ export class LoginComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  readonly showDemo = isDevMode();
-  readonly demoAccounts = DEMO_ACCOUNTS;
-  readonly roleLabel = roleLabel;
-  readonly year = new Date().getFullYear();
-
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly shake = signal(false);
   readonly showPassword = signal(false);
   readonly capsLock = signal(false);
-  readonly demoOpen = signal(false);
 
   private readonly passwordInput = viewChild<ElementRef<HTMLInputElement>>('passwordInput');
 
@@ -70,11 +44,6 @@ export class LoginComponent {
 
   onKey(event: KeyboardEvent): void {
     this.capsLock.set(event.getModifierState?.('CapsLock') ?? false);
-  }
-
-  useDemo(account: DemoAccount): void {
-    this.form.patchValue({ username: account.username, password: DEMO_PASSWORD });
-    this.error.set(null);
   }
 
   submit(): void {

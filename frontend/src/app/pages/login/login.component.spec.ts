@@ -123,13 +123,4 @@ describe('LoginComponent', () => {
     expect(input.type).toBe('text');
   });
 
-  it('fills the form from a demo account', () => {
-    setup();
-    el().querySelector<HTMLButtonElement>('.demo-toggle')!.click();
-    fixture.detectChanges();
-    el().querySelector<HTMLButtonElement>('.demo-list button')!.click();
-    fixture.detectChanges();
-    expect(el().querySelector<HTMLInputElement>('#username')!.value).toBe('nomsa.mahlangu');
-    expect(el().querySelector<HTMLInputElement>('#password')!.value).toBe('Debt@2026!');
-  });
 });
