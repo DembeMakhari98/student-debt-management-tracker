@@ -86,6 +86,38 @@ form { display: grid; gap: 16px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* demo accounts (dev builds): click a person to sign in as them */
+.demo { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px; }
+.demo-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 0; background: transparent; cursor: pointer; padding: 4px;
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--fg-2);
+}
+.demo-toggle:hover { color: var(--fg-1); }
+.demo-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; transition: transform .2s; }
+.demo-toggle svg.open { transform: rotate(180deg); }
+.demo-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; }
+.demo-list button {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer; font: inherit; text-align: left;
+}
+.demo-list button:hover:not(:disabled) { background: var(--bg-2); }
+.demo-list button:focus-visible { outline: 2px solid var(--ai-blue); outline-offset: -2px; }
+.demo-list button:disabled { cursor: progress; opacity: .6; }
+.d-avatar {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--ai-mid-blue);
+}
+.d-avatar[data-role="MANAGER"] { background: var(--ai-teal); }
+.d-avatar[data-role="ADMIN"] { background: var(--ai-navy); }
+.d-name { font-size: 13.5px; color: var(--fg-1); font-weight: 600; }
+.d-role {
+  margin-left: auto; flex: none; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  color: var(--ai-mid-blue); background: rgba(0, 102, 144, .08);
+}
+.d-role[data-role="MANAGER"] { color: var(--teal-text); background: rgba(0, 159, 176, .1); }
+.d-role[data-role="ADMIN"] { color: var(--ai-navy); background: rgba(0, 41, 113, .08); }
+
 @media (prefers-reduced-motion: reduce) {
   .card.shake, .spinner { animation: none; }
 }

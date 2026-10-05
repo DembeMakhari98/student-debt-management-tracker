@@ -56,5 +56,27 @@
         }
       </button>
     </form>
+
+    @if (showDemo) {
+      <div class="demo">
+        <button type="button" class="demo-toggle" (click)="demoOpen.set(!demoOpen())" [attr.aria-expanded]="demoOpen()">
+          Demo accounts
+          <svg [class.open]="demoOpen()" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        @if (demoOpen()) {
+          <ul class="demo-list">
+            @for (a of demoAccounts; track a.username) {
+              <li>
+                <button type="button" (click)="signInAs(a)" [disabled]="submitting()" [title]="'Sign in as ' + a.name">
+                  <span class="d-avatar" [attr.data-role]="a.role">{{ initials(a.name) }}</span>
+                  <span class="d-name">{{ a.name }}</span>
+                  <span class="d-role" [attr.data-role]="a.role">{{ a.role === 'OFFICER' ? a.team : roleLabel(a.role) }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
   </div>
 </div>

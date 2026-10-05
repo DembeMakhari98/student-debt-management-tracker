@@ -114,6 +114,22 @@ describe('LoginComponent', () => {
     expect(el().querySelector('[role="alert"]')!.textContent).toContain("Can't reach the server");
   });
 
+  it('signs in with one click on a demo account', () => {
+    setup();
+    el().querySelector<HTMLButtonElement>('.demo-toggle')!.click();
+    fixture.detectChanges();
+    el().querySelector<HTMLButtonElement>('.demo-list button')!.click();
+
+    const req = http.expectOne(`${API_BASE}/api/auth/login`);
+    expect(req.request.body).toEqual({ username: 'nomsa.mahlangu', password: 'Debt@2026!' });
+    req.flush({
+      token: 't',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      user: { username: 'nomsa.mahlangu', displayName: 'Nomsa Mahlangu', role: 'OFFICER', team: 'Team A', officerKey: 'nomsa-mahlangu' },
+    });
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/home');
+  });
+
   it('toggles password visibility', () => {
     setup();
     const input = el().querySelector<HTMLInputElement>('#password')!;
