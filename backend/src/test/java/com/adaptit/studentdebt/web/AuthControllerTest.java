@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * JWT login against the users seeded by 007-app-user.xml, and the access rules every
+ * JWT login against the users seeded by 008-app-user.xml, and the access rules every
  * other /api endpoint now sits behind.
  */
 @SpringBootTest

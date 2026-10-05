@@ -12,7 +12,7 @@ interface DemoAccount {
   team: string;
 }
 
-/** Seeded by backend/src/main/resources/db/changelog/007-app-user.xml (not in prod). */
+/** Seeded by backend/src/main/resources/db/changelog/008-app-user.xml (not in prod). */
 const DEMO_PASSWORD = 'Debt@2026!';
 const DEMO_ACCOUNTS: DemoAccount[] = [
   { username: 'nomsa.mahlangu', name: 'Nomsa Mahlangu', role: 'OFFICER', team: 'Team A' },

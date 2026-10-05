@@ -58,7 +58,7 @@ npm start                    # http://localhost:4200
 ### Signing in
 
 The app opens on a sign-in screen backed by JWT authentication (`POST /api/auth/login`). Liquibase
-changelog `007-app-user.xml` seeds these demo users, all with password **`Debt@2026!`**:
+changelog `008-app-user.xml` seeds these demo users, all with password **`Debt@2026!`**:
 
 | Username | Name | Role | Team |
 |---|---|---|---|

@@ -64,7 +64,7 @@ Stateless JWT (HS256, Spring Security's OAuth2 resource server).
 - `POST /api/debtors/{key}/decision` attributes the decision to the token's user. Any
   client-supplied `decidedBy` is ignored.
 
-Users live in `app_user` (Liquibase `007-app-user.xml`). The seeded demo accounts are listed in
+Users live in `app_user` (Liquibase `008-app-user.xml`). The seeded demo accounts are listed in
 the root README.
 
 ## API surface

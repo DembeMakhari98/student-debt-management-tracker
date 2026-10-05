@@ -5,7 +5,7 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
     <!-- The people who can sign in to the tracker (JWT login). Roles: OFFICER, MANAGER, ADMIN. -->
-    <changeSet id="007-01-create-app-user" author="student-debt-tracker">
+    <changeSet id="008-01-create-app-user" author="student-debt-tracker">
         <createTable tableName="app_user">
             <column name="id" type="uuid">
                 <constraints primaryKey="true" nullable="false"/>
@@ -40,7 +40,7 @@
         `Debt@2026!` (BCrypt-hashed). Skipped when Liquibase runs with the `prod` context
         (spring.liquibase.contexts=prod) so real deployments never ship known credentials.
     -->
-    <changeSet id="007-02-seed-app-users" author="student-debt-tracker" context="!prod">
+    <changeSet id="008-02-seed-app-users" author="student-debt-tracker" context="!prod">
         <insert tableName="app_user">
             <column name="id" value="7a1c0001-0000-4000-8000-000000000001"/>
             <column name="username" value="nomsa.mahlangu"/>

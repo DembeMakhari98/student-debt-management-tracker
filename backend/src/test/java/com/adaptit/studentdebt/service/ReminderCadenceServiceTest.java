@@ -8,6 +8,7 @@ import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.ReminderCadenceProgressRepository;
 import com.adaptit.studentdebt.repository.SystemSettingRepository;
+import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -36,10 +37,11 @@ class ReminderCadenceServiceTest {
     private final SystemSettingRepository systemSettingRepository = mock(SystemSettingRepository.class);
     private final DecisionEngineService decisionEngineService = new DecisionEngineService();
     private final AutonomyGateService autonomyGateService = new AutonomyGateService();
+    private final ActivityLogWriteBackService writeBackService = mock(ActivityLogWriteBackService.class);
 
     private final ReminderCadenceService service = new ReminderCadenceService(
             debtorRepository, progressRepository, activityLogEntryRepository, systemSettingRepository,
-            decisionEngineService, autonomyGateService, java.time.Clock.systemUTC());
+            decisionEngineService, autonomyGateService, java.time.Clock.systemUTC(), writeBackService);
 
     private static Debtor reminderCadenceDebtor(String debtorKey) {
         Debtor d = new Debtor();
@@ -101,6 +103,7 @@ class ReminderCadenceServiceTest {
         verify(activityLogEntryRepository, times(1)).save(captor.capture());
         assertThat(captor.getValue().getText()).contains("SMS reminder sent");
         assertThat(captor.getValue().getSource()).isEqualTo("Engagement Agent · Reminder cadence");
+        verify(writeBackService, times(1)).recordAndAttempt(any());
     }
 
     @Test

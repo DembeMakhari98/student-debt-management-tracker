@@ -10,6 +10,7 @@ import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.web.NotFoundException;
+import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import jakarta.validation.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,9 +34,11 @@ class DecisionServiceTest {
     private final ActivityLogEntryRepository activityLogEntryRepository = mock(ActivityLogEntryRepository.class);
     private final CaseService caseService = mock(CaseService.class);
     private final DecisionEngineService decisionEngineService = new DecisionEngineService();
+    private final ActivityLogWriteBackService writeBackService = mock(ActivityLogWriteBackService.class);
 
     private final DecisionService decisionService = new DecisionService(
-            debtorRepository, officerDecisionRepository, activityLogEntryRepository, decisionEngineService, caseService);
+            debtorRepository, officerDecisionRepository, activityLogEntryRepository, decisionEngineService,
+            caseService, writeBackService);
 
     private Debtor debtor;
 
@@ -73,6 +76,7 @@ class DecisionServiceTest {
         assertThat(saved.getDecidedAt()).isNotNull();
 
         verify(activityLogEntryRepository).save(any());
+        verify(writeBackService).recordAndAttempt(any());
     }
 
     @Test
