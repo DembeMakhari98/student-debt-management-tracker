@@ -13,6 +13,20 @@ npm start          # ng serve, http://localhost:4200
 
 `npm run build` produces a production bundle in `dist/frontend/`.
 
+Signing in needs the backend running (see `../backend`). The demo accounts are listed in the root
+README, and the sign-in screen shows them in dev builds.
+
+## Authentication
+
+- `core/auth/auth.service.ts` posts to `/api/auth/login` and keeps the session. "Keep me signed in"
+  stores it in localStorage; otherwise it goes in sessionStorage. The session ends at token expiry.
+- `core/auth/auth.interceptor.ts` adds the bearer token to every call to `API_BASE`
+  (`core/api.ts`). A 401 signs the user out.
+- `core/auth/auth.guard.ts` covers the workspace routes. A signed-out visitor goes to
+  `/login?returnUrl=…`.
+- The brand bar shows the signed-in user and a Sign out button. `DebtService.currentOfficer` (the
+  identity portfolio scoping uses, issue #18) is set from that user.
+
 ## Structure
 
 ```

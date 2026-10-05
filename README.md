@@ -44,15 +44,33 @@ decisions; see each issue for what's still open.
 ## Quick start
 
 ```bash
-# 1. Frontend — mock data, no backend required
+# 1. Backend — Postgres + Liquibase (needed to sign in)
+docker compose up -d         # starts Postgres on 5432
+cd backend
+./mvnw spring-boot:run       # http://localhost:8080, schema + demo data + demo users created automatically
+
+# 2. Frontend — sign in, then the workspaces run on mock data
 cd frontend
 npm install
 npm start                    # http://localhost:4200
-
-# 2. Backend — Postgres + Liquibase
-docker compose up -d         # starts Postgres on 5432
-cd backend
-./mvnw spring-boot:run       # http://localhost:8080, schema + demo data created automatically
 ```
+
+### Signing in
+
+The app opens on a sign-in screen backed by JWT authentication (`POST /api/auth/login`). Liquibase
+changelog `007-app-user.xml` seeds these demo users, all with password **`Debt@2026!`**:
+
+| Username | Name | Role | Team |
+|---|---|---|---|
+| `nomsa.mahlangu` | Nomsa Mahlangu | Officer | Team A |
+| `sibusiso.khoza` | Sibusiso Khoza | Officer | Team A |
+| `anele.dube` | Anele Dube | Officer | Team B |
+| `priya.naidoo` | Priya Naidoo | Officer | Team B |
+| `thato.mokoena` | Thato Mokoena | Officer | Team C |
+| `grace.vanrooyen` | Grace van Rooyen | Manager | Team C |
+| `admin` | System Administrator | Admin | — |
+
+The demo users are skipped when Liquibase runs with the `prod` context
+(`SPRING_LIQUIBASE_CONTEXTS=prod`), so real deployments never ship known credentials.
 
 See each project's own README for configuration, testing and API details.

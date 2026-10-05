@@ -32,3 +32,33 @@ describe('AppComponent — global chrome export button (issue #17)', () => {
     expect(debt.exportCsv).toHaveBeenCalled();
   });
 });
+
+describe('AppComponent — signed-in user (JWT login)', () => {
+  const STORAGE_KEY = 'sdt.session';
+
+  afterEach(() => localStorage.removeItem(STORAGE_KEY));
+
+  it('shows the signed-in user instead of an officer switcher and scopes the portfolio to them', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        token: 't',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        user: { username: 'anele.dube', displayName: 'Anele Dube', role: 'OFFICER', team: 'Team B', officerKey: 'anele-dube' },
+      }),
+    );
+    TestBed.configureTestingModule({
+      imports: [AppComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(el.querySelector('select[aria-label="Signed in as"]')).toBeNull();
+    expect(el.querySelector('.who')!.textContent).toContain('Anele Dube');
+    expect(el.querySelector('.who')!.textContent).toContain('Student debt officer · Team B');
+    expect(el.querySelector('.sign-out')).toBeTruthy();
+    expect(TestBed.inject(DebtService).currentOfficerId()).toBe('anele-dube');
+  });
+});

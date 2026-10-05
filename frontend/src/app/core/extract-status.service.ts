@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
 import { catchError, of, tap } from 'rxjs';
+import { API_BASE } from './api';
 
 export interface JobRunLog {
   id: string;
@@ -13,14 +14,10 @@ export interface JobRunLog {
 }
 
 /**
- * Dev-only default matching the backend's documented port (see ../backend/README.md).
- * This is the app's one real frontend->backend integration point so far (issue #2's
- * nightly extract) — everything else still reads the local mock dataset (see
- * DebtService's doc comment).
+ * Surfaces the nightly extraction job's last run (issue #2) in the chrome. Apart from
+ * sign-in, this is the app's one real frontend->backend integration point so far;
+ * everything else still reads the local mock dataset (see DebtService's doc comment).
  */
-const API_BASE = 'http://localhost:8080';
-
-/** Surfaces the nightly extraction job's last run (issue #2) in the chrome. */
 @Injectable({ providedIn: 'root' })
 export class ExtractStatusService {
   readonly latestRun = signal<JobRunLog | null>(null);

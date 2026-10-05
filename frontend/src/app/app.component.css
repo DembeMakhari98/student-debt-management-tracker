@@ -1,0 +1,7 @@
+
+/* ---- signed-in user + sign out (replaces the demo officer switcher) ---- */
+.signed-in { display: flex; align-items: center; gap: 8px; }
+.sign-out { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 11.5px; margin-left: 4px; }
+
+/* The sign-in screen is full-bleed, with none of the workspace page padding. */
+main.bare { max-width: none; padding: 0; }

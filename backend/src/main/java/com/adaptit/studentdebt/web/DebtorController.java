@@ -3,6 +3,7 @@ package com.adaptit.studentdebt.web;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DebtorRowDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
+import com.adaptit.studentdebt.security.CurrentUser;
 import com.adaptit.studentdebt.service.CaseService;
 import com.adaptit.studentdebt.service.CsvExportService;
 import com.adaptit.studentdebt.service.DebtorQueryService;
@@ -12,6 +13,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -59,8 +61,12 @@ public class DebtorController {
 
     @PostMapping("/{debtorKey}/decision")
     public CaseDetailDto decide(@PathVariable String debtorKey,
-                                 @Valid @RequestBody DecisionRequestDto request) {
-        return decisionService.decide(debtorKey, request);
+                                 @Valid @RequestBody DecisionRequestDto request,
+                                 Authentication authentication) {
+        // Attribute the decision to the token's user, whatever the client put in decidedBy.
+        var attributed = new DecisionRequestDto(request.action(), request.amendedTerms(), request.reason(),
+                CurrentUser.displayName(authentication));
+        return decisionService.decide(debtorKey, attributed);
     }
 
     @GetMapping(value = "/export", produces = "text/csv")

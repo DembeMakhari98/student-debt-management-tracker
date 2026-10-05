@@ -48,11 +48,31 @@ All overridable via environment variables (see `application.yml`):
 | `DB_USERNAME` / `DB_PASSWORD` | `debt_tracker` / `debt_tracker` |
 | `SERVER_PORT` | `8080` |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` (the Angular dev server) |
+| `JWT_SECRET` | a dev-only key; **set a random 32+ byte value in every shared environment** |
+| `JWT_TTL` | `8h` (token lifetime) |
+| `SPRING_LIQUIBASE_CONTEXTS` | unset (all changesets). Set to `prod` to skip the demo users |
+
+## Authentication
+
+Stateless JWT (HS256, Spring Security's OAuth2 resource server).
+
+- `POST /api/auth/login` with `{"username","password"}` returns `{token, expiresAt, user}`. Wrong
+  credentials get a generic 401.
+- Every other `/api/**` call needs `Authorization: Bearer <token>`, or it gets a 401.
+- `/api/admin/**` also needs the `ADMIN` or `MANAGER` role (403 otherwise).
+- Only `/actuator/health` and `/actuator/info` are public.
+- `POST /api/debtors/{key}/decision` attributes the decision to the token's user. Any
+  client-supplied `decidedBy` is ignored.
+
+Users live in `app_user` (Liquibase `007-app-user.xml`). The seeded demo accounts are listed in
+the root README.
 
 ## API surface
 
 | Endpoint | Purpose | Issue |
 |---|---|---|
+| `POST /api/auth/login` | Exchange credentials for a JWT | — |
+| `GET /api/auth/me` | The signed-in user | — |
 | `GET /api/meta` | Years on record, funding options, autonomy levels | #16 |
 | `GET /api/summary?year=&funding=` | The 5 KPI cards | #10 |
 | `GET /api/debtors?year=&funding=&scope=picked\|refunds\|paying\|cases` | Tracker / case-list rows, scored and recommended | #11, #12 |
