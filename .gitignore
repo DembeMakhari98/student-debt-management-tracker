@@ -8,3 +8,10 @@ Thumbs.db
 
 # dev-its-workflow progress checkpoint (local, not shared)
 .dev-its/progress.json
+
+# Node.js and npm
+node_modules/
+package-lock.json
+npm-debug.log
+dist/
+build/
