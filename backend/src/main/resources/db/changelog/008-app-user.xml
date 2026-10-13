@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <!-- The people who can sign in to the tracker (JWT login). Roles: OFFICER, MANAGER, ADMIN. -->
+    <changeSet id="008-01-create-app-user" author="student-debt-tracker">
+        <createTable tableName="app_user">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="username" type="varchar(60)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_app_user_username"/>
+            </column>
+            <column name="password_hash" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="team" type="varchar(40)"/>
+            <column name="role" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Links a login to the officer ids the frontend assigns cases to (frontend/src/app/core/officers.ts). -->
+            <column name="officer_key" type="varchar(60)"/>
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!--
+        Demo users matching the BA-confirmed structure (3 teams, one manager — docs/compliance/
+        popia-impact-assessment.md §5) plus a system administrator. Every account's password is
+        `Debt@2026!` (BCrypt-hashed). Skipped when Liquibase runs with the `prod` context
+        (spring.liquibase.contexts=prod) so real deployments never ship known credentials.
+    -->
+    <changeSet id="008-02-seed-app-users" author="student-debt-tracker" context="!prod">
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000001"/>
+            <column name="username" value="nomsa.mahlangu"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="Nomsa Mahlangu"/>
+            <column name="team" value="Team A"/>
+            <column name="role" value="OFFICER"/>
+            <column name="officer_key" value="nomsa-mahlangu"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000002"/>
+            <column name="username" value="sibusiso.khoza"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="Sibusiso Khoza"/>
+            <column name="team" value="Team A"/>
+            <column name="role" value="OFFICER"/>
+            <column name="officer_key" value="sibusiso-khoza"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000003"/>
+            <column name="username" value="anele.dube"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="Anele Dube"/>
+            <column name="team" value="Team B"/>
+            <column name="role" value="OFFICER"/>
+            <column name="officer_key" value="anele-dube"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000004"/>
+            <column name="username" value="priya.naidoo"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="Priya Naidoo"/>
+            <column name="team" value="Team B"/>
+            <column name="role" value="OFFICER"/>
+            <column name="officer_key" value="priya-naidoo"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000005"/>
+            <column name="username" value="thato.mokoena"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="Thato Mokoena"/>
+            <column name="team" value="Team C"/>
+            <column name="role" value="OFFICER"/>
+            <column name="officer_key" value="thato-mokoena"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000006"/>
+            <column name="username" value="grace.vanrooyen"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="Grace van Rooyen"/>
+            <column name="team" value="Team C"/>
+            <column name="role" value="MANAGER"/>
+            <column name="officer_key" value="grace-van-rooyen"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+        <insert tableName="app_user">
+            <column name="id" value="7a1c0001-0000-4000-8000-000000000007"/>
+            <column name="username" value="admin"/>
+            <column name="password_hash" value="$2a$10$U2TQia1VvVzgJkBNVvTmHe1lYHAjSmXlOWNO6fvIjDWDPK8n/9MT6"/>
+            <column name="display_name" value="System Administrator"/>
+            <column name="role" value="ADMIN"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueDate="2026-10-05T00:00:00"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

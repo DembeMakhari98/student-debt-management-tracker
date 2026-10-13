@@ -1,0 +1,82 @@
+<div class="login-bg">
+  <div class="card" [class.shake]="shake()" (animationend)="shake.set(false)">
+    <div class="brandmark">
+      <svg viewBox="0 0 42 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M8 13C8 6.5 15.5 6.5 21 13C26.5 19.5 34 19.5 34 13C34 6.5 26.5 6.5 21 13C15.5 19.5 8 19.5 8 13Z"
+              fill="none" stroke="#E82727" stroke-width="3.4" stroke-linecap="round"/>
+      </svg>
+      <span>adapt<b>IT</b></span>
+    </div>
+
+    <div role="alert" aria-live="assertive">
+      @if (error(); as message) {
+        <div class="alert-box">{{ message }}</div>
+      }
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="field" [class.has-error]="invalid('username')">
+        <label for="username">Username</label>
+        <input id="username" type="text" formControlName="username" autocomplete="username"
+               autocapitalize="none" spellcheck="false"
+               [attr.aria-invalid]="invalid('username')" aria-describedby="username-err" />
+        @if (invalid('username')) {
+          <span class="err" id="username-err">Enter your username.</span>
+        }
+      </div>
+
+      <div class="field" [class.has-error]="invalid('password')">
+        <label for="password">Password</label>
+        <div class="control">
+          <input #passwordInput id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="password"
+                 autocomplete="current-password" (keyup)="onKey($event)" (keydown)="onKey($event)"
+                 [attr.aria-invalid]="invalid('password')" aria-describedby="password-err caps-hint" />
+          <button type="button" class="reveal" (click)="togglePassword()"
+                  [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                  [attr.aria-pressed]="showPassword()">
+            @if (showPassword()) {
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4 9.5 6-.4.9-1.3 2.2-2.6 3.4M6.4 7.4C4.5 8.7 3.1 10.5 2.5 12c1 2 4.5 6 9.5 6 1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+            } @else {
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12c1-2 4.5-6 9.5-6s8.5 4 9.5 6c-1 2-4.5 6-9.5 6s-8.5-4-9.5-6z"/><circle cx="12" cy="12" r="3"/></svg>
+            }
+          </button>
+        </div>
+        @if (invalid('password')) {
+          <span class="err" id="password-err">Enter your password.</span>
+        } @else if (capsLock()) {
+          <span class="hint" id="caps-hint">Caps Lock is on.</span>
+        }
+      </div>
+
+      <button class="submit" type="submit" [disabled]="submitting()">
+        @if (submitting()) {
+          <span class="spinner" aria-hidden="true"></span> Signing in…
+        } @else {
+          Sign in
+        }
+      </button>
+    </form>
+
+    @if (showDemo) {
+      <div class="demo">
+        <button type="button" class="demo-toggle" (click)="demoOpen.set(!demoOpen())" [attr.aria-expanded]="demoOpen()">
+          Demo accounts
+          <svg [class.open]="demoOpen()" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        @if (demoOpen()) {
+          <ul class="demo-list">
+            @for (a of demoAccounts; track a.username) {
+              <li>
+                <button type="button" (click)="signInAs(a)" [disabled]="submitting()" [title]="'Sign in as ' + a.name">
+                  <span class="d-avatar" [attr.data-role]="a.role">{{ initials(a.name) }}</span>
+                  <span class="d-name">{{ a.name }}</span>
+                  <span class="d-role" [attr.data-role]="a.role">{{ a.role === 'OFFICER' ? a.team : roleLabel(a.role) }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+</div>

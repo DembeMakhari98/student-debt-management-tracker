@@ -1,3 +1,4 @@
+@if (!onLoginPage()) {
 <header class="chrome">
   <div class="brandbar">
     <div class="bb-left">
@@ -15,6 +16,7 @@
       </div>
     </div>
     <div class="bb-right">
+      @if (auth.canSeeAdminJobs()) {
       <button class="agent-chip" style="border:0;cursor:pointer;font-family:inherit"
               [title]="extractStatus.unreachable() ? 'Backend not reachable at localhost:8080 — click to retry' : 'Click to trigger the nightly extract now (issue #2)'"
               (click)="runExtract()">
@@ -31,6 +33,7 @@
           }
         }
       </button>
+      }
       <div class="agent-chip"><i></i>Risk Sentinel active</div>
       <select class="aut-select" aria-label="Agent autonomy" (change)="onAutonomyChange($any($event.target).value)">
         @for (l of levels; track l.name; let i = $index) {
@@ -44,15 +47,16 @@
           <option value="all" [selected]="debt.portfolioScope() === 'all'">Full portfolio</option>
         }
       </select>
-      <div style="display:flex;align-items:center;gap:8px">
-        <select class="aut-select" aria-label="Signed in as" (change)="onOfficerChange($any($event.target).value)">
-          @for (o of officers; track o.id) {
-            <option [value]="o.id" [selected]="debt.currentOfficerId() === o.id">{{ o.name }} — {{ o.team }}{{ o.role === 'manager' ? ' (Manager)' : '' }}</option>
-          }
-        </select>
-        <div class="avatar">{{ initialsOf(debt.currentOfficer().name) }}</div>
-        <div class="who"><b>{{ debt.currentOfficer().name }}</b><span>{{ debt.currentOfficer().role === 'manager' ? 'Debt manager' : 'Student debt officer' }}</span></div>
-      </div>
+      @if (auth.user(); as user) {
+        <div class="signed-in">
+          <div class="avatar">{{ initialsOf(user.displayName) }}</div>
+          <div class="who"><b>{{ user.displayName }}</b><span>{{ roleLabel(user.role) }}{{ user.team ? ' · ' + user.team : '' }}</span></div>
+          <button class="btn-onblue sign-out" type="button" (click)="signOut()" title="Sign out">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Sign out
+          </button>
+        </div>
+      }
     </div>
   </div>
 
@@ -88,7 +92,8 @@
     </div>
   </div>
 </header>
+}
 
-<main>
+<main [class.bare]="onLoginPage()">
   <router-outlet></router-outlet>
 </main>

@@ -13,3 +13,9 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
+
+app:
+  security:
+    jwt:
+      secret: test-only-secret-0123456789abcdef0123456789
+      ttl: 1h

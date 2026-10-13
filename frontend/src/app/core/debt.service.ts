@@ -59,18 +59,25 @@ export class DebtService {
      OFFICER IDENTITY & PORTFOLIO SCOPING (issue #18, POPIA impact assessment §5)
      ========================================================================= */
 
-  readonly currentOfficerId = signal<string>('nomsa-mahlangu');
+  /** The officer portfolio scoping acts as — set from the signed-in user (see AppComponent). */
+  private readonly actingOfficer = signal<Officer>(OFFICERS[0]);
+  readonly currentOfficer = this.actingOfficer.asReadonly();
+  readonly currentOfficerId = computed(() => this.actingOfficer().id);
   readonly portfolioScope = signal<PortfolioScope>('own');
 
   officerOf(id: string): Officer | undefined {
     return OFFICERS.find((o) => o.id === id);
   }
 
-  readonly currentOfficer = computed<Officer>(() => this.officerOf(this.currentOfficerId())!);
-
   /** Switching officer always resets to the narrowest scope — no carried-over broad view. */
   setCurrentOfficer(id: string): void {
-    this.currentOfficerId.set(id);
+    const officer = this.officerOf(id);
+    if (officer) this.signInAs(officer);
+  }
+
+  /** Acts as the signed-in user, who may not be on the case-assignment roster (e.g. an admin). */
+  signInAs(officer: Officer): void {
+    this.actingOfficer.set(officer);
     this.portfolioScope.set('own');
   }
 

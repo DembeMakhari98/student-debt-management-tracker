@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, effect, inject, untracked } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { DebtService } from './core/debt.service';
 import { ExtractStatusService } from './core/extract-status.service';
+import { AuthService } from './core/auth/auth.service';
+import { officerFor, roleLabel } from './core/auth/auth.models';
 import { LEVELS } from './core/constants';
-import { OFFICERS } from './core/officers';
 import { FundKey, PortfolioScope } from './core/models';
 
 interface TabDef {
@@ -20,9 +23,19 @@ interface TabDef {
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
+  private readonly router = inject(Router);
   readonly levels = LEVELS;
-  readonly officers = OFFICERS;
+  readonly roleLabel = roleLabel;
+
+  /** The workspace chrome is hidden on the sign-in screen. */
+  readonly onLoginPage = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects.startsWith('/login')),
+    ),
+    { initialValue: this.router.url.startsWith('/login') },
+  );
 
   readonly tabs: TabDef[] = [
     { path: 'home', label: 'Home', badge: () => '' },
@@ -38,10 +51,24 @@ export class AppComponent implements OnInit {
   constructor(
     public debt: DebtService,
     public extractStatus: ExtractStatusService,
-  ) {}
+    public auth: AuthService,
+  ) {
+    // Portfolio scoping and the access log act as whoever is signed in.
+    effect(() => {
+      const user = this.auth.user();
+      if (!user) return;
+      untracked(() => {
+        this.debt.signInAs(officerFor(user));
+        // An admin has no caseload of their own; start them on the whole book.
+        if (user.role === 'ADMIN') this.debt.setPortfolioScope('all');
+        // The extract history is an admin endpoint: only ask when the user may see it.
+        if (this.auth.canSeeAdminJobs()) this.extractStatus.refresh();
+      });
+    });
+  }
 
-  ngOnInit(): void {
-    this.extractStatus.refresh();
+  signOut(): void {
+    this.auth.logout();
   }
 
   runExtract(): void {
@@ -56,9 +83,6 @@ export class AppComponent implements OnInit {
   }
   onAutonomyChange(value: string): void {
     this.debt.setAutonomy(Number(value));
-  }
-  onOfficerChange(value: string): void {
-    this.debt.setCurrentOfficer(value);
   }
   onScopeChange(value: string): void {
     this.debt.setPortfolioScope(value as PortfolioScope);
