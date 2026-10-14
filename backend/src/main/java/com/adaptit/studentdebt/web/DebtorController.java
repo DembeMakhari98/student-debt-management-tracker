@@ -1,9 +1,11 @@
 package com.adaptit.studentdebt.web;
 
+import com.adaptit.studentdebt.dto.ActivityEntryDto;
 import com.adaptit.studentdebt.dto.AssignmentRequestDto;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DebtorRowDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
+import com.adaptit.studentdebt.dto.EngagementRequestDto;
 import com.adaptit.studentdebt.security.CurrentUser;
 import com.adaptit.studentdebt.security.PortfolioResolver;
 import com.adaptit.studentdebt.service.AssignmentService;
@@ -11,6 +13,7 @@ import com.adaptit.studentdebt.service.CaseService;
 import com.adaptit.studentdebt.service.CsvExportService;
 import com.adaptit.studentdebt.service.DebtorQueryService;
 import com.adaptit.studentdebt.service.DecisionService;
+import com.adaptit.studentdebt.service.EngagementService;
 import jakarta.validation.Valid;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -22,11 +25,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * The Debt Management Tracker worklist, the Case Management list/detail, CSV export and the
- * officer decision endpoint (issues #11, #12, #13, #17). Lists and the export cover the caller's
- * portfolio (own | team | all); a single case can be opened or decided within the caller's team, or
- * anywhere for a manager or administrator (issue #55). Managers and administrators can reassign
- * a case (issue #56).
+ * The Debt Management Tracker worklist, the Case Management list/detail, CSV export, the
+ * officer decision endpoint, and the officer engagement endpoint (issues #11, #12, #13, #17, #59).
+ * Lists and the export cover the caller's portfolio (own | team | all); a single case can be
+ * opened, decided or engaged within the caller's team, or anywhere for a manager or administrator
+ * (issue #55). Managers and administrators can reassign a case (issue #56).
  */
 @RestController
 @RequestMapping("/api/debtors")
@@ -38,16 +41,19 @@ public class DebtorController {
     private final CsvExportService csvExportService;
     private final PortfolioResolver portfolioResolver;
     private final AssignmentService assignmentService;
+    private final EngagementService engagementService;
 
     public DebtorController(DebtorQueryService debtorQueryService, CaseService caseService,
                              DecisionService decisionService, CsvExportService csvExportService,
-                             PortfolioResolver portfolioResolver, AssignmentService assignmentService) {
+                             PortfolioResolver portfolioResolver, AssignmentService assignmentService,
+                             EngagementService engagementService) {
         this.debtorQueryService = debtorQueryService;
         this.caseService = caseService;
         this.decisionService = decisionService;
         this.csvExportService = csvExportService;
         this.portfolioResolver = portfolioResolver;
         this.assignmentService = assignmentService;
+        this.engagementService = engagementService;
     }
 
     /**
@@ -94,6 +100,14 @@ public class DebtorController {
                                    @Valid @RequestBody AssignmentRequestDto request,
                                    Authentication authentication) {
         return assignmentService.reassign(debtorKey, request.officerKey().trim(), CurrentUser.displayName(authentication));
+    }
+
+    @PostMapping("/{debtorKey}/engagements")
+    public List<ActivityEntryDto> engage(@PathVariable String debtorKey,
+                                          @Valid @RequestBody EngagementRequestDto request,
+                                          Authentication authentication) {
+        debtorQueryService.requireAccess(debtorKey, portfolioResolver.caseAccess(authentication));
+        return engagementService.record(debtorKey, request, CurrentUser.displayName(authentication));
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
