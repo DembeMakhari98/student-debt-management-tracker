@@ -15,6 +15,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -207,5 +208,55 @@ class ActivityLogWriteBackServiceTest {
 
         // Same outcome regardless of findAll()'s row order.
         assertThat(result1.isEmpty()).isEqualTo(result2.isEmpty());
+    }
+
+    // ===== retryNow(UUID) — issue #61 =====
+
+    @Test
+    void retryNowThrowsNotFoundForAnUnknownAttemptId() {
+        UUID unknownId = UUID.randomUUID();
+        when(writeBackAttemptRepository.findById(unknownId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.retryNow(unknownId))
+                .isInstanceOf(com.adaptit.studentdebt.web.NotFoundException.class);
+    }
+
+    @Test
+    void retryNowThrowsConflictWhenTheEntryHasAlreadySucceeded() {
+        UUID entryId = UUID.randomUUID();
+        UUID requestedAttemptId = UUID.randomUUID();
+        WriteBackAttempt requested = attemptRow(entryId, 1, WriteBackStatus.FAILED, Instant.parse("2026-05-31T00:00:00Z"));
+        requested.setId(requestedAttemptId);
+        WriteBackAttempt latestSuccess = attemptRow(entryId, 2, WriteBackStatus.SUCCESS, Instant.parse("2026-05-31T01:00:00Z"));
+
+        when(writeBackAttemptRepository.findById(requestedAttemptId)).thenReturn(Optional.of(requested));
+        when(writeBackAttemptRepository.findAllByActivityLogEntryIdOrderByAttemptNumberDesc(entryId))
+                .thenReturn(List.of(latestSuccess, requested));
+
+        assertThatThrownBy(() -> service.retryNow(requestedAttemptId))
+                .isInstanceOf(com.adaptit.studentdebt.web.ConflictException.class);
+        verify(recorder, never()).record(any(), anyInt(), any());
+    }
+
+    @Test
+    void retryNowRetriesImmediatelyUsingTheNextSequentialAttemptNumber() {
+        UUID entryId = UUID.randomUUID();
+        UUID requestedAttemptId = UUID.randomUUID();
+        // Entry already has 5 failed attempts (past MAX_ATTEMPTS) — manual retry still runs; no cap.
+        WriteBackAttempt latestFailed = attemptRow(entryId, 5, WriteBackStatus.FAILED, Instant.parse("2026-05-31T01:00:00Z"));
+        latestFailed.setId(requestedAttemptId);
+
+        when(writeBackAttemptRepository.findById(requestedAttemptId)).thenReturn(Optional.of(latestFailed));
+        when(writeBackAttemptRepository.findAllByActivityLogEntryIdOrderByAttemptNumberDesc(entryId))
+                .thenReturn(List.of(latestFailed));
+        when(activityLogEntryRepository.findById(entryId)).thenReturn(Optional.of(entry(entryId)));
+        when(adapter.attemptWrite(any())).thenReturn(WriteBackResult.ok());
+        WriteBackAttempt sixthAttempt = attemptRow(entryId, 6, WriteBackStatus.SUCCESS, Instant.now());
+        when(recorder.record(eq(entryId), eq(6), any())).thenReturn(sixthAttempt);
+
+        WriteBackAttempt result = service.retryNow(requestedAttemptId);
+
+        verify(recorder).record(eq(entryId), eq(6), any());
+        assertThat(result).isEqualTo(sixthAttempt);
     }
 }
