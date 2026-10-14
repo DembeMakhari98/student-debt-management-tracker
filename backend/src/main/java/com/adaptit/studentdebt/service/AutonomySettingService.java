@@ -30,6 +30,13 @@ public class AutonomySettingService {
         this.autonomyLevelAuditRepository = autonomyLevelAuditRepository;
     }
 
+    /** The level currently in effect, defaulting to 2 if the row is somehow absent. */
+    public int currentLevel() {
+        return systemSettingRepository.findById(SETTING_KEY)
+                .map(s -> Integer.parseInt(s.getSettingValue()))
+                .orElse(DEFAULT_LEVEL);
+    }
+
     @Transactional
     public int update(int newLevel, String changedBy) {
         SystemSetting setting = systemSettingRepository.findById(SETTING_KEY)

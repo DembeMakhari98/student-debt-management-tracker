@@ -3,7 +3,7 @@ package com.adaptit.studentdebt.web;
 import com.adaptit.studentdebt.domain.FundingSource;
 import com.adaptit.studentdebt.dto.MetaDto;
 import com.adaptit.studentdebt.repository.DebtorRepository;
-import com.adaptit.studentdebt.repository.SystemSettingRepository;
+import com.adaptit.studentdebt.service.AutonomySettingService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,11 +24,11 @@ public class MetaController {
     );
 
     private final DebtorRepository debtorRepository;
-    private final SystemSettingRepository systemSettingRepository;
+    private final AutonomySettingService autonomySettingService;
 
-    public MetaController(DebtorRepository debtorRepository, SystemSettingRepository systemSettingRepository) {
+    public MetaController(DebtorRepository debtorRepository, AutonomySettingService autonomySettingService) {
         this.debtorRepository = debtorRepository;
-        this.systemSettingRepository = systemSettingRepository;
+        this.autonomySettingService = autonomySettingService;
     }
 
     @GetMapping("/api/meta")
@@ -46,10 +46,6 @@ public class MetaController {
                 .map(f -> new MetaDto.FundingOptionDto(f.name(), f.getLabel()))
                 .toList();
 
-        int autonomyLevel = systemSettingRepository.findById("autonomy_level")
-                .map(s -> Integer.parseInt(s.getSettingValue()))
-                .orElse(2);
-
-        return new MetaDto(years, calendarYear, defaultYear, fundingSources, autonomyLevel, LEVELS);
+        return new MetaDto(years, calendarYear, defaultYear, fundingSources, autonomySettingService.currentLevel(), LEVELS);
     }
 }
