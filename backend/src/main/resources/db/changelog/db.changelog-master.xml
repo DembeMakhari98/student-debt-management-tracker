@@ -18,5 +18,6 @@
     <include file="db/changelog/006-job-run-log.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/007-write-back-attempt.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/008-app-user.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/009-autonomy-level-audit.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

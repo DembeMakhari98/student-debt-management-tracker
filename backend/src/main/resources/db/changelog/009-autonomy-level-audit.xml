@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Audit trail for PUT /api/settings/autonomy (issue #57) — who changed the autonomy
+         level, old/new value, and when. Append-only, no update/delete path exposed. -->
+    <changeSet id="009-01-create-autonomy-level-audit" author="student-debt-tracker">
+        <createTable tableName="autonomy_level_audit">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="old_level" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="new_level" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="changed_by" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="changed_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

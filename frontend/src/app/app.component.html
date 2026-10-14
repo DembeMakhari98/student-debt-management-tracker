@@ -35,7 +35,9 @@
       </button>
       }
       <div class="agent-chip"><i></i>Risk Sentinel active</div>
-      <select class="aut-select" aria-label="Agent autonomy" (change)="onAutonomyChange($any($event.target).value)">
+      <select class="aut-select" aria-label="Agent autonomy" [disabled]="!auth.canSeeAdminJobs()"
+              [title]="auth.canSeeAdminJobs() ? '' : 'Only a debt manager or administrator can change the autonomy level'"
+              (change)="onAutonomyChange($any($event.target).value)">
         @for (l of levels; track l.name; let i = $index) {
           <option [value]="i + 1" [selected]="debt.autonomy() === i + 1">Autonomy {{ l.name }} — {{ l.hint }}</option>
         }
