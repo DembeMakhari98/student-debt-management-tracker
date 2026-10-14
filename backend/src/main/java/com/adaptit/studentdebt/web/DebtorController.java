@@ -1,13 +1,16 @@
 package com.adaptit.studentdebt.web;
 
+import com.adaptit.studentdebt.dto.ActivityEntryDto;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DebtorRowDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
+import com.adaptit.studentdebt.dto.EngagementRequestDto;
 import com.adaptit.studentdebt.security.CurrentUser;
 import com.adaptit.studentdebt.service.CaseService;
 import com.adaptit.studentdebt.service.CsvExportService;
 import com.adaptit.studentdebt.service.DebtorQueryService;
 import com.adaptit.studentdebt.service.DecisionService;
+import com.adaptit.studentdebt.service.EngagementService;
 import jakarta.validation.Valid;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -19,8 +22,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * The Debt Management Tracker worklist, the Case Management list/detail, CSV export and the
- * officer decision endpoint (issues #11, #12, #13, #17).
+ * The Debt Management Tracker worklist, the Case Management list/detail, CSV export, the
+ * officer decision endpoint, and the officer engagement endpoint (issues #11, #12, #13, #17, #59).
  */
 @RestController
 @RequestMapping("/api/debtors")
@@ -30,13 +33,16 @@ public class DebtorController {
     private final CaseService caseService;
     private final DecisionService decisionService;
     private final CsvExportService csvExportService;
+    private final EngagementService engagementService;
 
     public DebtorController(DebtorQueryService debtorQueryService, CaseService caseService,
-                             DecisionService decisionService, CsvExportService csvExportService) {
+                             DecisionService decisionService, CsvExportService csvExportService,
+                             EngagementService engagementService) {
         this.debtorQueryService = debtorQueryService;
         this.caseService = caseService;
         this.decisionService = decisionService;
         this.csvExportService = csvExportService;
+        this.engagementService = engagementService;
     }
 
     /** scope: picked (default) | refunds | paying | cases (picked + refunds, for the case list). */
@@ -67,6 +73,13 @@ public class DebtorController {
         var attributed = new DecisionRequestDto(request.action(), request.amendedTerms(), request.reason(),
                 CurrentUser.displayName(authentication));
         return decisionService.decide(debtorKey, attributed);
+    }
+
+    @PostMapping("/{debtorKey}/engagements")
+    public List<ActivityEntryDto> engage(@PathVariable String debtorKey,
+                                          @Valid @RequestBody EngagementRequestDto request,
+                                          Authentication authentication) {
+        return engagementService.record(debtorKey, request, CurrentUser.displayName(authentication));
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
