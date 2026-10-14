@@ -74,4 +74,14 @@ public class DebtorQueryService {
     public DebtorRowDto rowFor(Debtor d) {
         return rowAssembler.toRow(d, riskScoringService.loadFundingRiskWeights());
     }
+
+    /** Picked-up or owed-to-student, across the full dataset — no year/funding filter, since a
+     *  scoring run (issue #58) must not silently skip cases outside whatever filter an officer
+     *  happens to have selected. Server-side mirror of the frontend's DebtService.allCases(). */
+    public List<Debtor> allCaseDebtors() {
+        Map<String, Integer> weights = riskScoringService.loadFundingRiskWeights();
+        return rows(null, null).stream()
+                .filter(d -> DebtMath.pickedUp(d, weights) || DebtMath.owedToStudent(d))
+                .toList();
+    }
 }
