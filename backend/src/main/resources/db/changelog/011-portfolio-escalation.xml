@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Audit trail of full-portfolio (Level 3) views (issue #62, POPIA issue #19): one row each time
+        a manager or administrator successfully opens a scoped endpoint with portfolio=all.
+        Append-only, like activity_log_entry.
+    -->
+    <changeSet id="011-01-create-portfolio-escalation" author="student-debt-tracker">
+        <createTable tableName="portfolio_escalation">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="username" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="endpoint" type="varchar(80)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- The filters as sent; null means the parameter was not given ("all"). -->
+            <column name="year_filter" type="varchar(10)"/>
+            <column name="funding_filter" type="varchar(20)"/>
+            <column name="list_scope" type="varchar(20)"/>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_portfolio_escalation_created_at" tableName="portfolio_escalation">
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
