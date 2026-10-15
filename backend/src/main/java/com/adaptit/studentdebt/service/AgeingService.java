@@ -24,8 +24,8 @@ public class AgeingService {
         this.debtorQueryService = debtorQueryService;
     }
 
-    public AgeingResponseDto build(Integer year, FundingSource funding) {
-        List<Debtor> rows = debtorQueryService.rows(year, funding);
+    public AgeingResponseDto build(Integer year, FundingSource funding, Portfolio portfolio) {
+        List<Debtor> rows = debtorQueryService.rows(year, funding, portfolio);
 
         AgeingDto bucketTotals = sumBuckets(rows);
 

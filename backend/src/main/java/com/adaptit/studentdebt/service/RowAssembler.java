@@ -71,7 +71,8 @@ public class RowAssembler {
                 band,
                 caseAssemblyService.signalsOf(d, fundingRiskWeights),
                 recommendation,
-                lastDecision
+                lastDecision,
+                d.getAssignedOfficer()
         );
     }
 

@@ -30,6 +30,7 @@ public record DebtorRowDto(
         String riskBand,
         List<SignalDto> signals,
         RecommendationDto recommendation,
-        DecisionDto lastDecision
+        DecisionDto lastDecision,
+        String assignedOfficer
 ) {
 }

@@ -84,6 +84,10 @@ public class Debtor {
     @Column(name = "credit_reason", length = 200)
     private String creditReason;
 
+    /** The app_user.officer_key this case is assigned to (issue #55); null = unassigned. Not touched by the extract. */
+    @Column(name = "assigned_officer", length = 60)
+    private String assignedOfficer;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
