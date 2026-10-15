@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AgeingComponent } from './ageing.component';
 import { DebtService } from '../../core/debt.service';
@@ -9,7 +11,10 @@ describe('AgeingComponent — Age Analysis workspace (issue #15)', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<AgeingComponent>>;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [AgeingComponent] });
+    TestBed.configureTestingModule({
+      imports: [AgeingComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     fixture = TestBed.createComponent(AgeingComponent);
     component = fixture.componentInstance;
     debt = TestBed.inject(DebtService);

@@ -1,6 +1,11 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { API_BASE } from './api';
 import { DebtService, formatRand } from './debt.service';
 import { Debtor } from './models';
+
+const HTTP_TEST_PROVIDERS = [provideHttpClient(), provideHttpClientTesting()];
 
 function debtor(overrides: Partial<Debtor>): Debtor {
   return {
@@ -23,7 +28,7 @@ describe('DebtService — decision engine (issue #7)', () => {
   let service: DebtService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
   });
 
@@ -169,7 +174,7 @@ describe('DebtService — autonomy gating (issue #8)', () => {
   let service: DebtService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
     // These tests predate portfolio scoping (issue #18) and assert against the whole
     // mock dataset — widen to the full portfolio so that behaviour is unaffected.
@@ -314,7 +319,7 @@ describe('DebtService — reminder cadence dispatch (issue #9)', () => {
   const day = (n: number) => new Date(START.getTime() + n * 24 * 60 * 60 * 1000);
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
     // The fixture case (STU-100288) belongs to 'anele-dube', outside the default officer's
     // own portfolio (issue #18) — widen scope so caseRows() surfaces it, same setup the
@@ -433,7 +438,7 @@ describe('DebtService — engagement log (issue #14)', () => {
   let service: DebtService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
     // Predates portfolio scoping (issue #18) and assumes caseRows() spans the whole
     // mock dataset — widen to the full portfolio so that assumption still holds.
@@ -492,7 +497,7 @@ describe('DebtService — CSV export (issue #17)', () => {
   ];
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
     // Predates portfolio scoping (issue #18) and assumes exportCsv()/rows() span the whole
     // mock dataset — widen to the full portfolio so that assumption still holds.
@@ -589,7 +594,7 @@ describe('DebtService — officer decisions (issue #13)', () => {
   let service: DebtService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
     // Predates portfolio scoping (issue #18) and assumes caseRows() spans the whole
     // mock dataset — widen to the full portfolio so that assumption still holds.
@@ -658,7 +663,7 @@ describe('DebtService — portfolio access control (issue #18)', () => {
   let service: DebtService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
   });
 
@@ -780,5 +785,124 @@ describe('DebtService — portfolio access control (issue #18)', () => {
     expect(service.allPickedRows().map((d) => d.id)).toEqual(beforeIds); // unchanged by officer switch
     expect(service.pickedRows().map((d) => d.id)).not.toEqual(nomsaScopedIds); // the scoped counterpart does change
     expect(service.pickedRows().every((d) => d.assignedOfficer === 'sibusiso-khoza')).toBeTrue();
+  });
+});
+
+describe('DebtService — live summary via GET /api/summary (issue #64)', () => {
+  let service: DebtService;
+  let httpMock: HttpTestingController;
+
+  const DTO = {
+    registeredStudents: 4812,
+    totalDebt: 165400,
+    debtorCount: 37,
+    totalCredit: 4200,
+    creditCount: 2,
+    atRisk90Plus: 58000,
+    atRisk90PlusPct: 35.06,
+    averageBalance: 4470.27,
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
+    service = TestBed.inject(DebtService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  function expectRequest() {
+    return httpMock.expectOne((r) => r.url === `${API_BASE}/api/summary`);
+  }
+
+  it('requests GET /api/summary with the current year and funding as query params on construction', () => {
+    const req = expectRequest();
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('year')).toBe(String(service.year()));
+    expect(req.request.params.get('funding')).toBe('all');
+    req.flush(DTO);
+  });
+
+  it('is loading until the request resolves', () => {
+    expect(service.summaryLoading()).toBeTrue();
+    expectRequest().flush(DTO);
+    expect(service.summaryLoading()).toBeFalse();
+  });
+
+  it('maps the backend SummaryDto onto DebtSummary field-for-field', () => {
+    expectRequest().flush(DTO);
+
+    expect(service.summary()).toEqual({
+      debtorCount: 37,
+      creditCount: 2,
+      totalDebt: 165400,
+      totalCredit: 4200,
+      o90: 58000,
+      registered: 4812,
+      o90Pct: 35.06,
+      avg: 4470.27,
+    });
+    expect(service.summaryError()).toBeFalse();
+  });
+
+  it('re-fetches with the new funding source when the funding filter changes', () => {
+    expectRequest().flush(DTO);
+
+    service.setFunding('gov');
+    const req = expectRequest();
+    expect(req.request.params.get('funding')).toBe('gov');
+    req.flush({ ...DTO, totalDebt: 90000 });
+
+    expect(service.summary().totalDebt).toBe(90000);
+  });
+
+  it('re-fetches with the new year when the year filter changes, including to "all"', () => {
+    expectRequest().flush(DTO);
+
+    service.setYear('all');
+    const req = expectRequest();
+    expect(req.request.params.get('year')).toBe('all');
+    req.flush({ ...DTO, registeredStudents: 19000 });
+
+    expect(service.summary().registered).toBe(19000);
+  });
+
+  it('cancels a still-in-flight request when the filter changes again before it resolves', () => {
+    const first = expectRequest();
+
+    service.setFunding('private'); // changes before `first` resolves
+    const second = expectRequest();
+
+    expect(first.cancelled).toBeTrue();
+    second.flush(DTO);
+    expect(service.summary().debtorCount).toBe(DTO.debtorCount);
+  });
+
+  it('a failed request sets summaryError() and summary() falls back to zeros', () => {
+    expectRequest().flush('boom', { status: 500, statusText: 'Server Error' });
+
+    expect(service.summaryError()).toBeTrue();
+    expect(service.summaryLoading()).toBeFalse();
+    expect(service.summary()).toEqual({
+      debtorCount: 0,
+      creditCount: 0,
+      totalDebt: 0,
+      totalCredit: 0,
+      o90: 0,
+      registered: 0,
+      o90Pct: 0,
+      avg: 0,
+    });
+  });
+
+  it('a later successful request clears a previous error', () => {
+    expectRequest().flush('boom', { status: 500, statusText: 'Server Error' });
+    expect(service.summaryError()).toBeTrue();
+
+    service.setYear(service.sortedYears[0]);
+    expectRequest().flush(DTO);
+
+    expect(service.summaryError()).toBeFalse();
+    expect(service.summary().registered).toBe(DTO.registeredStudents);
   });
 });
