@@ -25,7 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser(roles = "OFFICER")
+// A manager sees the full portfolio, so access scoping (issue #55) doesn't hide the debtors under test.
+@WithMockUser(roles = "MANAGER")
 class DebtorControllerTest {
 
     @Autowired
@@ -36,7 +37,7 @@ class DebtorControllerTest {
 
     @Test
     void seededDebtorsScoreAccuratelyAgainstHandCalculatedExpectations() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/debtors").param("scope", "cases").param("year", "2026"))
+        MvcResult result = mockMvc.perform(get("/api/debtors").param("scope", "cases").param("year", "2026").param("portfolio", "all"))
                 .andExpect(status().isOk())
                 .andReturn();
 

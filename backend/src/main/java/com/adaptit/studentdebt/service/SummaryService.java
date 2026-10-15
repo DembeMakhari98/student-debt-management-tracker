@@ -10,7 +10,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
-/** The 5 KPI cards shared by Home and the Tracker (issue #10). */
+/**
+ * The 5 KPI cards shared by Home and the Tracker (issue #10). Debt figures cover the caller's
+ * portfolio (issue #55); the registered-students headcount is institution-wide.
+ */
 @Service
 public class SummaryService {
 
@@ -22,8 +25,8 @@ public class SummaryService {
         this.registeredCountRepository = registeredCountRepository;
     }
 
-    public SummaryDto summarize(Integer year, FundingSource funding) {
-        List<Debtor> rows = debtorQueryService.rows(year, funding);
+    public SummaryDto summarize(Integer year, FundingSource funding, Portfolio portfolio) {
+        List<Debtor> rows = debtorQueryService.rows(year, funding, portfolio);
 
         List<Debtor> debtors = rows.stream().filter(d -> DebtMath.rowTotal(d).signum() > 0).toList();
         List<Debtor> credits = rows.stream().filter(DebtMath::owedToStudent).toList();

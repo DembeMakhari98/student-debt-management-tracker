@@ -30,9 +30,9 @@ public class CsvExportService {
         this.riskScoringService = riskScoringService;
     }
 
-    public String export(Integer year, FundingSource funding) {
+    public String export(Integer year, FundingSource funding, Portfolio portfolio) {
         Map<String, Integer> weights = riskScoringService.loadFundingRiskWeights();
-        List<Debtor> rows = debtorQueryService.rows(year, funding);
+        List<Debtor> rows = debtorQueryService.rows(year, funding, portfolio);
 
         StringBuilder sb = new StringBuilder();
         sb.append(String.join(",", HEADER)).append('\n');

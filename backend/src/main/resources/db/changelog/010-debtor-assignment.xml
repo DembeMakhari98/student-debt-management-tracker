@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <!--
+        Case ownership (issue #55). A debtor is assigned to one officer by app_user.officer_key; the
+        case's team is the assigned officer's app_user.team, so reassigning a case (issue #56) only
+        changes this one column. Null means unassigned (e.g. a student first seen by the nightly extract).
+    -->
+    <changeSet id="010-01-add-debtor-assigned-officer" author="student-debt-tracker">
+        <addColumn tableName="debtor">
+            <column name="assigned_officer" type="varchar(60)"/>
+        </addColumn>
+        <createIndex tableName="debtor" indexName="ix_debtor_assigned_officer">
+            <column name="assigned_officer"/>
+        </createIndex>
+    </changeSet>
+
+    <!--
+        Demo caseload: the same round-robin over the six demo officers as the Angular mock data
+        (frontend/src/app/core/mock-data.ts). Skipped in prod along with the demo users (008-02).
+    -->
+    <changeSet id="010-02-seed-debtor-assignments" author="student-debt-tracker" context="!prod">
+        <update tableName="debtor"><column name="assigned_officer" value="nomsa-mahlangu"/>
+            <where>debtor_key IN ('STU-100234-2026','STU-100333-2026','STU-098077-2025','STU-095021-2024','STU-088002-2022')</where></update>
+        <update tableName="debtor"><column name="assigned_officer" value="sibusiso-khoza"/>
+            <where>debtor_key IN ('STU-100251-2026','STU-100360-2026','STU-098090-2025','STU-095050-2024','STU-088040-2022')</where></update>
+        <update tableName="debtor"><column name="assigned_officer" value="anele-dube"/>
+            <where>debtor_key IN ('STU-100288-2026','STU-100341-2026','STU-098111-2025','STU-095066-2024')</where></update>
+        <update tableName="debtor"><column name="assigned_officer" value="priya-naidoo"/>
+            <where>debtor_key IN ('STU-100290-2026','STU-100355-2026','STU-098140-2025','STU-091009-2023')</where></update>
+        <update tableName="debtor"><column name="assigned_officer" value="thato-mokoena"/>
+            <where>debtor_key IN ('STU-100301-2026','STU-098012-2025','STU-098155-2025','STU-091033-2023')</where></update>
+        <update tableName="debtor"><column name="assigned_officer" value="grace-van-rooyen"/>
+            <where>debtor_key IN ('STU-100312-2026','STU-098044-2025','STU-095003-2024','STU-091074-2023')</where></update>
+    </changeSet>
+</databaseChangeLog>
