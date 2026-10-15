@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter, map } from 'rxjs';
 import { DebtService } from './core/debt.service';
 import { ExtractStatusService } from './core/extract-status.service';
+import { AutonomySettingsService } from './core/autonomy-settings.service';
 import { AuthService } from './core/auth/auth.service';
 import { officerFor, roleLabel } from './core/auth/auth.models';
 import { LEVELS } from './core/constants';
@@ -51,6 +52,7 @@ export class AppComponent {
   constructor(
     public debt: DebtService,
     public extractStatus: ExtractStatusService,
+    public autonomySettings: AutonomySettingsService,
     public auth: AuthService,
   ) {
     // Portfolio scoping and the access log act as whoever is signed in.
@@ -63,6 +65,8 @@ export class AppComponent {
         if (user.role === 'ADMIN') this.debt.setPortfolioScope('all');
         // The extract history is an admin endpoint: only ask when the user may see it.
         if (this.auth.canSeeAdminJobs()) this.extractStatus.refresh();
+        // Everyone may see the persisted autonomy level; only managers/admins may change it (issue #57).
+        this.autonomySettings.fetchLevel().subscribe((level) => this.debt.setAutonomy(level));
       });
     });
   }
@@ -81,8 +85,13 @@ export class AppComponent {
   onFundingChange(value: string): void {
     this.debt.setFunding(value as FundKey | 'all');
   }
+  /** Backend-gated to managers/admins (403 otherwise); `[disabled]` on the <select> keeps an
+   *  officer from ever triggering this, but the role check below is belt-and-braces, not the
+   *  real boundary — see docs/SDD/issue-57-autonomy-level-write-endpoint.spec.md. */
   onAutonomyChange(value: string): void {
-    this.debt.setAutonomy(Number(value));
+    if (!this.auth.canSeeAdminJobs()) return;
+    const level = Number(value);
+    this.autonomySettings.updateLevel(level).subscribe((persisted) => this.debt.setAutonomy(persisted));
   }
   onScopeChange(value: string): void {
     this.debt.setPortfolioScope(value as PortfolioScope);
