@@ -30,8 +30,8 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Stateless JWT security: POST /api/auth/login exchanges credentials for a bearer token,
- * and every other /api/** call must present one. Admin jobs and case reassignment need the ADMIN or
- * MANAGER role.
+ * and every other /api/** call must present one. Admin jobs, audit trails and case reassignment need
+ * the ADMIN or MANAGER role.
  */
 @Configuration
 public class SecurityConfig {
@@ -51,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/settings/autonomy").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers(HttpMethod.POST, "/api/cases/auto-resolve").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/audit/**").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers(HttpMethod.PATCH, "/api/debtors/*/assignment").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())
