@@ -1,10 +1,12 @@
 package com.adaptit.studentdebt.web;
 
+import com.adaptit.studentdebt.dto.AssignmentRequestDto;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DebtorRowDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
 import com.adaptit.studentdebt.security.CurrentUser;
 import com.adaptit.studentdebt.security.PortfolioResolver;
+import com.adaptit.studentdebt.service.AssignmentService;
 import com.adaptit.studentdebt.service.CaseService;
 import com.adaptit.studentdebt.service.CsvExportService;
 import com.adaptit.studentdebt.service.DebtorQueryService;
@@ -23,7 +25,8 @@ import java.util.List;
  * The Debt Management Tracker worklist, the Case Management list/detail, CSV export and the
  * officer decision endpoint (issues #11, #12, #13, #17). Lists and the export cover the caller's
  * portfolio (own | team | all); a single case can be opened or decided within the caller's team, or
- * anywhere for a manager or administrator (issue #55).
+ * anywhere for a manager or administrator (issue #55). Managers and administrators can reassign
+ * a case (issue #56).
  */
 @RestController
 @RequestMapping("/api/debtors")
@@ -34,15 +37,17 @@ public class DebtorController {
     private final DecisionService decisionService;
     private final CsvExportService csvExportService;
     private final PortfolioResolver portfolioResolver;
+    private final AssignmentService assignmentService;
 
     public DebtorController(DebtorQueryService debtorQueryService, CaseService caseService,
                              DecisionService decisionService, CsvExportService csvExportService,
-                             PortfolioResolver portfolioResolver) {
+                             PortfolioResolver portfolioResolver, AssignmentService assignmentService) {
         this.debtorQueryService = debtorQueryService;
         this.caseService = caseService;
         this.decisionService = decisionService;
         this.csvExportService = csvExportService;
         this.portfolioResolver = portfolioResolver;
+        this.assignmentService = assignmentService;
     }
 
     /**
@@ -81,6 +86,14 @@ public class DebtorController {
         var attributed = new DecisionRequestDto(request.action(), request.amendedTerms(), request.reason(),
                 CurrentUser.displayName(authentication));
         return decisionService.decide(debtorKey, attributed);
+    }
+
+    /** MANAGER/ADMIN only, enforced in SecurityConfig. */
+    @PatchMapping("/{debtorKey}/assignment")
+    public CaseDetailDto reassign(@PathVariable String debtorKey,
+                                   @Valid @RequestBody AssignmentRequestDto request,
+                                   Authentication authentication) {
+        return assignmentService.reassign(debtorKey, request.officerKey().trim(), CurrentUser.displayName(authentication));
     }
 
     @GetMapping(value = "/export", produces = "text/csv")

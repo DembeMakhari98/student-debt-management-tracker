@@ -12,4 +12,9 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     Optional<AppUser> findByUsernameIgnoreCase(String username);
 
     List<AppUser> findAllByTeam(String team);
+
+    Optional<AppUser> findByOfficerKey(String officerKey);
+
+    /** Everyone cases can be assigned to (issue #56): enabled users with an officer key. */
+    List<AppUser> findAllByOfficerKeyIsNotNullAndEnabledTrueOrderByTeamAscDisplayNameAsc();
 }
