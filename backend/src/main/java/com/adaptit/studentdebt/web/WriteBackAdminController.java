@@ -6,9 +6,12 @@ import com.adaptit.studentdebt.dto.WriteBackFailureDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Surfaces activity-log entries whose write-back to ITS Integrator has exhausted every retry
@@ -32,6 +35,12 @@ public class WriteBackAdminController {
         return writeBackService.failures().stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    /** Retries the entry behind this attempt right now (issue #61) — bypasses the 15-minute sweep. */
+    @PostMapping("/api/admin/writeback/{attemptId}/retry")
+    public WriteBackAttempt retry(@PathVariable UUID attemptId) {
+        return writeBackService.retryNow(attemptId);
     }
 
     private WriteBackFailureDto toDto(WriteBackAttempt attempt) {

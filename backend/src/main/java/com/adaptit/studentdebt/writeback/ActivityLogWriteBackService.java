@@ -5,6 +5,8 @@ import com.adaptit.studentdebt.domain.WriteBackAttempt;
 import com.adaptit.studentdebt.domain.WriteBackStatus;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.WriteBackAttemptRepository;
+import com.adaptit.studentdebt.web.ConflictException;
+import com.adaptit.studentdebt.web.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -90,11 +92,36 @@ public class ActivityLogWriteBackService {
     }
 
     /**
+     * Retries the entry behind {@code attemptId} right now, bypassing the 15-minute sweep and its
+     * {@link #MAX_ATTEMPTS} cap — an explicit admin override after fixing an integration problem
+     * (issue #61). {@code attemptId} only identifies which entry to retry; the next attempt number
+     * is always one past that entry's current latest, regardless of which historical attempt id was
+     * passed in, so the {@code (entry_id, attempt_number)} uniqueness from #3 is never violated.
+     */
+    public WriteBackAttempt retryNow(UUID attemptId) {
+        WriteBackAttempt requested = writeBackAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new NotFoundException("No write-back attempt found for " + attemptId));
+
+        UUID entryId = requested.getActivityLogEntryId();
+        WriteBackAttempt latest = writeBackAttemptRepository
+                .findAllByActivityLogEntryIdOrderByAttemptNumberDesc(entryId)
+                .get(0);
+        if (latest.getStatus() == WriteBackStatus.SUCCESS) {
+            throw new ConflictException("Write-back for activity log entry " + entryId + " has already succeeded");
+        }
+
+        ActivityLogEntry entry = activityLogEntryRepository.findById(entryId)
+                .orElseThrow(() -> new NotFoundException("No activity log entry found for " + entryId));
+
+        return attempt(entry, latest.getAttemptNumber() + 1);
+    }
+
+    /**
      * A throwing adapter is converted to a failed result, not left unrecorded — otherwise the
      * entry would silently disappear from both the retry sweep and the failures endpoint
      * (adversarial review findings #1/#2).
      */
-    private void attempt(ActivityLogEntry entry, int attemptNumber) {
+    private WriteBackAttempt attempt(ActivityLogEntry entry, int attemptNumber) {
         WriteBackResult result;
         try {
             result = adapter.attemptWrite(entry);
@@ -102,12 +129,13 @@ public class ActivityLogWriteBackService {
             result = WriteBackResult.failed(ex.getMessage());
         }
 
-        recorder.record(entry.getId(), attemptNumber, result);
+        WriteBackAttempt saved = recorder.record(entry.getId(), attemptNumber, result);
 
         if (!result.success()) {
             log.warn("Write-back attempt {} failed for activity log entry {}: {}",
                     attemptNumber, entry.getId(), result.errorMessage());
         }
+        return saved;
     }
 
     /**
