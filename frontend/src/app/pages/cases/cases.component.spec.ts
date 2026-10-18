@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
@@ -16,6 +18,8 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
 
@@ -64,6 +68,8 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({ case: target.d.id })) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
     const deepLinkedFixture = TestBed.createComponent(CasesComponent);
@@ -137,6 +143,8 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
 
@@ -186,6 +194,8 @@ describe('CasesComponent — engagement panel, real click → service → templa
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
 
@@ -242,6 +252,8 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
 
