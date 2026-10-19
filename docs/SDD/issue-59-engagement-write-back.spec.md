@@ -53,6 +53,12 @@ saved and written back to ITS Integrator, so that the student's history is compl
 - `DebtorController` gets `POST /{debtorKey}/engagements`, taking `Authentication` and
   attributing identity via the existing `CurrentUser.displayName(authentication)` helper
   — never from the request body, same principle `decide()` already follows.
+- **Added during rebuild against current `develop` (2026-10-19):** #55's portfolio access
+  control landed on `develop` after this ticket was first built, adding
+  `debtorQueryService.requireAccess(debtorKey, portfolioResolver.caseAccess(authentication))`
+  to `detail()` and `decide()`. Engaging with a case is the same kind of officer-level
+  action, so `engage()` gets the identical check — an officer outside the case's team (or
+  portfolio) gets `403`, not a silent write to a case they can't otherwise see.
 
 ## Technical Design → Data Model
 
@@ -73,9 +79,10 @@ Errors: `400` (missing/unknown channel), `404` (unknown debtor).
   blank; an unknown channel throws `BadRequestException`; an unknown debtor throws
   `NotFoundException`; `writeBackService.recordAndAttempt` is called with the saved
   entry.
-- **MockMvc:** `@WithMockUser(username = "...", roles = "OFFICER")` → 200 with the
-  updated activity list containing the new entry; missing channel → 400; unknown
-  channel value → 400; unknown debtor key → 404.
+- **MockMvc:** a caller with portfolio access → 200 with the updated activity list
+  containing the new entry; missing channel → 400; unknown channel value → 400; unknown
+  debtor key → 404; unauthenticated → 401; an officer outside the case's team/portfolio
+  → 403 (same debtor key `PortfolioScopeTest` already uses for this exact scenario).
 
 ## Risks & Mitigations
 
