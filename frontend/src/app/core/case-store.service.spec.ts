@@ -227,6 +227,77 @@ describe('CaseStore — Tracker and Case Management data from the API (issue #65
       expect(store.decisionState()).toBe('idle');
       expect(store.decisionErrorFor()).toBeNull();
     });
+
+    describe('with the response still in flight', () => {
+      const start = (key: string) => {
+        const result: { saved?: boolean } = {};
+        store.decide(key, { action: 'APPROVE' }).subscribe((v) => (result.saved = v));
+        return result;
+      };
+
+      beforeEach(() => (mockApi.deferDecision = true));
+
+      it('is "saving" until the server answers, refuses a second decision, then returns to idle', () => {
+        const [a, b] = store.picked().map((c) => c.d.id);
+        const first = start(a);
+        expect(store.decisionState()).toBe('saving');
+        expect(first.saved).toBeUndefined();
+
+        const second = start(b);
+        expect(second.saved).toBeFalse();
+        expect(mockApi.decisionCalls.length).toBe(1);
+
+        mockApi.pendingDecisions[0]();
+        expect(first.saved).toBeTrue();
+        expect(store.decisionState()).toBe('idle');
+      });
+
+      it("a save for one case does not replace or cancel the detail load of the case the officer moved to", () => {
+        const [a, b] = store.picked().map((c) => c.d.id);
+        mockApi.deferDetail = true;
+        store.loadDetail(b);
+        expect(store.detailState()).toBe('loading');
+
+        const saved = start(a);
+        mockApi.pendingDecisions[0]();
+
+        expect(saved.saved).toBeTrue();
+        expect(store.detailState()).withContext("B's load must still be running").toBe('loading');
+        expect(store.picked().find((c) => c.d.id === a)!.decision?.action).toBe('Approved');
+
+        mockApi.pendingDetails[0]();
+        expect(store.detail()?.d.id).toBe(b);
+        expect(store.detailState()).toBe('ready');
+        expect(store.detail()?.decision).toBeNull();
+      });
+
+      it('refreshes the open detail when the saved case is the one that is open', () => {
+        const a = store.picked()[0].d.id;
+        store.loadDetail(a);
+        const saved = start(a);
+        mockApi.pendingDecisions[0]();
+
+        expect(saved.saved).toBeTrue();
+        expect(store.detail()?.d.id).toBe(a);
+        expect(store.detail()?.decision?.action).toBe('Approved');
+      });
+
+      it("a response arriving after sign-out does not repopulate the previous user's data", () => {
+        const spy = spyOn(debt, 'recordServerDecision').and.callThrough();
+        const saved = start(store.picked()[0].d.id);
+
+        (TestBed.inject(AuthService).token as WritableSignal<string | null>).set(null);
+        settle();
+        expect(saved.saved).withContext('the page is told the save did not complete').toBeFalse();
+
+        mockApi.pendingDecisions[0]();
+
+        expect(store.picked()).toEqual([]);
+        expect(store.detail()).toBeNull();
+        expect(store.decisionState()).toBe('idle');
+        expect(spy).not.toHaveBeenCalled();
+      });
+    });
   });
 
   it('empties everything when the user signs out', () => {

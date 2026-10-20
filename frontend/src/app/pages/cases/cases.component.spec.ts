@@ -414,6 +414,39 @@ describe('CasesComponent — approve/amend/decline (issues #13, #66)', () => {
     expect(findButton('Decline').disabled).toBeTrue();
   });
 
+  it("a save finishing after the officer moved on does not close the other case's panel (#66)", () => {
+    mockApi.deferDecision = true;
+    const first = component.selected()!.d.id;
+    component.approve();
+    expect(store.decisionState()).toBe('saving');
+
+    const other = component.list().find((c) => c.d.id !== first)!;
+    component.selectCase(other.d.id);
+    component.openDecline();
+    component.updateDeclineReason('Half-typed reason');
+    expect(component.panel()).toBe('decline');
+
+    mockApi.pendingDecisions[0]();
+    fixture.detectChanges();
+
+    expect(component.panel()).toBe('decline');
+    expect(component.declineReason()).toBe('Half-typed reason');
+    expect(component.selected()!.d.id).toBe(other.d.id);
+  });
+
+  it('closes the panel when the save for the case still open finishes (#66)', () => {
+    mockApi.deferDecision = true;
+    component.openDecline();
+    component.updateDeclineReason('Already resolved');
+    component.confirmDecline();
+    expect(component.panel()).toBe('decline');
+
+    mockApi.pendingDecisions[0]();
+    fixture.detectChanges();
+
+    expect(component.panel()).toBe('none');
+  });
+
   it('shows the error only on the case it belongs to (#66)', () => {
     mockApi.failDecision = true;
     component.approve();

@@ -1,6 +1,6 @@
-import { HttpErrorResponse, HttpInterceptorFn, HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpErrorResponse, HttpEvent, HttpInterceptorFn, HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { EnvironmentProviders, Provider, inject, signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { FUND } from '../core/constants';
 import { DebtService } from '../core/debt.service';
@@ -22,11 +22,26 @@ export const mockApi = {
   detailStatus: 500,
   failDecision: false,
   decisionStatus: 500,
+  /** While true, a decision / detail response is held back until its release function is called. */
+  deferDecision: false,
+  deferDetail: false,
+  pendingDecisions: [] as (() => void)[],
+  pendingDetails: [] as (() => void)[],
   enforcePortfolio: false,
   listCalls: [] as string[],
   detailCalls: [] as string[],
   decisionCalls: [] as { key: string; body: DecisionRequest }[],
 };
+
+/** Holds a 200 response until the test calls the release function pushed onto `queue`. */
+function respondLater(queue: (() => void)[], body: unknown): Observable<HttpEvent<unknown>> {
+  return new Observable<HttpEvent<unknown>>((subscriber) => {
+    queue.push(() => {
+      subscriber.next(new HttpResponse({ status: 200, body }));
+      subscriber.complete();
+    });
+  });
+}
 
 const serverDecisions = new Map<string, DecisionDto>();
 const serverActivity = new Map<string, ActivityEntryDto[]>();
@@ -38,6 +53,10 @@ export function resetMockApi(): void {
   mockApi.detailStatus = 500;
   mockApi.failDecision = false;
   mockApi.decisionStatus = 500;
+  mockApi.deferDecision = false;
+  mockApi.deferDetail = false;
+  mockApi.pendingDecisions = [];
+  mockApi.pendingDetails = [];
   mockApi.enforcePortfolio = false;
   mockApi.listCalls = [];
   mockApi.detailCalls = [];
@@ -157,7 +176,7 @@ const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       },
       ...(serverActivity.get(d.id) ?? []),
     ]);
-    return ok(detailOf(d));
+    return mockApi.deferDecision ? respondLater(mockApi.pendingDecisions, detailOf(d)) : ok(detailOf(d));
   }
 
   const key = decodeURIComponent(url.pathname.replace('/api/debtors', '').replace(/^\//, ''));
@@ -166,7 +185,7 @@ const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     if (mockApi.failDetail) return throwError(() => new HttpErrorResponse({ status: mockApi.detailStatus, url: req.url }));
     const d = DEBTORS.find((x) => x.id === key);
     if (!d) return throwError(() => new HttpErrorResponse({ status: 404, url: req.url }));
-    return ok(detailOf(d));
+    return mockApi.deferDetail ? respondLater(mockApi.pendingDetails, detailOf(d)) : ok(detailOf(d));
   }
 
   mockApi.listCalls.push(url.search);

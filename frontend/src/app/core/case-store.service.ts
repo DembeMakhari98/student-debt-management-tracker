@@ -66,6 +66,11 @@ export class CaseStore {
 
   private listSub?: Subscription;
   private detailSub?: Subscription;
+  private decideSub?: Subscription;
+  /** Emits the in-flight save's outcome; kept so a sign-out can finish it. */
+  private pendingDone?: AsyncSubject<boolean>;
+  /** The case whose detail the officer has open, or null. A save for any other case leaves it alone. */
+  private openKey: string | null = null;
 
   constructor(
     private api: DebtorApi,
@@ -110,6 +115,11 @@ export class CaseStore {
   private reset(): void {
     this.listSub?.unsubscribe();
     this.detailSub?.unsubscribe();
+    // A save still in flight belongs to the previous user: drop its response so it cannot repopulate
+    // the lists or the detail after sign-out, and tell the page it did not save.
+    this.decideSub?.unsubscribe();
+    this.finishDecision(false);
+    this.openKey = null;
     this.picked.set([]);
     this.refunds.set([]);
     this.paying.set([]);
@@ -125,55 +135,68 @@ export class CaseStore {
 
   /**
    * Saves an officer decision and, on success, refreshes the case from the server's response. The
-   * returned observable emits `true` once saved and `false` if it failed (or one is already in
-   * flight), so the page can close its panel only on success. The request is owned by the store, so
-   * leaving the page mid-save does not cancel it.
+   * returned observable emits `true` once saved and `false` if it failed, was refused because one is
+   * already in flight, or was abandoned by a sign-out, so the page can close its panel only on
+   * success. The request is owned by the store, so leaving the page mid-save does not cancel it.
    */
   decide(debtorKey: string, request: DecisionRequest): Observable<boolean> {
-    const done = new AsyncSubject<boolean>();
     if (this.decisionState() === 'saving') {
-      done.next(false);
-      done.complete();
-      return done.asObservable();
+      const refused = new AsyncSubject<boolean>();
+      refused.next(false);
+      refused.complete();
+      return refused.asObservable();
     }
+    const done = new AsyncSubject<boolean>();
+    this.pendingDone = done;
     this.decisionState.set('saving');
     this.decisionErrorStatus.set(null);
     this.decisionErrorFor.set(null);
-    this.api.decide(debtorKey, request).subscribe({
+    this.decideSub = this.api.decide(debtorKey, request).subscribe({
       next: (view) => {
         this.applyDetail(view);
         this.debt.recordServerDecision(view.d.id, view.decision);
         this.decisionState.set('idle');
-        done.next(true);
-        done.complete();
+        this.finishDecision(true);
       },
       error: (err: unknown) => {
         this.decisionErrorStatus.set(err instanceof HttpErrorResponse ? err.status : null);
         this.decisionErrorFor.set(debtorKey);
         this.decisionState.set('error');
-        done.next(false);
-        done.complete();
+        this.finishDecision(false);
       },
     });
     return done.asObservable();
   }
 
-  /** Puts a refreshed case into the open detail and into whichever list holds it, keeping list order. */
+  private finishDecision(saved: boolean): void {
+    const done = this.pendingDone;
+    this.pendingDone = undefined;
+    done?.next(saved);
+    done?.complete();
+  }
+
+  /**
+   * Puts a refreshed case into whichever list holds it, keeping list order, and into the open detail
+   * — but only if that is the case the officer still has open. A save for case A must not replace,
+   * or cancel the load of, the detail of case B that they have since moved to.
+   */
   private applyDetail(view: CaseView): void {
-    this.detailSub?.unsubscribe();
-    this.detail.set(view);
-    this.detailState.set('ready');
-    this.detailErrorStatus.set(null);
     const swap = (list: WritableSignal<CaseView[]>) =>
       list.update((rows) => rows.map((r) => (r.d.id === view.d.id ? view : r)));
     swap(this.picked);
     swap(this.refunds);
     swap(this.paying);
+    if (this.openKey !== view.d.id) return;
+    this.detailSub?.unsubscribe();
+    this.detail.set(view);
+    this.detailState.set('ready');
+    this.detailErrorStatus.set(null);
   }
 
   /** Loads the open case's detail. A stale response for a case the officer has since left is discarded. */
   loadDetail(debtorKey: string | null): void {
     this.detailSub?.unsubscribe();
+    this.openKey = debtorKey;
     if (!debtorKey) {
       this.detail.set(null);
       this.detailState.set('idle');

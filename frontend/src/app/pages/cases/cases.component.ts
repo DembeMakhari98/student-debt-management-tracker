@@ -126,10 +126,13 @@ export class CasesComponent {
     this.panel.set('none');
   }
 
-  /** Saves through the API; the panel closes only once the server has accepted the decision. */
+  /**
+   * Saves through the API; the panel closes only once the server has accepted the decision, and only
+   * if the officer is still on that case — they may have moved on and opened another case's panel.
+   */
   private save(debtorKey: string, request: DecisionRequest): void {
     this.store.decide(debtorKey, request).subscribe((saved) => {
-      if (saved) this.closeDecisionPanel();
+      if (saved && this.selectedId() === debtorKey) this.closeDecisionPanel();
     });
   }
 
