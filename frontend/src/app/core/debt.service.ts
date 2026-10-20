@@ -1,5 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
-import { AGE_BUCKETS, AGENTS, AS_AT, FUND, FUND_RISK, POLICY, REGISTERED } from './constants';
+import { Subscription, catchError, map, of } from 'rxjs';
+import { API_BASE } from './api';
+import { AGE_BUCKETS, AGENTS, AS_AT, FUND, FUND_RISK, POLICY } from './constants';
 import { DEBTORS, YEARS } from './mock-data';
 import { OFFICERS } from './officers';
 import {
@@ -32,6 +35,42 @@ const LATEST_YEAR = Math.max(...YEARS);
 const DEFAULT_YEAR = YEARS.includes(CAL_YEAR) ? CAL_YEAR : LATEST_YEAR;
 export const YEAR_SPAN = `${Math.min(...YEARS)}–${LATEST_YEAR}`;
 
+/** The shape of `GET /api/summary`'s response (backend's SummaryDto, issue #64). */
+interface SummaryApiResponse {
+  registeredStudents: number;
+  totalDebt: number;
+  debtorCount: number;
+  totalCredit: number;
+  creditCount: number;
+  atRisk90Plus: number;
+  atRisk90PlusPct: number;
+  averageBalance: number;
+}
+
+function toDebtSummary(dto: SummaryApiResponse): DebtSummary {
+  return {
+    debtorCount: dto.debtorCount,
+    creditCount: dto.creditCount,
+    totalDebt: dto.totalDebt,
+    totalCredit: dto.totalCredit,
+    o90: dto.atRisk90Plus,
+    registered: dto.registeredStudents,
+    o90Pct: dto.atRisk90PlusPct,
+    avg: dto.averageBalance,
+  };
+}
+
+const EMPTY_SUMMARY: DebtSummary = {
+  debtorCount: 0,
+  creditCount: 0,
+  totalDebt: 0,
+  totalCredit: 0,
+  o90: 0,
+  registered: 0,
+  o90Pct: 0,
+  avg: 0,
+};
+
 /**
  * Owns the shared filter state (financial year, funding source, autonomy level, selected case)
  * and every derived calculation — a direct port of the prototype's scoring/decision-engine
@@ -54,6 +93,10 @@ export class DebtService {
   readonly funding = signal<FundKey | 'all'>('all');
   readonly caseId = signal<string | null>(null);
   readonly autonomy = signal<number>(2);
+
+  constructor(private http: HttpClient) {
+    this.refreshSummary();
+  }
 
   /* =========================================================================
      OFFICER IDENTITY & PORTFOLIO SCOPING (issue #18, POPIA impact assessment §5)
@@ -119,10 +162,12 @@ export class DebtService {
   setYear(v: number | 'all'): void {
     this.year.set(v);
     this.caseId.set(null);
+    this.refreshSummary();
   }
   setFunding(v: FundKey | 'all'): void {
     this.funding.set(v);
     this.caseId.set(null);
+    this.refreshSummary();
   }
   /** Logs an access entry (issue #18 — every read of a student's financial detail must be
    *  attributable to a logged-in user) when opening a *different* case; re-selecting the
@@ -363,26 +408,43 @@ export class DebtService {
 
   readonly caseRows = computed<Debtor[]>(() => [...this.pickedRows(), ...this.refundRows()]);
 
-  readonly summary = computed<DebtSummary>(() => {
-    const rs = this.rows();
-    const debtors = rs.filter((d) => this.rowTotal(d) > 0);
-    const credits = rs.filter((d) => this.owedToStudent(d));
-    const totalDebt = debtors.reduce((s, d) => s + this.rowTotal(d), 0);
-    const totalCredit = Math.abs(credits.reduce((s, d) => s + this.rowTotal(d), 0));
-    const o90 = rs.reduce((s, d) => s + this.over90(d), 0);
-    const year = this.year();
-    const registered = year === 'all' ? YEARS.reduce((s, y) => s + (REGISTERED[y] || 0), 0) : REGISTERED[year] || 0;
-    return {
-      debtors,
-      credits,
-      totalDebt,
-      totalCredit,
-      o90,
-      registered,
-      o90Pct: totalDebt ? (o90 / totalDebt) * 100 : 0,
-      avg: debtors.length ? totalDebt / debtors.length : 0,
-    };
-  });
+  /**
+   * The 5 KPI cards' figures (issue #64) — fetched live from `GET /api/summary`
+   * rather than derived from the local mock dataset, so Home (and the Tracker,
+   * which shares `<app-summary-cards>`) shows the institution's real numbers.
+   */
+  private readonly summaryData = signal<DebtSummary | null>(null);
+  private readonly summaryLoadingFlag = signal(false);
+  private readonly summaryErrorFlag = signal(false);
+  private summarySub?: Subscription;
+
+  readonly summaryLoading = this.summaryLoadingFlag.asReadonly();
+  readonly summaryError = this.summaryErrorFlag.asReadonly();
+  readonly summary = computed<DebtSummary>(() => this.summaryData() ?? EMPTY_SUMMARY);
+
+  /** Re-fetches the KPI summary for the current `year`/`funding`, dropping any still-in-flight
+   *  previous request (same effect as `switchMap`, called explicitly from `setYear`/`setFunding`
+   *  rather than wired up reactively — keeps the fetch synchronous and easy to test). */
+  private refreshSummary(): void {
+    this.summarySub?.unsubscribe();
+    this.summaryLoadingFlag.set(true);
+    this.summaryErrorFlag.set(false);
+    this.summarySub = this.http
+      .get<SummaryApiResponse>(`${API_BASE}/api/summary`, {
+        params: { year: String(this.year()), funding: String(this.funding()) },
+      })
+      .pipe(
+        map((dto) => toDebtSummary(dto)),
+        catchError(() => {
+          this.summaryErrorFlag.set(true);
+          return of(null);
+        }),
+      )
+      .subscribe((data) => {
+        this.summaryLoadingFlag.set(false);
+        if (data) this.summaryData.set(data);
+      });
+  }
 
   /* =========================================================================
      PURE MATH — one row's derived numbers (technical spec §3.3/§4).

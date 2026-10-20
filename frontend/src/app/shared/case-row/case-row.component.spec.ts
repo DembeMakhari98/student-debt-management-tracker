@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { CaseRowComponent } from './case-row.component';
 import { CaseView, Debtor } from '../../core/models';
@@ -37,7 +39,10 @@ function caseView(overrides: Partial<CaseView> = {}): CaseView {
 
 describe('CaseRowComponent — decision-aware status (issue #13 AC6)', () => {
   function createWith(c: CaseView) {
-    TestBed.configureTestingModule({ imports: [CaseRowComponent] });
+    TestBed.configureTestingModule({
+      imports: [CaseRowComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     const fixture = TestBed.createComponent(CaseRowComponent);
     fixture.componentInstance.case = c;
     fixture.detectChanges();
@@ -103,7 +108,10 @@ describe('CaseRowComponent — Tracker worklist row (issue #11)', () => {
   }
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [CaseRowComponent] });
+    TestBed.configureTestingModule({
+      imports: [CaseRowComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
   });
 
   function mount(caseView: CaseView) {

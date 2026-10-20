@@ -33,10 +33,10 @@ export class SummaryCardsComponent {
             ? `registrations across ${this.debt.yearSpan}`
             : `enrolled in ${year}${year === calYear ? ' · current year' : ''}`,
       },
-      { k: 'Total debt owed to institution', dot: RED_TEXT, v: formatRand(s.totalDebt), n: `${s.debtors.length} debtor(s) · ${this.debt.yearShort()}` },
-      { k: 'Owed to students (credits)', dot: TEAL, v: formatRand(s.totalCredit), n: `${s.credits.length} student(s) with credit balances` },
+      { k: 'Total debt owed to institution', dot: RED_TEXT, v: formatRand(s.totalDebt), n: `${s.debtorCount} debtor(s) · ${this.debt.yearShort()}` },
+      { k: 'Owed to students (credits)', dot: TEAL, v: formatRand(s.totalCredit), n: `${s.creditCount} student(s) with credit balances` },
       { k: 'At risk (90+ days)', dot: BLUSH, v: formatRand(s.o90), n: `${s.o90Pct.toFixed(1)}% of outstanding debt` },
-      { k: 'Average balance per debtor', dot: MID, v: formatRand(s.avg), n: `across ${s.debtors.length} debtor(s)` },
+      { k: 'Average balance per debtor', dot: MID, v: formatRand(s.avg), n: `across ${s.debtorCount} debtor(s)` },
     ];
   });
 }
