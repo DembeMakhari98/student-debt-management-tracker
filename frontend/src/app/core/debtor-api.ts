@@ -86,6 +86,26 @@ export interface CaseDetailDto {
 /** `cases` is picked-up + refunds, in that order — the Case Management list. */
 export type DebtorScope = 'picked' | 'refunds' | 'paying' | 'cases';
 
+/**
+ * Body of `POST /api/debtors/{key}/decision` (backend DecisionRequestDto, issue #13). `decidedBy` is
+ * deliberately absent: the server attributes the decision to the signed-in user and ignores any
+ * client-supplied value.
+ */
+export type DecisionVerb = 'APPROVE' | 'AMEND' | 'DECLINE';
+
+export interface DecisionRequest {
+  action: DecisionVerb;
+  /** Required by the server for AMEND — a JSON array of `{key, value}`, see `encodeAmendedTerms`. */
+  amendedTerms?: string;
+  /** Required by the server for DECLINE. */
+  reason?: string;
+}
+
+/** The inverse of `parseAmendedTerms`: the officer's edited terms as the wire string. */
+export function encodeAmendedTerms(terms: Term[]): string {
+  return JSON.stringify(terms.map((t) => ({ key: t.k, value: t.v })));
+}
+
 /* Mapping into the view models the pages already render. */
 
 const ACTIONS: Record<string, DecisionAction> = {
@@ -196,6 +216,13 @@ export class DebtorApi {
   detail(debtorKey: string): Observable<CaseView> {
     return this.http
       .get<CaseDetailDto>(`${API_BASE}/api/debtors/${encodeURIComponent(debtorKey)}`)
+      .pipe(map(toDetailView));
+  }
+
+  /** Saves an officer decision; the response is the refreshed case, so the caller needs no re-fetch. */
+  decide(debtorKey: string, request: DecisionRequest): Observable<CaseView> {
+    return this.http
+      .post<CaseDetailDto>(`${API_BASE}/api/debtors/${encodeURIComponent(debtorKey)}/decision`, request)
       .pipe(map(toDetailView));
   }
 }

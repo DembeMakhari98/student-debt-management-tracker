@@ -19,7 +19,6 @@ import {
   Recommendation,
   RiskBand,
   Signal as CaseSignal,
-  Term,
 } from './models';
 
 /** ZAR formatting matching the prototype's R(n) / R0(n) helpers. */
@@ -208,11 +207,13 @@ export class DebtService {
   }
 
   /* =========================================================================
-     OFFICER DECISIONS (issue #13) — approve, amend or decline a case's current
-     recommendation. Frontend-only and session-lifetime, mirroring the backend's
-     OfficerDecision entity (technical spec §3.5): a decision is keyed to the
-     recommendation `type` it was made against, so a later re-score into a
-     different recommendation reopens the case instead of hiding it forever.
+     OFFICER DECISIONS (issues #13, #66) — a case's current recommendation is
+     approved, amended or declined. Manual decisions are saved through the API
+     (`CaseStore.decide`); this map holds session-lifetime copies of those plus the
+     in-browser autonomous run's decisions, mirroring the backend's OfficerDecision
+     entity (technical spec §3.5): a decision is keyed to the recommendation `type`
+     it was made against, so a later re-score into a different recommendation
+     reopens the case instead of hiding it forever.
      ========================================================================= */
 
   private readonly decisions = signal<Map<string, Decision>>(new Map());
@@ -288,20 +289,17 @@ export class DebtService {
     }
   }
 
-  /** Approves the case's current recommendation as-is (subject to the hard-rule autonomy gating
-   *  in technical spec §5.10: Registration hold and Refund always require this explicit click). */
-  approveCase(d: Debtor, rec?: Recommendation): void {
-    this.decide(d, 'Approved', {}, undefined, rec);
-  }
-
-  /** Officer-modified terms (e.g. instalment amount/count) approved in place of the AI's proposal. */
-  amendCase(d: Debtor, amendedTerms: Term[], rec?: Recommendation): void {
-    this.decide(d, 'Amended', { amendedTerms }, undefined, rec);
-  }
-
-  /** Requires documented reasoning — the case remains unactioned. */
-  declineCase(d: Debtor, reason: string, rec?: Recommendation): void {
-    this.decide(d, 'Declined', { reason }, undefined, rec);
+  /**
+   * Remembers a decision the server has saved (issue #66), so the case counts as decided here too —
+   * in particular `runAutonomousExecution()` leaves it alone. An officer's manual Approve / Amend /
+   * Decline is written through `CaseStore.decide()`; the server records the activity entry, so
+   * nothing is logged locally.
+   */
+  recordServerDecision(debtorId: string, decision: Decision | null): void {
+    if (!decision) return;
+    const next = new Map(this.decisions());
+    next.set(debtorId, decision);
+    this.decisions.set(next);
   }
 
   /* =========================================================================

@@ -307,9 +307,10 @@ describe('CasesComponent — engagement panel, real click → service → templa
   });
 });
 
-describe('CasesComponent — approve/amend/decline (issue #13)', () => {
+describe('CasesComponent — approve/amend/decline (issues #13, #66)', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<CasesComponent>>;
   let component: CasesComponent;
+  let store: CaseStore;
 
   beforeEach(() => {
     resetMockApi();
@@ -324,6 +325,7 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
+    store = TestBed.inject(CaseStore);
     TestBed.flushEffects();
     fixture.detectChanges();
     TestBed.flushEffects();
@@ -338,13 +340,91 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
     return btn;
   }
 
-  it('approve() records the decision and hides the decision buttons', () => {
+  it('approve() POSTs APPROVE for the open case, then shows the saved decision and hides the buttons (#66)', () => {
+    const key = component.selected()!.d.id;
+    component.approve();
+    fixture.detectChanges();
+
+    expect(mockApi.decisionCalls).toEqual([{ key, body: { action: 'APPROVE' } }]);
+    expect(component.selected()!.decision?.action).toBe('Approved');
+    expect(fixture.nativeElement.textContent).toContain('Approved by Test Officer');
+    expect(() => findButton('Approve')).toThrowError();
+  });
+
+  it('never sends decidedBy — the server attributes the decision from the token (#66)', () => {
+    component.approve();
+    expect(Object.keys(mockApi.decisionCalls[0].body)).not.toContain('decidedBy');
+  });
+
+  it('a saved decision survives a reload of the lists (#66)', () => {
+    const key = component.selected()!.d.id;
+    component.approve();
+
+    store.reload();
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(component.list().find((c) => c.d.id === key)!.decision?.action).toBe('Approved');
+  });
+
+  it('a failed save keeps the case undecided, keeps the panel open and shows a message (#66)', () => {
+    mockApi.failDecision = true;
+    mockApi.decisionStatus = 403;
+    component.openDecline();
+    component.updateDeclineReason('Already resolved');
+    component.confirmDecline();
+    fixture.detectChanges();
+
+    expect(component.selected()!.decision).toBeNull();
+    expect(component.panel()).toBe('decline');
+    expect(component.declineReason()).toBe('Already resolved');
+    expect(fixture.nativeElement.textContent).toContain("belongs to another team");
+  });
+
+  it('shows a connection message when the save gets no response (#66)', () => {
+    mockApi.failDecision = true;
+    mockApi.decisionStatus = 0;
+    component.approve();
+    fixture.detectChanges();
+
+    expect(component.selected()!.decision).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain("Couldn't save the decision");
+  });
+
+  it('a retry after a failure saves and clears the message (#66)', () => {
+    mockApi.failDecision = true;
+    component.approve();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Couldn't save the decision");
+
+    mockApi.failDecision = false;
     component.approve();
     fixture.detectChanges();
 
     expect(component.selected()!.decision?.action).toBe('Approved');
-    expect(fixture.nativeElement.textContent).toContain('Approved by Nomsa Mahlangu');
-    expect(() => findButton('Approve')).toThrowError();
+    expect(fixture.nativeElement.textContent).not.toContain("Couldn't save the decision");
+  });
+
+  it('disables the decision buttons while a save is in flight (#66)', () => {
+    store.decisionState.set('saving');
+    fixture.detectChanges();
+
+    expect(findButton('Approve').disabled).toBeTrue();
+    expect(findButton('Amend terms').disabled).toBeTrue();
+    expect(findButton('Decline').disabled).toBeTrue();
+  });
+
+  it('shows the error only on the case it belongs to (#66)', () => {
+    mockApi.failDecision = true;
+    component.approve();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Couldn't save the decision");
+
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    component.selectCase(other.d.id);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain("Couldn't save the decision");
   });
 
   it('clicking Approve through the real template resolves the case and clears its "needs approval" badge', () => {
@@ -370,6 +450,9 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
     component.saveAmend();
     fixture.detectChanges();
 
+    const sent = mockApi.decisionCalls[0].body;
+    expect(sent.action).toBe('AMEND');
+    expect(JSON.parse(sent.amendedTerms!)[0]).toEqual({ key: originalTerms[0].k, value: 'Edited value' });
     const decision = component.selected()!.decision;
     expect(decision?.action).toBe('Amended');
     expect(decision?.amendedTerms?.[0].v).toBe('Edited value');
@@ -399,9 +482,11 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
     component.updateDeclineReason('  ');
     component.confirmDecline();
     expect(component.selected()!.decision).toBeNull();
+    expect(mockApi.decisionCalls).withContext('a Decline without a reason must never reach the API').toEqual([]);
 
     component.updateDeclineReason('Already resolved via a verbal arrangement');
     component.confirmDecline();
+    expect(mockApi.decisionCalls[0].body).toEqual({ action: 'DECLINE', reason: 'Already resolved via a verbal arrangement' });
     expect(component.selected()!.decision?.action).toBe('Declined');
     expect(component.selected()!.decision?.reason).toBe('Already resolved via a verbal arrangement');
   });

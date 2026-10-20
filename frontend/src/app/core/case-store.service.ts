@@ -1,17 +1,19 @@
-import { Injectable, computed, effect, signal, untracked } from '@angular/core';
+import { Injectable, WritableSignal, computed, effect, signal, untracked } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subscription, forkJoin } from 'rxjs';
+import { AsyncSubject, Observable, Subscription, forkJoin } from 'rxjs';
 import { AuthService } from './auth/auth.service';
 import { DebtService } from './debt.service';
-import { DebtorApi } from './debtor-api';
+import { DebtorApi, DecisionRequest } from './debtor-api';
 import { CaseView, FundKey, PortfolioScope } from './models';
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
+export type SaveState = 'idle' | 'saving' | 'error';
 
 /**
  * The Tracker worklist and Case Management data, read from `GET /api/debtors` and
- * `GET /api/debtors/{key}` (issues #65, #11, #12). Reloads whenever the signed-in user, the
- * year filter or the funding filter changes, and drops any in-flight request it supersedes.
+ * `GET /api/debtors/{key}` (issues #65, #11, #12), and the officer's decisions written back through
+ * `POST /api/debtors/{key}/decision` (issue #66). Reloads whenever the signed-in user, the year
+ * filter or the funding filter changes, and drops any in-flight request it supersedes.
  */
 @Injectable({ providedIn: 'root' })
 export class CaseStore {
@@ -42,6 +44,25 @@ export class CaseStore {
   readonly detailState = signal<LoadState>('idle');
   /** HTTP status of a failed detail load: 403 = outside the officer's team, 404 = no such case. */
   readonly detailErrorStatus = signal<number | null>(null);
+
+  /** Saving an officer decision (#66). `decisionErrorFor` is the case a failure belongs to. */
+  readonly decisionState = signal<SaveState>('idle');
+  readonly decisionErrorStatus = signal<number | null>(null);
+  readonly decisionErrorFor = signal<string | null>(null);
+  readonly decisionErrorMessage = computed(() => {
+    switch (this.decisionErrorStatus()) {
+      case 403:
+        return "This case belongs to another team, so you can't decide it.";
+      case 404:
+        return 'This case no longer exists.';
+      case 401:
+        return 'Your session has expired. Sign in again.';
+      case 400:
+        return 'The server rejected this decision.';
+      default:
+        return "Couldn't save the decision. Check your connection and try again.";
+    }
+  });
 
   private listSub?: Subscription;
   private detailSub?: Subscription;
@@ -97,6 +118,57 @@ export class CaseStore {
     this.listErrorStatus.set(null);
     this.detailState.set('idle');
     this.detailErrorStatus.set(null);
+    this.decisionState.set('idle');
+    this.decisionErrorStatus.set(null);
+    this.decisionErrorFor.set(null);
+  }
+
+  /**
+   * Saves an officer decision and, on success, refreshes the case from the server's response. The
+   * returned observable emits `true` once saved and `false` if it failed (or one is already in
+   * flight), so the page can close its panel only on success. The request is owned by the store, so
+   * leaving the page mid-save does not cancel it.
+   */
+  decide(debtorKey: string, request: DecisionRequest): Observable<boolean> {
+    const done = new AsyncSubject<boolean>();
+    if (this.decisionState() === 'saving') {
+      done.next(false);
+      done.complete();
+      return done.asObservable();
+    }
+    this.decisionState.set('saving');
+    this.decisionErrorStatus.set(null);
+    this.decisionErrorFor.set(null);
+    this.api.decide(debtorKey, request).subscribe({
+      next: (view) => {
+        this.applyDetail(view);
+        this.debt.recordServerDecision(view.d.id, view.decision);
+        this.decisionState.set('idle');
+        done.next(true);
+        done.complete();
+      },
+      error: (err: unknown) => {
+        this.decisionErrorStatus.set(err instanceof HttpErrorResponse ? err.status : null);
+        this.decisionErrorFor.set(debtorKey);
+        this.decisionState.set('error');
+        done.next(false);
+        done.complete();
+      },
+    });
+    return done.asObservable();
+  }
+
+  /** Puts a refreshed case into the open detail and into whichever list holds it, keeping list order. */
+  private applyDetail(view: CaseView): void {
+    this.detailSub?.unsubscribe();
+    this.detail.set(view);
+    this.detailState.set('ready');
+    this.detailErrorStatus.set(null);
+    const swap = (list: WritableSignal<CaseView[]>) =>
+      list.update((rows) => rows.map((r) => (r.d.id === view.d.id ? view : r)));
+    swap(this.picked);
+    swap(this.refunds);
+    swap(this.paying);
   }
 
   /** Loads the open case's detail. A stale response for a case the officer has since left is discarded. */
