@@ -1,6 +1,7 @@
-import { Component, computed, effect, signal, Signal } from '@angular/core';
+import { Component, computed, effect, signal, Signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { CaseStore } from '../../core/case-store.service';
 import { DebtService, formatRand, formatRandTight } from '../../core/debt.service';
 import { AGE_BUCKETS, AGENTS, FUND, POLICY } from '../../core/constants';
 import { ActivityEntry, CaseView, Term } from '../../core/models';
@@ -23,6 +24,7 @@ export class CasesComponent {
 
   constructor(
     public debt: DebtService,
+    public store: CaseStore,
     private route: ActivatedRoute,
     private router: Router,
   ) {
@@ -35,15 +37,28 @@ export class CasesComponent {
         this.closeDecisionPanel();
       }
     });
+    // Evidence and the activity feed live on the detail endpoint, so fetch it whenever the open case changes.
+    effect(() => {
+      const id = this.selectedId();
+      untracked(() => this.store.loadDetail(id));
+    });
   }
 
-  readonly list = computed<CaseView[]>(() => this.debt.caseRows().map((d) => this.debt.caseOf(d)));
+  readonly list = computed<CaseView[]>(() => this.store.cases().map((c) => this.debt.withLocalState(c)));
 
-  readonly selected = computed<CaseView | null>(() => {
+  private readonly selectedId = computed<string | null>(() => {
     const list = this.list();
     if (!list.length) return null;
     const wanted = this.debt.caseId();
-    return list.find((c) => c.d.id === wanted) ?? list[0];
+    return (list.find((c) => c.d.id === wanted) ?? list[0]).d.id;
+  });
+
+  /** The list entry for the open case, upgraded to the full detail once that has loaded. */
+  readonly selected = computed<CaseView | null>(() => {
+    const id = this.selectedId();
+    const fromList = this.list().find((c) => c.d.id === id) ?? null;
+    const detail = this.store.detail();
+    return fromList && detail?.d.id === id ? this.debt.withLocalState(detail) : fromList;
   });
 
   readonly needingApproval = computed(() => this.list().filter((c) => this.debt.needsApproval(c)).length);
@@ -113,7 +128,7 @@ export class CasesComponent {
   approve(): void {
     const sel = this.selected();
     if (!sel) return;
-    this.debt.approveCase(sel.d);
+    this.debt.approveCase(sel.d, sel.rec);
     this.closeDecisionPanel();
   }
 
@@ -131,7 +146,7 @@ export class CasesComponent {
   saveAmend(): void {
     const sel = this.selected();
     if (!sel) return;
-    this.debt.amendCase(sel.d, this.amendDraft());
+    this.debt.amendCase(sel.d, this.amendDraft(), sel.rec);
     this.closeDecisionPanel();
   }
 
@@ -148,7 +163,7 @@ export class CasesComponent {
     const sel = this.selected();
     const reason = this.declineReason().trim();
     if (!sel || !reason) return;
-    this.debt.declineCase(sel.d, reason);
+    this.debt.declineCase(sel.d, reason, sel.rec);
     this.closeDecisionPanel();
   }
 

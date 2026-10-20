@@ -290,18 +290,18 @@ export class DebtService {
 
   /** Approves the case's current recommendation as-is (subject to the hard-rule autonomy gating
    *  in technical spec §5.10: Registration hold and Refund always require this explicit click). */
-  approveCase(d: Debtor): void {
-    this.decide(d, 'Approved', {});
+  approveCase(d: Debtor, rec?: Recommendation): void {
+    this.decide(d, 'Approved', {}, undefined, rec);
   }
 
   /** Officer-modified terms (e.g. instalment amount/count) approved in place of the AI's proposal. */
-  amendCase(d: Debtor, amendedTerms: Term[]): void {
-    this.decide(d, 'Amended', { amendedTerms });
+  amendCase(d: Debtor, amendedTerms: Term[], rec?: Recommendation): void {
+    this.decide(d, 'Amended', { amendedTerms }, undefined, rec);
   }
 
   /** Requires documented reasoning — the case remains unactioned. */
-  declineCase(d: Debtor, reason: string): void {
-    this.decide(d, 'Declined', { reason });
+  declineCase(d: Debtor, reason: string, rec?: Recommendation): void {
+    this.decide(d, 'Declined', { reason }, undefined, rec);
   }
 
   /* =========================================================================
@@ -689,6 +689,20 @@ export class DebtService {
          officer/agent actions); reverse for display so the panel reads newest-first (#12). */
       activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])].reverse(),
       decision: this.decisionOf(d, rec),
+    };
+  }
+
+  /**
+   * Layers this session's not-yet-persisted officer decision (#13) and engagement entries (#14)
+   * over a case read from the API, which does not know about them until #66 / #59 land. A decision
+   * the server already holds wins.
+   */
+  withLocalState(c: CaseView): CaseView {
+    const local = this.engagementLog().get(c.d.id) ?? [];
+    return {
+      ...c,
+      decision: c.decision ?? this.decisionOf(c.d, c.rec),
+      activity: local.length ? [...[...local].reverse(), ...c.activity] : c.activity,
     };
   }
 

@@ -87,6 +87,11 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     );
   }
 
+  /** The shell's CaseStore loads the worklist as soon as a user is signed in; these tests don't care about it. */
+  function flushWorklist(): void {
+    http.match((r) => r.url.startsWith(`${API_BASE}/api/debtors`)).forEach((r) => r.flush([]));
+  }
+
   afterEach(() => {
     http.verify();
     localStorage.removeItem(STORAGE_KEY);
@@ -106,6 +111,7 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
+    flushWorklist();
     http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
       registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
       atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
@@ -125,6 +131,7 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     fixture.detectChanges();
     http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
     http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
+    flushWorklist();
     http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
       registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
       atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
