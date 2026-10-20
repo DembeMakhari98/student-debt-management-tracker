@@ -2,7 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
-import { authGuard, guestGuard } from './auth.guard';
+import { adminGuard, authGuard, guestGuard } from './auth.guard';
+import { UserRole } from './auth.models';
 
 const STORAGE_KEY = 'sdt.session';
 
@@ -10,14 +11,14 @@ describe('auth guards', () => {
   const route = {} as ActivatedRouteSnapshot;
   const state = { url: '/cases' } as RouterStateSnapshot;
 
-  function setup(signedIn: boolean): void {
+  function setup(signedIn: boolean, role: UserRole = 'OFFICER'): void {
     if (signedIn) {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           token: 't',
           expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          user: { username: 'anele.dube', displayName: 'Anele Dube', role: 'OFFICER', team: 'Team B', officerKey: 'anele-dube' },
+          user: { username: 'anele.dube', displayName: 'Anele Dube', role, team: 'Team B', officerKey: 'anele-dube' },
         }),
       );
     }
@@ -48,5 +49,21 @@ describe('auth guards', () => {
   it('guestGuard shows /login to a signed-out visitor', () => {
     setup(false);
     expect(TestBed.runInInjectionContext(() => guestGuard(route, state))).toBeTrue();
+  });
+
+  it('adminGuard bounces an OFFICER to /home (issue #69)', () => {
+    setup(true, 'OFFICER');
+    const result = TestBed.runInInjectionContext(() => adminGuard(route, state)) as UrlTree;
+    expect(TestBed.inject(Router).serializeUrl(result)).toBe('/home');
+  });
+
+  it('adminGuard lets a MANAGER through (issue #69)', () => {
+    setup(true, 'MANAGER');
+    expect(TestBed.runInInjectionContext(() => adminGuard(route, state))).toBeTrue();
+  });
+
+  it('adminGuard lets an ADMIN through (issue #69)', () => {
+    setup(true, 'ADMIN');
+    expect(TestBed.runInInjectionContext(() => adminGuard(route, state))).toBeTrue();
   });
 });
