@@ -30,6 +30,14 @@ export function formatRandTight(n: number): string {
   return 'R' + Math.round(n).toLocaleString('en-ZA');
 }
 
+/** Pulls the file name out of a `Content-Disposition: attachment; filename="..."` header
+ *  (issue #68) — the server's own `CsvExportService.fileName()` is the source of truth. */
+function filenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const match = /filename="?([^";]+)"?/.exec(header);
+  return match ? match[1] : null;
+}
+
 const CAL_YEAR = new Date().getFullYear();
 const LATEST_YEAR = Math.max(...YEARS);
 const DEFAULT_YEAR = YEARS.includes(CAL_YEAR) ? CAL_YEAR : LATEST_YEAR;
@@ -713,37 +721,31 @@ export class DebtService {
   readonly asAt = AS_AT;
 
   /* =========================================================================
-     CSV EXPORT — the tracker's own view of the book (issue #17).
+     CSV EXPORT — the tracker's own view of the book (issue #17), downloaded
+     from the backend's own export rather than built in the browser (issue #68).
      ========================================================================= */
   exportCsv(): void {
-    const head = [
-      'Student ID', 'Name', 'Programme', 'Funding', 'Funding status', 'Year', 'Missed instalments', 'Last payment',
-      'Current', '30 days', '60 days', '90 days', '120+ days', 'Balance', 'Risk score', 'Band', 'Picked up by agent',
-      'AI recommendation', 'Status', 'Policy',
-    ];
-    const lines = [head.join(',')];
-    // Scoped (issue #18) — CSV export lists named, identifiable students, so it must
-    // respect the officer's portfolio the same way Tracker/Cases do, not the whole book.
-    this.rows()
-      .filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope()))
-      .forEach((d) => {
-        const c = this.caseOf(d);
-        lines.push(
-          [
-            d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
-            d.missed || 0, d.lastPay || 'none', d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
-            this.rowTotal(d), c.score, this.owedToStudent(d) ? 'Credit' : c.band, this.pickedUp(d) ? 'Yes' : 'No',
-            `"${c.rec.action}"`, c.rec.status, this.policyClauseOf(c.rec.type),
-          ].join(','),
-        );
+    this.http
+      .get(`${API_BASE}/api/debtors/export`, {
+        params: { year: String(this.year()), funding: String(this.funding()) },
+        responseType: 'text',
+        observe: 'response',
+      })
+      .subscribe({
+        next: (response) => {
+          const fileName =
+            filenameFromContentDisposition(response.headers.get('content-disposition')) ??
+            `student-debt-tracker-${this.year()}-${this.funding()}.csv`;
+          const blob = new Blob([response.body ?? ''], { type: 'text/csv' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+        },
+        error: () => console.error('CSV export failed: could not reach the backend.'),
       });
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `student-debt-tracker-${this.year()}-${this.funding()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(a.href);
   }
 }
