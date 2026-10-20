@@ -11,6 +11,10 @@
     </div>
   </div>
 
+  @if (ageingApi.error()) {
+    <p class="note" style="color:var(--ai-red)">Backend unreachable — Age Analysis figures shown are not live.</p>
+  }
+
   <div class="card">
     <div style="display:flex;flex-direction:column;gap:4px">
       <span class="c-title">Ageing across the selection</span>
