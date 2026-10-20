@@ -2,6 +2,7 @@ import { Component, computed, effect, signal, Signal, untracked } from '@angular
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { CaseStore } from '../../core/case-store.service';
+import { DecisionRequest, encodeAmendedTerms } from '../../core/debtor-api';
 import { DebtService, formatRand, formatRandTight } from '../../core/debt.service';
 import { AGE_BUCKETS, AGENTS, FUND, POLICY } from '../../core/constants';
 import { ActivityEntry, CaseView, Term } from '../../core/models';
@@ -125,11 +126,20 @@ export class CasesComponent {
     this.panel.set('none');
   }
 
+  /**
+   * Saves through the API; the panel closes only once the server has accepted the decision, and only
+   * if the officer is still on that case — they may have moved on and opened another case's panel.
+   */
+  private save(debtorKey: string, request: DecisionRequest): void {
+    this.store.decide(debtorKey, request).subscribe((saved) => {
+      if (saved && this.selectedId() === debtorKey) this.closeDecisionPanel();
+    });
+  }
+
   approve(): void {
     const sel = this.selected();
     if (!sel) return;
-    this.debt.approveCase(sel.d, sel.rec);
-    this.closeDecisionPanel();
+    this.save(sel.d.id, { action: 'APPROVE' });
   }
 
   openAmend(): void {
@@ -146,8 +156,7 @@ export class CasesComponent {
   saveAmend(): void {
     const sel = this.selected();
     if (!sel) return;
-    this.debt.amendCase(sel.d, this.amendDraft(), sel.rec);
-    this.closeDecisionPanel();
+    this.save(sel.d.id, { action: 'AMEND', amendedTerms: encodeAmendedTerms(this.amendDraft()) });
   }
 
   openDecline(): void {
@@ -163,8 +172,7 @@ export class CasesComponent {
     const sel = this.selected();
     const reason = this.declineReason().trim();
     if (!sel || !reason) return;
-    this.debt.declineCase(sel.d, reason, sel.rec);
-    this.closeDecisionPanel();
+    this.save(sel.d.id, { action: 'DECLINE', reason });
   }
 
   /** The terms to display — the officer's amended figures once amended, otherwise the AI's proposal. */

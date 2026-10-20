@@ -125,6 +125,181 @@ describe('CaseStore — Tracker and Case Management data from the API (issue #65
     expect(store.detailState()).toBe('idle');
   });
 
+  describe('decide() — saving an officer decision (issue #66)', () => {
+    const run = (key: string, request: Parameters<CaseStore['decide']>[1]) => {
+      let saved: boolean | undefined;
+      store.decide(key, request).subscribe((v) => (saved = v));
+      return saved;
+    };
+
+    it('POSTs the decision, emits true, and returns to idle', () => {
+      const key = store.picked()[0].d.id;
+      expect(run(key, { action: 'APPROVE' })).toBeTrue();
+      expect(mockApi.decisionCalls).toEqual([{ key, body: { action: 'APPROVE' } }]);
+      expect(store.decisionState()).toBe('idle');
+    });
+
+    it('refreshes the open detail and the list row from the response', () => {
+      const key = store.picked()[0].d.id;
+      store.loadDetail(key);
+      expect(store.detail()?.decision).toBeNull();
+
+      run(key, { action: 'DECLINE', reason: 'Verbal arrangement' });
+
+      expect(store.detail()?.decision?.action).toBe('Declined');
+      expect(store.detail()?.decision?.reason).toBe('Verbal arrangement');
+      expect(store.picked().find((c) => c.d.id === key)!.decision?.action).toBe('Declined');
+    });
+
+    it('keeps the list order when a row is refreshed', () => {
+      const before = store.picked().map((c) => c.d.id);
+      run(before[1], { action: 'APPROVE' });
+      expect(store.picked().map((c) => c.d.id)).toEqual(before);
+    });
+
+    it('also refreshes a case that sits in the refund list', () => {
+      const key = store.refunds()[0].d.id;
+      run(key, { action: 'APPROVE' });
+      expect(store.refunds().find((c) => c.d.id === key)!.decision?.action).toBe('Approved');
+    });
+
+    it('tells DebtService about the saved decision so the autonomous run leaves the case alone', () => {
+      const spy = spyOn(debt, 'recordServerDecision').and.callThrough();
+      const key = store.picked()[0].d.id;
+      run(key, { action: 'APPROVE' });
+      expect(spy).toHaveBeenCalledWith(key, jasmine.objectContaining({ action: 'Approved' }));
+    });
+
+    it('keeps the decision after the lists are reloaded', () => {
+      const key = store.picked()[0].d.id;
+      run(key, { action: 'APPROVE' });
+      store.reload();
+      expect(store.picked().find((c) => c.d.id === key)!.decision?.action).toBe('Approved');
+    });
+
+    for (const [status, text] of [
+      [403, 'belongs to another team'],
+      [404, 'no longer exists'],
+      [401, 'session has expired'],
+      [400, 'rejected this decision'],
+      [500, "Couldn't save the decision"],
+      [0, "Couldn't save the decision"],
+    ] as const) {
+      it(`a ${status} leaves the case undecided and explains it`, () => {
+        const key = store.picked()[0].d.id;
+        mockApi.failDecision = true;
+        mockApi.decisionStatus = status;
+
+        expect(run(key, { action: 'APPROVE' })).toBeFalse();
+
+        expect(store.decisionState()).toBe('error');
+        expect(store.decisionErrorStatus()).toBe(status);
+        expect(store.decisionErrorFor()).toBe(key);
+        expect(store.decisionErrorMessage()).toContain(text);
+        expect(store.picked().find((c) => c.d.id === key)!.decision).toBeNull();
+      });
+    }
+
+    it('ignores a second decision while one is saving, and does not call the API', () => {
+      store.decisionState.set('saving');
+      expect(run(store.picked()[0].d.id, { action: 'APPROVE' })).toBeFalse();
+      expect(mockApi.decisionCalls).toEqual([]);
+    });
+
+    it('clears an earlier failure when the next save starts and succeeds', () => {
+      const key = store.picked()[0].d.id;
+      mockApi.failDecision = true;
+      run(key, { action: 'APPROVE' });
+      expect(store.decisionState()).toBe('error');
+
+      mockApi.failDecision = false;
+      expect(run(key, { action: 'APPROVE' })).toBeTrue();
+      expect(store.decisionState()).toBe('idle');
+      expect(store.decisionErrorStatus()).toBeNull();
+      expect(store.decisionErrorFor()).toBeNull();
+    });
+
+    it('resets the saving state when the user signs out', () => {
+      mockApi.failDecision = true;
+      run(store.picked()[0].d.id, { action: 'APPROVE' });
+      (TestBed.inject(AuthService).token as WritableSignal<string | null>).set(null);
+      settle();
+      expect(store.decisionState()).toBe('idle');
+      expect(store.decisionErrorFor()).toBeNull();
+    });
+
+    describe('with the response still in flight', () => {
+      const start = (key: string) => {
+        const result: { saved?: boolean } = {};
+        store.decide(key, { action: 'APPROVE' }).subscribe((v) => (result.saved = v));
+        return result;
+      };
+
+      beforeEach(() => (mockApi.deferDecision = true));
+
+      it('is "saving" until the server answers, refuses a second decision, then returns to idle', () => {
+        const [a, b] = store.picked().map((c) => c.d.id);
+        const first = start(a);
+        expect(store.decisionState()).toBe('saving');
+        expect(first.saved).toBeUndefined();
+
+        const second = start(b);
+        expect(second.saved).toBeFalse();
+        expect(mockApi.decisionCalls.length).toBe(1);
+
+        mockApi.pendingDecisions[0]();
+        expect(first.saved).toBeTrue();
+        expect(store.decisionState()).toBe('idle');
+      });
+
+      it("a save for one case does not replace or cancel the detail load of the case the officer moved to", () => {
+        const [a, b] = store.picked().map((c) => c.d.id);
+        mockApi.deferDetail = true;
+        store.loadDetail(b);
+        expect(store.detailState()).toBe('loading');
+
+        const saved = start(a);
+        mockApi.pendingDecisions[0]();
+
+        expect(saved.saved).toBeTrue();
+        expect(store.detailState()).withContext("B's load must still be running").toBe('loading');
+        expect(store.picked().find((c) => c.d.id === a)!.decision?.action).toBe('Approved');
+
+        mockApi.pendingDetails[0]();
+        expect(store.detail()?.d.id).toBe(b);
+        expect(store.detailState()).toBe('ready');
+        expect(store.detail()?.decision).toBeNull();
+      });
+
+      it('refreshes the open detail when the saved case is the one that is open', () => {
+        const a = store.picked()[0].d.id;
+        store.loadDetail(a);
+        const saved = start(a);
+        mockApi.pendingDecisions[0]();
+
+        expect(saved.saved).toBeTrue();
+        expect(store.detail()?.d.id).toBe(a);
+        expect(store.detail()?.decision?.action).toBe('Approved');
+      });
+
+      it("a response arriving after sign-out does not repopulate the previous user's data", () => {
+        const spy = spyOn(debt, 'recordServerDecision').and.callThrough();
+        const saved = start(store.picked()[0].d.id);
+
+        (TestBed.inject(AuthService).token as WritableSignal<string | null>).set(null);
+        settle();
+        expect(saved.saved).withContext('the page is told the save did not complete').toBeFalse();
+
+        mockApi.pendingDecisions[0]();
+
+        expect(store.picked()).toEqual([]);
+        expect(store.detail()).toBeNull();
+        expect(store.decisionState()).toBe('idle');
+        expect(spy).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   it('empties everything when the user signs out', () => {
     (TestBed.inject(AuthService).token as WritableSignal<string | null>).set(null);
     settle();

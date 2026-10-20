@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_BASE } from './api';
 import { DebtService, formatRand } from './debt.service';
-import { Debtor } from './models';
+import { Debtor, Decision } from './models';
 
 const HTTP_TEST_PROVIDERS = [provideHttpClient(), provideHttpClientTesting()];
 
@@ -258,14 +258,20 @@ describe('DebtService — autonomy gating (issue #8)', () => {
     expect(sawAutoDecision).toBeTrue();
   });
 
-  it('does not overwrite a case a human officer already decided', () => {
+  it('does not overwrite a case a human officer already decided (saved through the API, #66)', () => {
     const c = service.caseOf(service.caseRows()[0]);
-    service.approveCase(c.d);
+    service.recordServerDecision(c.d.id, {
+      recommendationType: c.rec.type,
+      action: 'Approved',
+      decidedBy: 'Nomsa Mahlangu',
+      decidedAt: '2026-10-01T08:00:00Z',
+    });
 
     service.setAutonomy(4);
     service.runAutonomousExecution();
 
     const after = service.caseOf(c.d);
+    expect(after.decision!.decidedBy).toBe('Nomsa Mahlangu');
     expect(after.decision!.decidedBy).not.toContain('Autonomous Agent');
   });
 
@@ -590,7 +596,7 @@ describe('DebtService — CSV export, downloaded from GET /api/debtors/export (i
   });
 });
 
-describe('DebtService — officer decisions (issue #13)', () => {
+describe('DebtService — officer decisions (issues #13, #66)', () => {
   let service: DebtService;
 
   beforeEach(() => {
@@ -614,38 +620,52 @@ describe('DebtService — officer decisions (issue #13)', () => {
     expect(service.needsApproval(c)).toBe(c.rec.status === 'Needs approval');
   });
 
-  it('approveCase() records an Approved decision and logs an activity entry naming the officer', () => {
+  const decisionFor = (recommendationType: string, extra: Partial<Decision> = {}): Decision => ({
+    recommendationType,
+    action: 'Approved',
+    decidedBy: 'Nomsa Mahlangu',
+    decidedAt: '2026-10-01T08:00:00Z',
+    ...extra,
+  });
+
+  it('recordServerDecision() makes the case count as decided, so it no longer needs approval', () => {
     const c = firstCase();
-    service.approveCase(c.d);
+    service.recordServerDecision(c.d.id, decisionFor(c.rec.type));
 
     const after = service.caseOf(c.d);
     expect(after.decision).not.toBeNull();
     expect(after.decision!.action).toBe('Approved');
     expect(after.decision!.recommendationType).toBe(c.rec.type);
-    expect(after.activity[0].t).toContain('approved by');
     expect(service.needsApproval(after)).toBeFalse();
   });
 
-  it('amendCase() stores the amended terms and they are distinct from the original recommendation terms', () => {
-    const c = firstCase();
+  it('recordServerDecision() keeps amended terms and a decline reason', () => {
+    const [a, b] = service.caseRows();
     const amended = [{ k: 'Instalments', v: '6 × R 1,200' }];
-    service.amendCase(c.d, amended);
+    service.recordServerDecision(a.id, decisionFor(service.caseOf(a).rec.type, { action: 'Amended', amendedTerms: amended }));
+    service.recordServerDecision(b.id, decisionFor(service.caseOf(b).rec.type, { action: 'Declined', reason: 'Verbal arrangement' }));
 
-    const after = service.caseOf(c.d);
-    expect(after.decision!.action).toBe('Amended');
-    expect(after.decision!.amendedTerms).toEqual(amended);
-    expect(after.activity[0].t).toContain('amended and approved by');
+    expect(service.caseOf(a).decision!.amendedTerms).toEqual(amended);
+    expect(service.caseOf(b).decision!.reason).toBe('Verbal arrangement');
   });
 
-  it('declineCase() requires a reason to be stored and documents it on the decision and activity log', () => {
+  it('recordServerDecision() does not log a local activity entry — the server records it', () => {
     const c = firstCase();
-    service.declineCase(c.d, 'Student already on a verbal arrangement with the faculty');
+    service.recordServerDecision(c.d.id, decisionFor(c.rec.type));
 
-    const after = service.caseOf(c.d);
-    expect(after.decision!.action).toBe('Declined');
-    expect(after.decision!.reason).toBe('Student already on a verbal arrangement with the faculty');
-    expect(after.activity[0].t).toContain('declined by');
-    expect(after.activity[0].t).toContain('Student already on a verbal arrangement');
+    expect(service.caseOf(c.d).activity.length).toBe(c.activity.length);
+  });
+
+  it('recordServerDecision(null) is a no-op', () => {
+    const c = firstCase();
+    service.recordServerDecision(c.d.id, null);
+    expect(service.caseOf(c.d).decision).toBeNull();
+  });
+
+  it('a recorded decision is stale once the recommendation type changes (the case reopens)', () => {
+    const c = firstCase();
+    service.recordServerDecision(c.d.id, decisionFor('Some other recommendation'));
+    expect(service.caseOf(c.d).decision).toBeNull();
   });
 
   it('does not leak a decision between different debtors', () => {
@@ -653,7 +673,7 @@ describe('DebtService — officer decisions (issue #13)', () => {
     expect(rows.length).toBeGreaterThan(1);
     const [a, b] = rows;
 
-    service.approveCase(a);
+    service.recordServerDecision(a.id, decisionFor(service.caseOf(a).rec.type));
 
     expect(service.caseOf(b).decision).toBeNull();
   });

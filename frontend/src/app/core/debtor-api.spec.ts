@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE } from './api';
-import { CaseDetailDto, DebtorApi, DebtorRowDto, parseAmendedTerms, toCaseView, toDecision } from './debtor-api';
+import { CaseDetailDto, DebtorApi, DebtorRowDto, encodeAmendedTerms, parseAmendedTerms, toCaseView, toDecision } from './debtor-api';
 
 function row(overrides: Partial<DebtorRowDto> = {}): DebtorRowDto {
   return {
@@ -106,6 +106,59 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
     expect(view?.activity).toEqual([{ t: 'Risk scored', m: 'Risk Sentinel' }]);
   });
 
+  describe('decide() — POST /api/debtors/{key}/decision (issue #66)', () => {
+    const detailBody = (decision: CaseDetailDto['lastDecision']): CaseDetailDto => ({
+      debtor: row({ lastDecision: decision }),
+      evidence: [],
+      activity: [{ text: 'Recommendation approved by Nomsa Mahlangu', source: 'Officer decision · Nomsa Mahlangu', createdAt: null }],
+      lastDecision: decision,
+    });
+
+    it('POSTs APPROVE with only the action', () => {
+      api.decide('STU-100234-2026', { action: 'APPROVE' }).subscribe();
+      const req = http.expectOne(`${API_BASE}/api/debtors/STU-100234-2026/decision`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ action: 'APPROVE' });
+      req.flush(detailBody(null));
+    });
+
+    it('POSTs AMEND with the terms as a JSON string, and DECLINE with the reason', () => {
+      api.decide('STU-1', { action: 'AMEND', amendedTerms: encodeAmendedTerms([{ k: 'Instalments', v: '6' }]) }).subscribe();
+      const amend = http.expectOne(`${API_BASE}/api/debtors/STU-1/decision`);
+      expect(amend.request.body.action).toBe('AMEND');
+      expect(typeof amend.request.body.amendedTerms).toBe('string');
+      amend.flush(detailBody(null));
+
+      api.decide('STU-2', { action: 'DECLINE', reason: 'Verbal arrangement' }).subscribe();
+      const decline = http.expectOne(`${API_BASE}/api/debtors/STU-2/decision`);
+      expect(decline.request.body).toEqual({ action: 'DECLINE', reason: 'Verbal arrangement' });
+      decline.flush(detailBody(null));
+    });
+
+    it('URL-encodes the debtor key', () => {
+      api.decide('STU 1/2026', { action: 'APPROVE' }).subscribe();
+      http.expectOne(`${API_BASE}/api/debtors/STU%201%2F2026/decision`).flush(detailBody(null));
+    });
+
+    it('maps the response into the refreshed case, including the saved decision', () => {
+      let view: ReturnType<typeof toCaseView> | undefined;
+      api.decide('STU-100234-2026', { action: 'APPROVE' }).subscribe((v) => (view = v));
+      http.expectOne(`${API_BASE}/api/debtors/STU-100234-2026/decision`).flush(
+        detailBody({ action: 'APPROVE', amendedTerms: null, reason: null, decidedBy: 'Nomsa Mahlangu', decidedAt: '2026-10-01T08:00:00Z' }),
+      );
+      expect(view?.decision?.action).toBe('Approved');
+      expect(view?.decision?.decidedBy).toBe('Nomsa Mahlangu');
+      expect(view?.activity[0].t).toContain('approved by');
+    });
+
+    it('propagates the HTTP status so the store can explain it', () => {
+      let status = -1;
+      api.decide('STU-100301-2026', { action: 'APPROVE' }).subscribe({ error: (e) => (status = e.status) });
+      http.expectOne(`${API_BASE}/api/debtors/STU-100301-2026/decision`).flush('no', { status: 403, statusText: 'Forbidden' });
+      expect(status).toBe(403);
+    });
+  });
+
   it('propagates HTTP errors so the store can read the status (403 other team, 404 unknown)', () => {
     let status = 0;
     api.detail('STU-100301-2026').subscribe({ error: (e) => (status = e.status) });
@@ -115,6 +168,15 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
 });
 
 describe('debtor-api mapping helpers', () => {
+  it('encodeAmendedTerms writes the {key, value} JSON array that parseAmendedTerms reads back', () => {
+    const terms = [{ k: 'Instalments', v: '6 × R 1,200' }, { k: 'Start', v: '2026-11-01' }];
+    expect(JSON.parse(encodeAmendedTerms(terms))).toEqual([
+      { key: 'Instalments', value: '6 × R 1,200' },
+      { key: 'Start', value: '2026-11-01' },
+    ]);
+    expect(parseAmendedTerms(encodeAmendedTerms(terms))).toEqual(terms);
+  });
+
   it('parses amended terms from the JSON array the decision endpoint writes', () => {
     expect(parseAmendedTerms('[{"key":"Instalments","value":"6"}]')).toEqual([{ k: 'Instalments', v: '6' }]);
   });
