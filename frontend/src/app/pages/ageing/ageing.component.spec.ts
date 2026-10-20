@@ -76,6 +76,15 @@ describe('AgeingComponent — Age Analysis workspace, live data from GET /api/ag
     httpMock.expectOne((r) => r.url === `${API_BASE}/api/ageing`).flush(dto);
   }
 
+  /** DebtService (issue #64) fires its own GET /api/summary on construction and on every
+   *  setYear/setFunding call; this page doesn't read that data, so just drain it. */
+  function drainSummaryRequests() {
+    httpMock
+      .match((r) => r.url === `${API_BASE}/api/summary`)
+      .filter((req) => !req.cancelled)
+      .forEach((req) => req.flush('ignored', { status: 500, statusText: 'Server Error' }));
+  }
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [AgeingComponent],
@@ -91,7 +100,10 @@ describe('AgeingComponent — Age Analysis workspace, live data from GET /api/ag
     fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    drainSummaryRequests();
+    httpMock.verify();
+  });
 
   describe('AC: ageing bar chart, one bar per bucket, summed across the current filter scope', () => {
     it('renders exactly one bar per AGE_BUCKETS entry, in order, with amounts from bucketTotals', () => {
@@ -214,6 +226,15 @@ describe('AgeingComponent — fetch, re-fetch and failure handling (issue #67)',
     return httpMock.expectOne((r) => r.url === `${API_BASE}/api/ageing`);
   }
 
+  /** DebtService (issue #64) fires its own GET /api/summary on construction and on every
+   *  setYear/setFunding call; this page doesn't read that data, so just drain it. */
+  function drainSummaryRequests() {
+    httpMock
+      .match((r) => r.url === `${API_BASE}/api/summary`)
+      .filter((req) => !req.cancelled)
+      .forEach((req) => req.flush('ignored', { status: 500, statusText: 'Server Error' }));
+  }
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [AgeingComponent],
@@ -226,7 +247,10 @@ describe('AgeingComponent — fetch, re-fetch and failure handling (issue #67)',
     fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    drainSummaryRequests();
+    httpMock.verify();
+  });
 
   it('requests GET /api/ageing with the current year and funding as query params on construction', () => {
     const req = expectRequest();

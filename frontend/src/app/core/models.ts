@@ -129,9 +129,10 @@ export interface AutonomyLevelDef {
   hint: string;
 }
 
+/** Mirrors the backend's SummaryDto (`GET /api/summary`, issue #64) field-for-field. */
 export interface DebtSummary {
-  debtors: Debtor[];
-  credits: Debtor[];
+  debtorCount: number;
+  creditCount: number;
   totalDebt: number;
   totalCredit: number;
   o90: number;

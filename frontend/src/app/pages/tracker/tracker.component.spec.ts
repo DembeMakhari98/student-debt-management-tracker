@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { TrackerComponent } from './tracker.component';
@@ -13,7 +15,7 @@ describe('TrackerComponent — Debt Management Tracker workspace (issue #11)', (
     navigate = jasmine.createSpy('navigate');
     TestBed.configureTestingModule({
       imports: [TrackerComponent],
-      providers: [{ provide: Router, useValue: { navigate } }],
+      providers: [{ provide: Router, useValue: { navigate } }, provideHttpClient(), provideHttpClientTesting()],
     });
 
     fixture = TestBed.createComponent(TrackerComponent);
