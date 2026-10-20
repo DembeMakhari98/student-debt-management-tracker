@@ -65,6 +65,37 @@ function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
 
 const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   const url = new URL(req.urlWithParams);
+
+  // DebtService fetches the KPI summary from its constructor (issue #64), so this branch must run
+  // before anything injects DebtService, or the two would depend on each other circularly.
+  if (url.pathname === '/api/summary') {
+    const year = url.searchParams.get('year');
+    const funding = url.searchParams.get('funding');
+    const rs = DEBTORS.filter(
+      (d) => (!year || year === 'all' || d.year === Number(year)) && (!funding || funding === 'all' || d.funding === funding),
+    );
+    const total = (d: Debtor) => d.ageing.current + d.ageing.d30 + d.ageing.d60 + d.ageing.d90 + d.ageing.d120;
+    const debtors = rs.filter((d) => total(d) > 0);
+    const credits = rs.filter((d) => total(d) < 0);
+    const totalDebt = debtors.reduce((s, d) => s + total(d), 0);
+    const over90 = rs.reduce((s, d) => s + Math.max(0, d.ageing.d90) + Math.max(0, d.ageing.d120), 0);
+    return of(
+      new HttpResponse({
+        status: 200,
+        body: {
+          registeredStudents: rs.length,
+          totalDebt,
+          debtorCount: debtors.length,
+          totalCredit: Math.abs(credits.reduce((s, d) => s + total(d), 0)),
+          creditCount: credits.length,
+          atRisk90Plus: over90,
+          atRisk90PlusPct: totalDebt ? (over90 / totalDebt) * 100 : 0,
+          averageBalance: debtors.length ? totalDebt / debtors.length : 0,
+        },
+      }),
+    );
+  }
+
   if (!url.pathname.startsWith('/api/debtors')) return next(req);
   const debt = inject(DebtService);
   const ok = (body: unknown) => of(new HttpResponse({ status: 200, body }));

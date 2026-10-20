@@ -1,3 +1,6 @@
+@if (debt.summaryError()) {
+  <p class="note" style="color:var(--ai-red)">Backend unreachable — summary figures shown are not live.</p>
+}
 <div class="summary">
   @for (c of cards(); track c.k) {
     <div class="kpi-card">

@@ -112,6 +112,10 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     fixture.detectChanges();
     http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
     flushWorklist();
+    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
+      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
+      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
+    });
 
     expect(autonomySelect(fixture).disabled).toBeTrue();
   });
@@ -128,6 +132,10 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
     http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
     flushWorklist();
+    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
+      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
+      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
+    });
 
     const select = autonomySelect(fixture);
     expect(select.disabled).toBeFalse();
