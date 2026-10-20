@@ -499,7 +499,19 @@ describe('DebtService — CSV export, downloaded from GET /api/debtors/export (i
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  /** DebtService (issue #64) fires its own GET /api/summary on construction and on every
+   *  setYear/setFunding call; these export tests don't read that data, so just drain it. */
+  function drainSummaryRequests() {
+    httpMock
+      .match((r) => r.url === `${API_BASE}/api/summary`)
+      .filter((req) => !req.cancelled)
+      .forEach((req) => req.flush('ignored', { status: 500, statusText: 'Server Error' }));
+  }
+
+  afterEach(() => {
+    drainSummaryRequests();
+    httpMock.verify();
+  });
 
   /**
    * Triggers exportCsv(), flushes the mocked /api/debtors/export response, and returns the
@@ -752,5 +764,124 @@ describe('DebtService — portfolio access control (issue #18)', () => {
     expect(service.allPickedRows().map((d) => d.id)).toEqual(beforeIds); // unchanged by officer switch
     expect(service.pickedRows().map((d) => d.id)).not.toEqual(nomsaScopedIds); // the scoped counterpart does change
     expect(service.pickedRows().every((d) => d.assignedOfficer === 'sibusiso-khoza')).toBeTrue();
+  });
+});
+
+describe('DebtService — live summary via GET /api/summary (issue #64)', () => {
+  let service: DebtService;
+  let httpMock: HttpTestingController;
+
+  const DTO = {
+    registeredStudents: 4812,
+    totalDebt: 165400,
+    debtorCount: 37,
+    totalCredit: 4200,
+    creditCount: 2,
+    atRisk90Plus: 58000,
+    atRisk90PlusPct: 35.06,
+    averageBalance: 4470.27,
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
+    service = TestBed.inject(DebtService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  function expectRequest() {
+    return httpMock.expectOne((r) => r.url === `${API_BASE}/api/summary`);
+  }
+
+  it('requests GET /api/summary with the current year and funding as query params on construction', () => {
+    const req = expectRequest();
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('year')).toBe(String(service.year()));
+    expect(req.request.params.get('funding')).toBe('all');
+    req.flush(DTO);
+  });
+
+  it('is loading until the request resolves', () => {
+    expect(service.summaryLoading()).toBeTrue();
+    expectRequest().flush(DTO);
+    expect(service.summaryLoading()).toBeFalse();
+  });
+
+  it('maps the backend SummaryDto onto DebtSummary field-for-field', () => {
+    expectRequest().flush(DTO);
+
+    expect(service.summary()).toEqual({
+      debtorCount: 37,
+      creditCount: 2,
+      totalDebt: 165400,
+      totalCredit: 4200,
+      o90: 58000,
+      registered: 4812,
+      o90Pct: 35.06,
+      avg: 4470.27,
+    });
+    expect(service.summaryError()).toBeFalse();
+  });
+
+  it('re-fetches with the new funding source when the funding filter changes', () => {
+    expectRequest().flush(DTO);
+
+    service.setFunding('gov');
+    const req = expectRequest();
+    expect(req.request.params.get('funding')).toBe('gov');
+    req.flush({ ...DTO, totalDebt: 90000 });
+
+    expect(service.summary().totalDebt).toBe(90000);
+  });
+
+  it('re-fetches with the new year when the year filter changes, including to "all"', () => {
+    expectRequest().flush(DTO);
+
+    service.setYear('all');
+    const req = expectRequest();
+    expect(req.request.params.get('year')).toBe('all');
+    req.flush({ ...DTO, registeredStudents: 19000 });
+
+    expect(service.summary().registered).toBe(19000);
+  });
+
+  it('cancels a still-in-flight request when the filter changes again before it resolves', () => {
+    const first = expectRequest();
+
+    service.setFunding('private'); // changes before `first` resolves
+    const second = expectRequest();
+
+    expect(first.cancelled).toBeTrue();
+    second.flush(DTO);
+    expect(service.summary().debtorCount).toBe(DTO.debtorCount);
+  });
+
+  it('a failed request sets summaryError() and summary() falls back to zeros', () => {
+    expectRequest().flush('boom', { status: 500, statusText: 'Server Error' });
+
+    expect(service.summaryError()).toBeTrue();
+    expect(service.summaryLoading()).toBeFalse();
+    expect(service.summary()).toEqual({
+      debtorCount: 0,
+      creditCount: 0,
+      totalDebt: 0,
+      totalCredit: 0,
+      o90: 0,
+      registered: 0,
+      o90Pct: 0,
+      avg: 0,
+    });
+  });
+
+  it('a later successful request clears a previous error', () => {
+    expectRequest().flush('boom', { status: 500, statusText: 'Server Error' });
+    expect(service.summaryError()).toBeTrue();
+
+    service.setYear(service.sortedYears[0]);
+    expectRequest().flush(DTO);
+
+    expect(service.summaryError()).toBeFalse();
+    expect(service.summary().registered).toBe(DTO.registeredStudents);
   });
 });
