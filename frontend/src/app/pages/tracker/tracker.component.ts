@@ -1,5 +1,6 @@
 import { Component, computed } from '@angular/core';
 import { Router } from '@angular/router';
+import { CaseStore } from '../../core/case-store.service';
 import { DebtService, formatRand } from '../../core/debt.service';
 import { AGENTS, FUND } from '../../core/constants';
 import { CaseView } from '../../core/models';
@@ -20,12 +21,13 @@ export class TrackerComponent {
 
   constructor(
     public debt: DebtService,
+    public store: CaseStore,
     private router: Router,
   ) {}
 
-  readonly pickedCases = computed<CaseView[]>(() => this.debt.pickedRows().map((d) => this.debt.caseOf(d)));
-  readonly refundCases = computed<CaseView[]>(() => this.debt.refundRows().map((d) => this.debt.caseOf(d)));
-  readonly payingRows = computed(() => this.debt.payingRows());
+  readonly pickedCases = computed<CaseView[]>(() => this.store.picked().map((c) => this.debt.withLocalState(c)));
+  readonly refundCases = computed<CaseView[]>(() => this.store.refunds().map((c) => this.debt.withLocalState(c)));
+  readonly payingCases = computed<CaseView[]>(() => this.store.paying());
 
   statusColor(status: string): string {
     return status === 'Needs approval' ? 'var(--red-text)' : status === 'Agent acting' ? 'var(--ai-mid-blue)' : 'var(--fg-3)';

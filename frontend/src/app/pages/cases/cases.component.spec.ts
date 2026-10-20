@@ -2,7 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { CasesComponent } from './cases.component';
+import { CaseStore } from '../../core/case-store.service';
 import { DebtService } from '../../core/debt.service';
+import { mockApi, mockApiProviders, resetMockApi } from '../../testing/mock-api';
 import { FUND, POLICY } from '../../core/constants';
 
 describe('CasesComponent — case list & case detail (issue #12)', () => {
@@ -11,23 +13,28 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
   let debt: DebtService;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        ...mockApiProviders(),
       ],
     });
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
     debt = TestBed.inject(DebtService);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
   });
 
   it('AC1 — the case list holds every picked-up and credit case for the current filter scope', () => {
-    const wantedIds = debt.caseRows().map((d) => d.id);
+    const wantedIds = TestBed.inject(CaseStore).cases().map((c) => c.d.id);
     expect(component.list().map((c) => c.d.id)).toEqual(wantedIds);
 
     const renderedIds = Array.from(fixture.nativeElement.querySelectorAll('.case-item .tag'))
@@ -64,9 +71,11 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({ case: target.d.id })) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        ...mockApiProviders(),
       ],
     });
     const deepLinkedFixture = TestBed.createComponent(CasesComponent);
+    TestBed.flushEffects();
     deepLinkedFixture.detectChanges();
 
     expect(deepLinkedFixture.componentInstance.selected()!.d.id).toBe(target.d.id);
@@ -100,14 +109,12 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     expect(fixture.nativeElement.textContent).toContain(component.R(sel.debt || sel.credit));
   });
 
-  it('AC6 — the activity log renders every entry with its text and source, newest-first per Section 4.6', () => {
+  it('AC6 — the activity log renders every entry with its text and source, in the order the server returns them', () => {
     const sel = component.selected()!;
     expect(sel.activity.length).toBeGreaterThan(0);
-    // "Risk scored" is the nightly run's very first step chronologically, so newest-first
-    // ordering must sort it last, not first.
-    const riskScoredIndex = sel.activity.findIndex((a) => a.t.includes('Risk scored'));
-    expect(riskScoredIndex).toBe(sel.activity.length - 1);
-    expect(sel.activity[riskScoredIndex].m).toContain('Risk Sentinel');
+    // The detail endpoint owns the ordering (nightly-run entries first); the page must not reshuffle it.
+    expect(sel.activity[0].t).toContain('Risk scored');
+    expect(sel.activity[0].m).toContain('Risk Sentinel');
 
     const text = fixture.nativeElement.textContent as string;
     sel.activity.forEach((a) => {
@@ -116,14 +123,72 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     });
   });
 
-  it('AC6 — an action logged after the nightly run appears above it, confirming newest-first ordering', () => {
+  it('AC6 — an action logged this session appears above the server entries', () => {
     const id = component.selected()!.d.id;
     debt.logEngagementAction(id, { t: 'Follow-up call logged', m: 'Officer decision · Test Officer' });
     fixture.detectChanges();
 
     const sel = component.selected()!;
     expect(sel.activity[0].t).toBe('Follow-up call logged');
-    expect(sel.activity[sel.activity.length - 1].t).toContain('Risk scored');
+    expect(sel.activity.some((a) => a.t.includes('Risk scored'))).toBeTrue();
+  });
+
+  it('#65 AC2 — selecting a case loads GET /api/debtors/{key} and renders its evidence', () => {
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    mockApi.detailCalls = [];
+    component.selectCase(other.d.id);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(mockApi.detailCalls).toEqual([other.d.id]);
+    const sel = component.selected()!;
+    expect(sel.evidence.length).toBeGreaterThan(0);
+    sel.evidence.forEach((e) => expect(fixture.nativeElement.textContent).toContain(e));
+  });
+
+  it('#65 AC4 — shows an error with Retry when the case list cannot be loaded', () => {
+    mockApi.failList = true;
+    TestBed.inject(CaseStore).reload();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain("Couldn't load the cases");
+    mockApi.failList = false;
+    (fixture.nativeElement.querySelector('button.btn-line') as HTMLButtonElement).click();
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    expect(component.list().length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelector('.case-list')).toBeTruthy();
+  });
+
+  it('#55 — says the case belongs to another team when the detail call is refused with 403', () => {
+    mockApi.failDetail = true;
+    mockApi.detailStatus = 403;
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    component.selectCase(other.d.id);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(CaseStore).detailErrorStatus()).toBe(403);
+    expect(fixture.nativeElement.textContent).toContain('belongs to another team');
+  });
+
+  it('#65 AC4 — shows the empty message when the server returns no cases', () => {
+    const store = TestBed.inject(CaseStore);
+    store.picked.set([]);
+    store.refunds.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No open case for');
+  });
+
+  it('#65 AC4 — tells the officer when a case’s detail cannot be loaded, without losing the list', () => {
+    mockApi.failDetail = true;
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    component.selectCase(other.d.id);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("Couldn't load the evidence and activity");
+    expect(fixture.nativeElement.querySelectorAll('.case-item').length).toBe(component.list().length);
   });
 });
 
@@ -132,17 +197,22 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
   let debt: DebtService;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        ...mockApiProviders(),
       ],
     });
 
     const fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
     debt = TestBed.inject(DebtService);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
 
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
@@ -181,16 +251,21 @@ describe('CasesComponent — engagement panel, real click → service → templa
   let component: CasesComponent;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        ...mockApiProviders(),
       ],
     });
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
   });
@@ -237,16 +312,21 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
   let component: CasesComponent;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        ...mockApiProviders(),
       ],
     });
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
   });

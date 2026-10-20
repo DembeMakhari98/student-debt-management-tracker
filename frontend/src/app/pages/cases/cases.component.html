@@ -1,4 +1,23 @@
-@if (!list().length) {
+@if (store.state() === 'error') {
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p role="alert">Couldn't load the cases — {{ store.listErrorMessage() }}</p>
+      </div>
+    </div>
+    <div><button class="btn-line" (click)="store.reload()">Retry</button></div>
+  </div>
+} @else if (store.state() !== 'ready') {
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p role="status">Loading cases…</p>
+      </div>
+    </div>
+  </div>
+} @else if (!list().length) {
   <div class="stack">
     <div class="page-head">
       <div>
@@ -86,6 +105,13 @@
               }
             </div>
 
+            @if (store.detailState() === 'error') {
+              <span class="c-hint" role="alert">{{
+                store.detailErrorStatus() === 403
+                  ? "This case belongs to another team, so you can't open its detail."
+                  : "Couldn't load the evidence and activity for this case."
+              }}</span>
+            }
             <div>
               <span class="eyebrow" style="font-size:10px">Evidence read</span>
               <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">
