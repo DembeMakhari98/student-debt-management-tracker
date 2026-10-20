@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, effect, signal } from '@angular/core';
 import { Subscription, catchError, map, of } from 'rxjs';
 import { API_BASE } from './api';
 import { AGE_BUCKETS, AGENTS, AS_AT, FUND, FUND_RISK, POLICY } from './constants';
-import { DEBTORS, YEARS } from './mock-data';
+import { MetaService } from './meta.service';
+import { DEBTORS } from './mock-data';
 import { OFFICERS } from './officers';
 import {
   ActivityEntry,
@@ -30,10 +31,8 @@ export function formatRandTight(n: number): string {
   return 'R' + Math.round(n).toLocaleString('en-ZA');
 }
 
-const CAL_YEAR = new Date().getFullYear();
-const LATEST_YEAR = Math.max(...YEARS);
-const DEFAULT_YEAR = YEARS.includes(CAL_YEAR) ? CAL_YEAR : LATEST_YEAR;
-export const YEAR_SPAN = `${Math.min(...YEARS)}–${LATEST_YEAR}`;
+/** Used only until GET /api/meta (issue #63) resolves — the real calendar year never needs the network. */
+const CAL_YEAR_FALLBACK = new Date().getFullYear();
 
 /** The shape of `GET /api/summary`'s response (backend's SummaryDto, issue #64). */
 interface SummaryApiResponse {
@@ -82,20 +81,54 @@ const EMPTY_SUMMARY: DebtSummary = {
  */
 @Injectable({ providedIn: 'root' })
 export class DebtService {
-  readonly years = YEARS;
+  /** Financial years on record, the current calendar year, the default year to open on and
+   *  the funding-source options — all come from GET /api/meta (issue #63) once MetaService
+   *  loads it, rather than core/mock-data.ts. Empty/fallback values are shown until then. */
+  get years(): number[] {
+    return this.metaService.meta()?.years ?? [];
+  }
   /** Newest year first, as every year `<select>` in the chrome lists them. */
-  readonly sortedYears = [...YEARS].sort((a, b) => b - a);
-  readonly calendarYear = CAL_YEAR;
-  readonly defaultYear = DEFAULT_YEAR;
-  readonly yearSpan = YEAR_SPAN;
+  get sortedYears(): number[] {
+    return [...this.years].sort((a, b) => b - a);
+  }
+  get calendarYear(): number {
+    return this.metaService.meta()?.currentCalendarYear ?? CAL_YEAR_FALLBACK;
+  }
+  get defaultYear(): number {
+    return this.metaService.meta()?.defaultYear ?? this.calendarYear;
+  }
+  get yearSpan(): string {
+    const years = this.years;
+    return years.length ? `${Math.min(...years)}–${Math.max(...years)}` : '';
+  }
+  /** `{key, label}` for the funding-source filter `<select>`, keyed to match FundKey. */
+  get fundingOptions(): { key: FundKey; label: string }[] {
+    return (this.metaService.meta()?.fundingSources ?? []).map((f) => ({
+      key: f.value.toLowerCase() as FundKey,
+      label: f.label,
+    }));
+  }
 
-  readonly year = signal<number | 'all'>(DEFAULT_YEAR);
+  readonly year = signal<number | 'all'>(CAL_YEAR_FALLBACK);
   readonly funding = signal<FundKey | 'all'>('all');
   readonly caseId = signal<string | null>(null);
   readonly autonomy = signal<number>(2);
 
-  constructor(private http: HttpClient) {
+  private yearSnappedToMetaDefault = false;
+
+  constructor(
+    private http: HttpClient,
+    private metaService: MetaService,
+  ) {
     this.refreshSummary();
+    // Once reference data arrives, open on the server's default year (issue #63) — but only
+    // the first time, so a year the officer has since picked is never overridden.
+    effect(() => {
+      const meta = this.metaService.meta();
+      if (typeof meta?.defaultYear !== 'number' || this.yearSnappedToMetaDefault) return;
+      this.yearSnappedToMetaDefault = true;
+      if (this.year() !== meta.defaultYear) this.setYear(meta.defaultYear);
+    });
   }
 
   /* =========================================================================
@@ -149,14 +182,14 @@ export class DebtService {
     return d.assignedOfficer === officer.id;
   }
 
-  readonly yearLabel = computed(() => (this.year() === 'all' ? `all years (${YEAR_SPAN})` : String(this.year())));
+  readonly yearLabel = computed(() => (this.year() === 'all' ? `all years (${this.yearSpan})` : String(this.year())));
   readonly yearShort = computed(() => (this.year() === 'all' ? 'all years' : String(this.year())));
   readonly scopeLabel = computed(
     () => this.yearShort() + (this.funding() !== 'all' ? ' · ' + FUND[this.funding() as FundKey].label : ''),
   );
   readonly bookLabel = computed(() => (this.year() === 'all' ? 'whole book' : `${this.year()} book`));
   readonly yearPhrase = computed(() =>
-    this.year() === 'all' ? `across all ${YEARS.length} years on record` : `for ${this.year()}`,
+    this.year() === 'all' ? `across all ${this.years.length} years on record` : `for ${this.year()}`,
   );
 
   setYear(v: number | 'all'): void {

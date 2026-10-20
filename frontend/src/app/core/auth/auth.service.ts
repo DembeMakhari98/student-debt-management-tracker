@@ -1,7 +1,14 @@
-import { HttpClient } from '@angular/common/http';
+import {
+  HttpBackend,
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+  HttpRequest,
+  HttpResponse,
+} from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, catchError, filter, map, of, tap } from 'rxjs';
 import { API_BASE } from '../api';
 import { AuthUser, LoginResponse, Session } from './auth.models';
 
@@ -24,12 +31,55 @@ export class AuthService {
     return role === 'ADMIN' || role === 'MANAGER';
   });
 
+  /** True while a restored session is being revalidated against GET /api/auth/me on app
+   *  start (issue #63). A 401 is handled by authInterceptor, which signs the user out. */
+  readonly restoringSession = signal(false);
+  /** The revalidation call failed for a reason other than an expired/revoked token (e.g. the
+   *  backend was unreachable) — the cached session is kept rather than signing the user out. */
+  readonly restoreError = signal(false);
+
   constructor(
     private http: HttpClient,
+    private httpBackend: HttpBackend,
     private router: Router,
   ) {
     const restored = this.readStored();
-    if (restored) this.start(restored);
+    if (restored) {
+      this.start(restored);
+      this.revalidate(restored.token);
+    }
+  }
+
+  /** Confirms a restored session is still good, and refreshes the cached user from the
+   *  backend's record of them rather than trusting what was last persisted (issue #63).
+   *  Goes straight to HttpBackend rather than through HttpClient/authInterceptor: this
+   *  runs from the constructor, and the interceptor itself injects AuthService — routing
+   *  through it here would be a circular dependency on the instance still being built. */
+  private revalidate(token: string): void {
+    this.restoringSession.set(true);
+    this.restoreError.set(false);
+    const request = new HttpRequest<void>('GET', `${API_BASE}/api/auth/me`, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+    });
+    this.httpBackend
+      .handle(request)
+      .pipe(
+        filter((event): event is HttpResponse<AuthUser> => event instanceof HttpResponse),
+        tap((response) => {
+          const user = response.body;
+          const current = this.session();
+          if (current && user) this.session.set({ ...current, user });
+        }),
+        catchError((err: unknown) => {
+          if (err instanceof HttpErrorResponse && err.status === 401) {
+            this.logout();
+          } else {
+            this.restoreError.set(true);
+          }
+          return of(null);
+        }),
+      )
+      .subscribe(() => this.restoringSession.set(false));
   }
 
   login(username: string, password: string, remember: boolean): Observable<LoginResponse> {
