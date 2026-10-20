@@ -20,7 +20,6 @@ import {
   Recommendation,
   RiskBand,
   Signal as CaseSignal,
-  Term,
 } from './models';
 
 /** ZAR formatting matching the prototype's R(n) / R0(n) helpers. */
@@ -33,6 +32,14 @@ export function formatRandTight(n: number): string {
 
 /** Used only until GET /api/meta (issue #63) resolves — the real calendar year never needs the network. */
 const CAL_YEAR_FALLBACK = new Date().getFullYear();
+
+/** Pulls the file name out of a `Content-Disposition: attachment; filename="..."` header
+ *  (issue #68) — the server's own `CsvExportService.fileName()` is the source of truth. */
+function filenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const match = /filename="?([^";]+)"?/.exec(header);
+  return match ? match[1] : null;
+}
 
 /** The shape of `GET /api/summary`'s response (backend's SummaryDto, issue #64). */
 interface SummaryApiResponse {
@@ -233,11 +240,13 @@ export class DebtService {
   }
 
   /* =========================================================================
-     OFFICER DECISIONS (issue #13) — approve, amend or decline a case's current
-     recommendation. Frontend-only and session-lifetime, mirroring the backend's
-     OfficerDecision entity (technical spec §3.5): a decision is keyed to the
-     recommendation `type` it was made against, so a later re-score into a
-     different recommendation reopens the case instead of hiding it forever.
+     OFFICER DECISIONS (issues #13, #66) — a case's current recommendation is
+     approved, amended or declined. Manual decisions are saved through the API
+     (`CaseStore.decide`); this map holds session-lifetime copies of those plus the
+     in-browser autonomous run's decisions, mirroring the backend's OfficerDecision
+     entity (technical spec §3.5): a decision is keyed to the recommendation `type`
+     it was made against, so a later re-score into a different recommendation
+     reopens the case instead of hiding it forever.
      ========================================================================= */
 
   private readonly decisions = signal<Map<string, Decision>>(new Map());
@@ -313,20 +322,17 @@ export class DebtService {
     }
   }
 
-  /** Approves the case's current recommendation as-is (subject to the hard-rule autonomy gating
-   *  in technical spec §5.10: Registration hold and Refund always require this explicit click). */
-  approveCase(d: Debtor): void {
-    this.decide(d, 'Approved', {});
-  }
-
-  /** Officer-modified terms (e.g. instalment amount/count) approved in place of the AI's proposal. */
-  amendCase(d: Debtor, amendedTerms: Term[]): void {
-    this.decide(d, 'Amended', { amendedTerms });
-  }
-
-  /** Requires documented reasoning — the case remains unactioned. */
-  declineCase(d: Debtor, reason: string): void {
-    this.decide(d, 'Declined', { reason });
+  /**
+   * Remembers a decision the server has saved (issue #66), so the case counts as decided here too —
+   * in particular `runAutonomousExecution()` leaves it alone. An officer's manual Approve / Amend /
+   * Decline is written through `CaseStore.decide()`; the server records the activity entry, so
+   * nothing is logged locally.
+   */
+  recordServerDecision(debtorId: string, decision: Decision | null): void {
+    if (!decision) return;
+    const next = new Map(this.decisions());
+    next.set(debtorId, decision);
+    this.decisions.set(next);
   }
 
   /* =========================================================================
@@ -717,6 +723,20 @@ export class DebtService {
     };
   }
 
+  /**
+   * Layers this session's not-yet-persisted officer decision (#13) and engagement entries (#14)
+   * over a case read from the API, which does not know about them until #66 / #59 land. A decision
+   * the server already holds wins.
+   */
+  withLocalState(c: CaseView): CaseView {
+    const local = this.engagementLog().get(c.d.id) ?? [];
+    return {
+      ...c,
+      decision: c.decision ?? this.decisionOf(c.d, c.rec),
+      activity: local.length ? [...[...local].reverse(), ...c.activity] : c.activity,
+    };
+  }
+
   /** Still awaiting a human call — used to badge the Cases tab and the "N awaiting a decision" copy. */
   needsApproval(c: CaseView): boolean {
     return c.rec.status === 'Needs approval' && !c.decision;
@@ -732,37 +752,31 @@ export class DebtService {
   readonly asAt = AS_AT;
 
   /* =========================================================================
-     CSV EXPORT — the tracker's own view of the book (issue #17).
+     CSV EXPORT — the tracker's own view of the book (issue #17), downloaded
+     from the backend's own export rather than built in the browser (issue #68).
      ========================================================================= */
   exportCsv(): void {
-    const head = [
-      'Student ID', 'Name', 'Programme', 'Funding', 'Funding status', 'Year', 'Missed instalments', 'Last payment',
-      'Current', '30 days', '60 days', '90 days', '120+ days', 'Balance', 'Risk score', 'Band', 'Picked up by agent',
-      'AI recommendation', 'Status', 'Policy',
-    ];
-    const lines = [head.join(',')];
-    // Scoped (issue #18) — CSV export lists named, identifiable students, so it must
-    // respect the officer's portfolio the same way Tracker/Cases do, not the whole book.
-    this.rows()
-      .filter((d) => this.inPortfolio(d, this.currentOfficer(), this.portfolioScope()))
-      .forEach((d) => {
-        const c = this.caseOf(d);
-        lines.push(
-          [
-            d.id, `"${d.name}"`, `"${d.prog}"`, FUND[d.funding].label, d.fundStatus, d.year,
-            d.missed || 0, d.lastPay || 'none', d.ageing.current, d.ageing.d30, d.ageing.d60, d.ageing.d90, d.ageing.d120,
-            this.rowTotal(d), c.score, this.owedToStudent(d) ? 'Credit' : c.band, this.pickedUp(d) ? 'Yes' : 'No',
-            `"${c.rec.action}"`, c.rec.status, this.policyClauseOf(c.rec.type),
-          ].join(','),
-        );
+    this.http
+      .get(`${API_BASE}/api/debtors/export`, {
+        params: { year: String(this.year()), funding: String(this.funding()) },
+        responseType: 'text',
+        observe: 'response',
+      })
+      .subscribe({
+        next: (response) => {
+          const fileName =
+            filenameFromContentDisposition(response.headers.get('content-disposition')) ??
+            `student-debt-tracker-${this.year()}-${this.funding()}.csv`;
+          const blob = new Blob([response.body ?? ''], { type: 'text/csv' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+        },
+        error: () => console.error('CSV export failed: could not reach the backend.'),
       });
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `student-debt-tracker-${this.year()}-${this.funding()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(a.href);
   }
 }

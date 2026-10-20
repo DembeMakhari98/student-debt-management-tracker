@@ -1,10 +1,10 @@
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
 import { CasesComponent } from './cases.component';
+import { CaseStore } from '../../core/case-store.service';
 import { DebtService } from '../../core/debt.service';
+import { mockApi, mockApiProviders, resetMockApi } from '../../testing/mock-api';
 import { FUND, POLICY } from '../../core/constants';
 
 describe('CasesComponent — case list & case detail (issue #12)', () => {
@@ -13,25 +13,28 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
   let debt: DebtService;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        provideHttpClient(),
-        provideHttpClientTesting(),
+        ...mockApiProviders(),
       ],
     });
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
     debt = TestBed.inject(DebtService);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
   });
 
   it('AC1 — the case list holds every picked-up and credit case for the current filter scope', () => {
-    const wantedIds = debt.caseRows().map((d) => d.id);
+    const wantedIds = TestBed.inject(CaseStore).cases().map((c) => c.d.id);
     expect(component.list().map((c) => c.d.id)).toEqual(wantedIds);
 
     const renderedIds = Array.from(fixture.nativeElement.querySelectorAll('.case-item .tag'))
@@ -68,11 +71,11 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({ case: target.d.id })) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        provideHttpClient(),
-        provideHttpClientTesting(),
+        ...mockApiProviders(),
       ],
     });
     const deepLinkedFixture = TestBed.createComponent(CasesComponent);
+    TestBed.flushEffects();
     deepLinkedFixture.detectChanges();
 
     expect(deepLinkedFixture.componentInstance.selected()!.d.id).toBe(target.d.id);
@@ -106,14 +109,12 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     expect(fixture.nativeElement.textContent).toContain(component.R(sel.debt || sel.credit));
   });
 
-  it('AC6 — the activity log renders every entry with its text and source, newest-first per Section 4.6', () => {
+  it('AC6 — the activity log renders every entry with its text and source, in the order the server returns them', () => {
     const sel = component.selected()!;
     expect(sel.activity.length).toBeGreaterThan(0);
-    // "Risk scored" is the nightly run's very first step chronologically, so newest-first
-    // ordering must sort it last, not first.
-    const riskScoredIndex = sel.activity.findIndex((a) => a.t.includes('Risk scored'));
-    expect(riskScoredIndex).toBe(sel.activity.length - 1);
-    expect(sel.activity[riskScoredIndex].m).toContain('Risk Sentinel');
+    // The detail endpoint owns the ordering (nightly-run entries first); the page must not reshuffle it.
+    expect(sel.activity[0].t).toContain('Risk scored');
+    expect(sel.activity[0].m).toContain('Risk Sentinel');
 
     const text = fixture.nativeElement.textContent as string;
     sel.activity.forEach((a) => {
@@ -122,14 +123,72 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     });
   });
 
-  it('AC6 — an action logged after the nightly run appears above it, confirming newest-first ordering', () => {
+  it('AC6 — an action logged this session appears above the server entries', () => {
     const id = component.selected()!.d.id;
     debt.logEngagementAction(id, { t: 'Follow-up call logged', m: 'Officer decision · Test Officer' });
     fixture.detectChanges();
 
     const sel = component.selected()!;
     expect(sel.activity[0].t).toBe('Follow-up call logged');
-    expect(sel.activity[sel.activity.length - 1].t).toContain('Risk scored');
+    expect(sel.activity.some((a) => a.t.includes('Risk scored'))).toBeTrue();
+  });
+
+  it('#65 AC2 — selecting a case loads GET /api/debtors/{key} and renders its evidence', () => {
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    mockApi.detailCalls = [];
+    component.selectCase(other.d.id);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(mockApi.detailCalls).toEqual([other.d.id]);
+    const sel = component.selected()!;
+    expect(sel.evidence.length).toBeGreaterThan(0);
+    sel.evidence.forEach((e) => expect(fixture.nativeElement.textContent).toContain(e));
+  });
+
+  it('#65 AC4 — shows an error with Retry when the case list cannot be loaded', () => {
+    mockApi.failList = true;
+    TestBed.inject(CaseStore).reload();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain("Couldn't load the cases");
+    mockApi.failList = false;
+    (fixture.nativeElement.querySelector('button.btn-line') as HTMLButtonElement).click();
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    expect(component.list().length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelector('.case-list')).toBeTruthy();
+  });
+
+  it('#55 — says the case belongs to another team when the detail call is refused with 403', () => {
+    mockApi.failDetail = true;
+    mockApi.detailStatus = 403;
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    component.selectCase(other.d.id);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(CaseStore).detailErrorStatus()).toBe(403);
+    expect(fixture.nativeElement.textContent).toContain('belongs to another team');
+  });
+
+  it('#65 AC4 — shows the empty message when the server returns no cases', () => {
+    const store = TestBed.inject(CaseStore);
+    store.picked.set([]);
+    store.refunds.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No open case for');
+  });
+
+  it('#65 AC4 — tells the officer when a case’s detail cannot be loaded, without losing the list', () => {
+    mockApi.failDetail = true;
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    component.selectCase(other.d.id);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("Couldn't load the evidence and activity");
+    expect(fixture.nativeElement.querySelectorAll('.case-item').length).toBe(component.list().length);
   });
 });
 
@@ -138,19 +197,22 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
   let debt: DebtService;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        provideHttpClient(),
-        provideHttpClientTesting(),
+        ...mockApiProviders(),
       ],
     });
 
     const fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
     debt = TestBed.inject(DebtService);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
 
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
@@ -189,18 +251,21 @@ describe('CasesComponent — engagement panel, real click → service → templa
   let component: CasesComponent;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        provideHttpClient(),
-        provideHttpClientTesting(),
+        ...mockApiProviders(),
       ],
     });
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
   });
@@ -242,23 +307,28 @@ describe('CasesComponent — engagement panel, real click → service → templa
   });
 });
 
-describe('CasesComponent — approve/amend/decline (issue #13)', () => {
+describe('CasesComponent — approve/amend/decline (issues #13, #66)', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<CasesComponent>>;
   let component: CasesComponent;
+  let store: CaseStore;
 
   beforeEach(() => {
+    resetMockApi();
     TestBed.configureTestingModule({
       imports: [CasesComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        provideHttpClient(),
-        provideHttpClientTesting(),
+        ...mockApiProviders(),
       ],
     });
 
     fixture = TestBed.createComponent(CasesComponent);
     component = fixture.componentInstance;
+    store = TestBed.inject(CaseStore);
+    TestBed.flushEffects();
+    fixture.detectChanges();
+    TestBed.flushEffects();
     fixture.detectChanges();
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
   });
@@ -270,13 +340,124 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
     return btn;
   }
 
-  it('approve() records the decision and hides the decision buttons', () => {
+  it('approve() POSTs APPROVE for the open case, then shows the saved decision and hides the buttons (#66)', () => {
+    const key = component.selected()!.d.id;
+    component.approve();
+    fixture.detectChanges();
+
+    expect(mockApi.decisionCalls).toEqual([{ key, body: { action: 'APPROVE' } }]);
+    expect(component.selected()!.decision?.action).toBe('Approved');
+    expect(fixture.nativeElement.textContent).toContain('Approved by Test Officer');
+    expect(() => findButton('Approve')).toThrowError();
+  });
+
+  it('never sends decidedBy — the server attributes the decision from the token (#66)', () => {
+    component.approve();
+    expect(Object.keys(mockApi.decisionCalls[0].body)).not.toContain('decidedBy');
+  });
+
+  it('a saved decision survives a reload of the lists (#66)', () => {
+    const key = component.selected()!.d.id;
+    component.approve();
+
+    store.reload();
+    TestBed.flushEffects();
+    fixture.detectChanges();
+
+    expect(component.list().find((c) => c.d.id === key)!.decision?.action).toBe('Approved');
+  });
+
+  it('a failed save keeps the case undecided, keeps the panel open and shows a message (#66)', () => {
+    mockApi.failDecision = true;
+    mockApi.decisionStatus = 403;
+    component.openDecline();
+    component.updateDeclineReason('Already resolved');
+    component.confirmDecline();
+    fixture.detectChanges();
+
+    expect(component.selected()!.decision).toBeNull();
+    expect(component.panel()).toBe('decline');
+    expect(component.declineReason()).toBe('Already resolved');
+    expect(fixture.nativeElement.textContent).toContain("belongs to another team");
+  });
+
+  it('shows a connection message when the save gets no response (#66)', () => {
+    mockApi.failDecision = true;
+    mockApi.decisionStatus = 0;
+    component.approve();
+    fixture.detectChanges();
+
+    expect(component.selected()!.decision).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain("Couldn't save the decision");
+  });
+
+  it('a retry after a failure saves and clears the message (#66)', () => {
+    mockApi.failDecision = true;
+    component.approve();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Couldn't save the decision");
+
+    mockApi.failDecision = false;
     component.approve();
     fixture.detectChanges();
 
     expect(component.selected()!.decision?.action).toBe('Approved');
-    expect(fixture.nativeElement.textContent).toContain('Approved by Nomsa Mahlangu');
-    expect(() => findButton('Approve')).toThrowError();
+    expect(fixture.nativeElement.textContent).not.toContain("Couldn't save the decision");
+  });
+
+  it('disables the decision buttons while a save is in flight (#66)', () => {
+    store.decisionState.set('saving');
+    fixture.detectChanges();
+
+    expect(findButton('Approve').disabled).toBeTrue();
+    expect(findButton('Amend terms').disabled).toBeTrue();
+    expect(findButton('Decline').disabled).toBeTrue();
+  });
+
+  it("a save finishing after the officer moved on does not close the other case's panel (#66)", () => {
+    mockApi.deferDecision = true;
+    const first = component.selected()!.d.id;
+    component.approve();
+    expect(store.decisionState()).toBe('saving');
+
+    const other = component.list().find((c) => c.d.id !== first)!;
+    component.selectCase(other.d.id);
+    component.openDecline();
+    component.updateDeclineReason('Half-typed reason');
+    expect(component.panel()).toBe('decline');
+
+    mockApi.pendingDecisions[0]();
+    fixture.detectChanges();
+
+    expect(component.panel()).toBe('decline');
+    expect(component.declineReason()).toBe('Half-typed reason');
+    expect(component.selected()!.d.id).toBe(other.d.id);
+  });
+
+  it('closes the panel when the save for the case still open finishes (#66)', () => {
+    mockApi.deferDecision = true;
+    component.openDecline();
+    component.updateDeclineReason('Already resolved');
+    component.confirmDecline();
+    expect(component.panel()).toBe('decline');
+
+    mockApi.pendingDecisions[0]();
+    fixture.detectChanges();
+
+    expect(component.panel()).toBe('none');
+  });
+
+  it('shows the error only on the case it belongs to (#66)', () => {
+    mockApi.failDecision = true;
+    component.approve();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Couldn't save the decision");
+
+    const other = component.list().find((c) => c.d.id !== component.selected()!.d.id)!;
+    component.selectCase(other.d.id);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain("Couldn't save the decision");
   });
 
   it('clicking Approve through the real template resolves the case and clears its "needs approval" badge', () => {
@@ -302,6 +483,9 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
     component.saveAmend();
     fixture.detectChanges();
 
+    const sent = mockApi.decisionCalls[0].body;
+    expect(sent.action).toBe('AMEND');
+    expect(JSON.parse(sent.amendedTerms!)[0]).toEqual({ key: originalTerms[0].k, value: 'Edited value' });
     const decision = component.selected()!.decision;
     expect(decision?.action).toBe('Amended');
     expect(decision?.amendedTerms?.[0].v).toBe('Edited value');
@@ -331,9 +515,11 @@ describe('CasesComponent — approve/amend/decline (issue #13)', () => {
     component.updateDeclineReason('  ');
     component.confirmDecline();
     expect(component.selected()!.decision).toBeNull();
+    expect(mockApi.decisionCalls).withContext('a Decline without a reason must never reach the API').toEqual([]);
 
     component.updateDeclineReason('Already resolved via a verbal arrangement');
     component.confirmDecline();
+    expect(mockApi.decisionCalls[0].body).toEqual({ action: 'DECLINE', reason: 'Already resolved via a verbal arrangement' });
     expect(component.selected()!.decision?.action).toBe('Declined');
     expect(component.selected()!.decision?.reason).toBe('Already resolved via a verbal arrangement');
   });

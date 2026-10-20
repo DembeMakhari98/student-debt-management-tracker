@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { CaseStore } from './core/case-store.service';
 import { DebtService } from './core/debt.service';
 import { ExtractStatusService } from './core/extract-status.service';
 import { AutonomySettingsService } from './core/autonomy-settings.service';
@@ -42,11 +43,11 @@ export class AppComponent {
 
   readonly tabs: TabDef[] = [
     { path: 'home', label: 'Home', badge: () => '' },
-    { path: 'tracker', label: 'Debt Management Tracker', badge: () => String(this.debt.pickedRows().length) },
+    { path: 'tracker', label: 'Debt Management Tracker', badge: () => String(this.store.picked().length) },
     {
       path: 'cases',
       label: 'Case management & AI recommendation',
-      badge: () => String(this.debt.caseRows().filter((d) => this.debt.needsApproval(this.debt.caseOf(d))).length),
+      badge: () => String(this.store.cases().filter((c) => this.debt.needsApproval(this.debt.withLocalState(c))).length),
     },
     { path: 'ageing', label: 'Age Analysis', badge: () => '' },
   ];
@@ -57,6 +58,7 @@ export class AppComponent {
 
   constructor(
     public debt: DebtService,
+    public store: CaseStore,
     public extractStatus: ExtractStatusService,
     public autonomySettings: AutonomySettingsService,
     public auth: AuthService,

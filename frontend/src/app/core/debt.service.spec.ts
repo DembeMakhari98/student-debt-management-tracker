@@ -1,9 +1,9 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpRequest, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE } from './api';
 import { DebtService, formatRand } from './debt.service';
-import { Debtor } from './models';
+import { Debtor, Decision } from './models';
 
 const HTTP_TEST_PROVIDERS = [provideHttpClient(), provideHttpClientTesting()];
 
@@ -258,14 +258,20 @@ describe('DebtService — autonomy gating (issue #8)', () => {
     expect(sawAutoDecision).toBeTrue();
   });
 
-  it('does not overwrite a case a human officer already decided', () => {
+  it('does not overwrite a case a human officer already decided (saved through the API, #66)', () => {
     const c = service.caseOf(service.caseRows()[0]);
-    service.approveCase(c.d);
+    service.recordServerDecision(c.d.id, {
+      recommendationType: c.rec.type,
+      action: 'Approved',
+      decidedBy: 'Nomsa Mahlangu',
+      decidedAt: '2026-10-01T08:00:00Z',
+    });
 
     service.setAutonomy(4);
     service.runAutonomousExecution();
 
     const after = service.caseOf(c.d);
+    expect(after.decision!.decidedBy).toBe('Nomsa Mahlangu');
     expect(after.decision!.decidedBy).not.toContain('Autonomous Agent');
   });
 
@@ -487,26 +493,42 @@ describe('DebtService — engagement log (issue #14)', () => {
   });
 });
 
-describe('DebtService — CSV export (issue #17)', () => {
+describe('DebtService — CSV export, downloaded from GET /api/debtors/export (issue #68)', () => {
   let service: DebtService;
+  let httpMock: HttpTestingController;
 
-  const HEADER = [
-    'Student ID', 'Name', 'Programme', 'Funding', 'Funding status', 'Year', 'Missed instalments', 'Last payment',
-    'Current', '30 days', '60 days', '90 days', '120+ days', 'Balance', 'Risk score', 'Band', 'Picked up by agent',
-    'AI recommendation', 'Status', 'Policy',
-  ];
+  const SAMPLE_CSV = 'Student ID,Name\n"STU-1","Test Student"\n';
 
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: HTTP_TEST_PROVIDERS });
     service = TestBed.inject(DebtService);
-    // Predates portfolio scoping (issue #18) and assumes exportCsv()/rows() span the whole
-    // mock dataset — widen to the full portfolio so that assumption still holds.
-    service.setCurrentOfficer('grace-van-rooyen');
-    service.setPortfolioScope('all');
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  /** Runs exportCsv() without triggering a real download; returns the generated anchor and CSV text. */
-  async function captureExport(): Promise<{ anchor: HTMLAnchorElement; text: string }> {
+  /** DebtService (issue #64) fires its own GET /api/summary on construction and on every
+   *  setYear/setFunding call; these export tests don't read that data, so just drain it. */
+  function drainSummaryRequests() {
+    httpMock
+      .match((r) => r.url === `${API_BASE}/api/summary`)
+      .filter((req) => !req.cancelled)
+      .forEach((req) => req.flush('ignored', { status: 500, statusText: 'Server Error' }));
+  }
+
+  afterEach(() => {
+    drainSummaryRequests();
+    httpMock.verify();
+  });
+
+  /**
+   * Triggers exportCsv(), flushes the mocked /api/debtors/export response, and returns the
+   * generated anchor, the downloaded Blob's text and the request actually sent — without
+   * triggering a real download. The CSV's own column order/content is the backend's concern
+   * now (CsvExportService, covered by the backend's own tests), not re-verified here; JWT
+   * attachment is the shared authInterceptor's job, covered by its own spec.
+   */
+  async function captureExport(
+    opts: { body?: string; contentDisposition?: string | null } = {},
+  ): Promise<{ anchor: HTMLAnchorElement; text: string; request: HttpRequest<unknown> }> {
     const realCreateElement = document.createElement.bind(document);
     let anchor!: HTMLAnchorElement;
     spyOn(document, 'createElement').and.callFake((tag: string) => {
@@ -527,70 +549,54 @@ describe('DebtService — CSV export (issue #17)', () => {
 
     service.exportCsv();
 
-    return { anchor, text: await blob.text() };
+    const req = httpMock.expectOne((r) => r.url === `${API_BASE}/api/debtors/export`);
+    const headers: Record<string, string> = {};
+    if (opts.contentDisposition !== null) {
+      headers['content-disposition'] =
+        opts.contentDisposition ?? 'attachment; filename="student-debt-tracker-2026-all.csv"';
+    }
+    req.flush(opts.body ?? SAMPLE_CSV, { headers });
+
+    return { anchor, text: await blob.text(), request: req.request };
   }
 
-  it('builds a header row matching the 20-column order exactly', async () => {
-    const { text } = await captureExport();
-    expect(text.split('\n')[0].split(',')).toEqual(HEADER);
-  });
-
-  it('exports the signed balance so credit rows are negative', async () => {
-    service.setYear('all');
-    service.setFunding('all');
-    const credit = service.rows().find((d) => service.owedToStudent(d));
-    expect(credit).toBeTruthy();
-
-    const { text } = await captureExport();
-    const line = text.split('\n').find((l) => l.startsWith(credit!.id + ','))!;
-    const balanceIdx = HEADER.indexOf('Balance');
-    expect(Number(line.split(',')[balanceIdx])).toBe(service.rowTotal(credit!));
-    expect(Number(line.split(',')[balanceIdx])).toBeLessThan(0);
-  });
-
-  it('shows the literal "Credit" band for debtors in credit, not their score band', async () => {
-    service.setYear('all');
-    service.setFunding('all');
-    const credit = service.rows().find((d) => service.owedToStudent(d));
-    expect(credit).toBeTruthy();
-
-    const { text } = await captureExport();
-    const line = text.split('\n').find((l) => l.startsWith(credit!.id + ','))!;
-    const bandIdx = HEADER.indexOf('Band');
-    expect(line.split(',')[bandIdx]).toBe('Credit');
-  });
-
-  it('respects the currently selected year and funding filters', async () => {
-    service.setYear('all');
-    service.setFunding('all');
-    const allIds = service.rows().map((d) => d.id);
-    expect(allIds.length).toBeGreaterThan(0);
-
-    const target = service.rows()[0];
-    service.setYear(target.year);
-    service.setFunding(target.funding);
-    const filteredIds = service.rows().map((d) => d.id);
-    expect(filteredIds.length).toBeLessThanOrEqual(allIds.length);
-
-    const { text } = await captureExport();
-    const bodyIds = text
-      .split('\n')
-      .slice(1)
-      .filter((l) => l.length > 0)
-      .map((l) => l.split(',')[0]);
-    expect(bodyIds).toEqual(filteredIds);
-  });
-
-  it('names the file with the current year and funding filter', async () => {
+  it('requests GET /api/debtors/export with the current year and funding as query params', async () => {
     service.setYear(2024);
     service.setFunding('gov');
 
-    const { anchor } = await captureExport();
+    const { request } = await captureExport();
+    expect(request.method).toBe('GET');
+    expect(request.params.get('year')).toBe('2024');
+    expect(request.params.get('funding')).toBe('gov');
+  });
+
+  it('downloads the response body as the CSV text, unmodified', async () => {
+    const { text } = await captureExport({ body: SAMPLE_CSV });
+    expect(text).toBe(SAMPLE_CSV);
+  });
+
+  it("names the downloaded file from the response's Content-Disposition header", async () => {
+    const { anchor } = await captureExport({
+      contentDisposition: 'attachment; filename="student-debt-tracker-2024-gov.csv"',
+    });
     expect(anchor.download).toBe('student-debt-tracker-2024-gov.csv');
+  });
+
+  it('falls back to constructing the file name from year/funding when Content-Disposition is missing', async () => {
+    service.setYear(2024);
+    service.setFunding('gov');
+
+    const { anchor } = await captureExport({ contentDisposition: null });
+    expect(anchor.download).toBe('student-debt-tracker-2024-gov.csv');
+  });
+
+  it('clicks the generated anchor to start the download', async () => {
+    const { anchor } = await captureExport();
+    expect(anchor.click).toHaveBeenCalled();
   });
 });
 
-describe('DebtService — officer decisions (issue #13)', () => {
+describe('DebtService — officer decisions (issues #13, #66)', () => {
   let service: DebtService;
 
   beforeEach(() => {
@@ -614,38 +620,52 @@ describe('DebtService — officer decisions (issue #13)', () => {
     expect(service.needsApproval(c)).toBe(c.rec.status === 'Needs approval');
   });
 
-  it('approveCase() records an Approved decision and logs an activity entry naming the officer', () => {
+  const decisionFor = (recommendationType: string, extra: Partial<Decision> = {}): Decision => ({
+    recommendationType,
+    action: 'Approved',
+    decidedBy: 'Nomsa Mahlangu',
+    decidedAt: '2026-10-01T08:00:00Z',
+    ...extra,
+  });
+
+  it('recordServerDecision() makes the case count as decided, so it no longer needs approval', () => {
     const c = firstCase();
-    service.approveCase(c.d);
+    service.recordServerDecision(c.d.id, decisionFor(c.rec.type));
 
     const after = service.caseOf(c.d);
     expect(after.decision).not.toBeNull();
     expect(after.decision!.action).toBe('Approved');
     expect(after.decision!.recommendationType).toBe(c.rec.type);
-    expect(after.activity[0].t).toContain('approved by');
     expect(service.needsApproval(after)).toBeFalse();
   });
 
-  it('amendCase() stores the amended terms and they are distinct from the original recommendation terms', () => {
-    const c = firstCase();
+  it('recordServerDecision() keeps amended terms and a decline reason', () => {
+    const [a, b] = service.caseRows();
     const amended = [{ k: 'Instalments', v: '6 × R 1,200' }];
-    service.amendCase(c.d, amended);
+    service.recordServerDecision(a.id, decisionFor(service.caseOf(a).rec.type, { action: 'Amended', amendedTerms: amended }));
+    service.recordServerDecision(b.id, decisionFor(service.caseOf(b).rec.type, { action: 'Declined', reason: 'Verbal arrangement' }));
 
-    const after = service.caseOf(c.d);
-    expect(after.decision!.action).toBe('Amended');
-    expect(after.decision!.amendedTerms).toEqual(amended);
-    expect(after.activity[0].t).toContain('amended and approved by');
+    expect(service.caseOf(a).decision!.amendedTerms).toEqual(amended);
+    expect(service.caseOf(b).decision!.reason).toBe('Verbal arrangement');
   });
 
-  it('declineCase() requires a reason to be stored and documents it on the decision and activity log', () => {
+  it('recordServerDecision() does not log a local activity entry — the server records it', () => {
     const c = firstCase();
-    service.declineCase(c.d, 'Student already on a verbal arrangement with the faculty');
+    service.recordServerDecision(c.d.id, decisionFor(c.rec.type));
 
-    const after = service.caseOf(c.d);
-    expect(after.decision!.action).toBe('Declined');
-    expect(after.decision!.reason).toBe('Student already on a verbal arrangement with the faculty');
-    expect(after.activity[0].t).toContain('declined by');
-    expect(after.activity[0].t).toContain('Student already on a verbal arrangement');
+    expect(service.caseOf(c.d).activity.length).toBe(c.activity.length);
+  });
+
+  it('recordServerDecision(null) is a no-op', () => {
+    const c = firstCase();
+    service.recordServerDecision(c.d.id, null);
+    expect(service.caseOf(c.d).decision).toBeNull();
+  });
+
+  it('a recorded decision is stale once the recommendation type changes (the case reopens)', () => {
+    const c = firstCase();
+    service.recordServerDecision(c.d.id, decisionFor('Some other recommendation'));
+    expect(service.caseOf(c.d).decision).toBeNull();
   });
 
   it('does not leak a decision between different debtors', () => {
@@ -653,7 +673,7 @@ describe('DebtService — officer decisions (issue #13)', () => {
     expect(rows.length).toBeGreaterThan(1);
     const [a, b] = rows;
 
-    service.approveCase(a);
+    service.recordServerDecision(a.id, decisionFor(service.caseOf(a).rec.type));
 
     expect(service.caseOf(b).decision).toBeNull();
   });
@@ -753,27 +773,6 @@ describe('DebtService — portfolio access control (issue #18)', () => {
     service.setCase(d.id); // re-selecting the same case
     entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
     expect(entries.length).toBe(1);
-  });
-
-  it('exportCsv() only exports the officer\'s own portfolio, not the whole book', async () => {
-    const scopedCount = service
-      .rows()
-      .filter((d) => service.inPortfolio(d, service.currentOfficer(), service.portfolioScope())).length;
-    expect(scopedCount).withContext('sanity: the default officer\'s portfolio must be a strict subset').toBeLessThan(service.rows().length);
-
-    let capturedBlob!: Blob;
-    spyOn(URL, 'createObjectURL').and.callFake((b: Blob) => {
-      capturedBlob = b;
-      return 'blob:mock-url';
-    });
-    spyOn(URL, 'revokeObjectURL');
-    spyOn(HTMLAnchorElement.prototype, 'click');
-
-    service.exportCsv();
-
-    const text = await capturedBlob.text();
-    const dataLineCount = text.trim().split('\n').length - 1; // minus the header row
-    expect(dataLineCount).toBe(scopedCount);
   });
 
   it('Home\'s allPickedRows()/allPayingRows() stay institution-wide regardless of officer/scope', () => {

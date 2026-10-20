@@ -1,4 +1,23 @@
-@if (!list().length) {
+@if (store.state() === 'error') {
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p role="alert">Couldn't load the cases — {{ store.listErrorMessage() }}</p>
+      </div>
+    </div>
+    <div><button class="btn-line" (click)="store.reload()">Retry</button></div>
+  </div>
+} @else if (store.state() !== 'ready') {
+  <div class="stack">
+    <div class="page-head">
+      <div>
+        <h1>Case management &amp; AI recommendation</h1>
+        <p role="status">Loading cases…</p>
+      </div>
+    </div>
+  </div>
+} @else if (!list().length) {
   <div class="stack">
     <div class="page-head">
       <div>
@@ -86,6 +105,13 @@
               }
             </div>
 
+            @if (store.detailState() === 'error') {
+              <span class="c-hint" role="alert">{{
+                store.detailErrorStatus() === 403
+                  ? "This case belongs to another team, so you can't open its detail."
+                  : "Couldn't load the evidence and activity for this case."
+              }}</span>
+            }
             <div>
               <span class="eyebrow" style="font-size:10px">Evidence read</span>
               <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">
@@ -107,10 +133,16 @@
               </div>
             } @else {
               <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--border)">
-                <button class="btn-blue" style="flex:1;min-width:120px" (click)="approve()">Approve</button>
-                <button class="btn-line" (click)="openAmend()">Amend terms</button>
-                <button class="btn-line danger" (click)="openDecline()">Decline</button>
+                <button class="btn-blue" style="flex:1;min-width:120px" [disabled]="store.decisionState() === 'saving'" (click)="approve()">Approve</button>
+                <button class="btn-line" [disabled]="store.decisionState() === 'saving'" (click)="openAmend()">Amend terms</button>
+                <button class="btn-line danger" [disabled]="store.decisionState() === 'saving'" (click)="openDecline()">Decline</button>
               </div>
+
+              @if (store.decisionState() === 'saving') {
+                <span class="c-hint" role="status">Saving your decision…</span>
+              } @else if (store.decisionState() === 'error' && store.decisionErrorFor() === sel.d.id) {
+                <span class="c-hint" role="alert" style="color:var(--danger, #b3261e)">{{ store.decisionErrorMessage() }}</span>
+              }
 
               @if (panel() === 'amend') {
                 <div class="inner-box" style="gap:8px">
@@ -126,8 +158,8 @@
                     </div>
                   }
                   <div style="display:flex;gap:8px;padding-top:6px">
-                    <button class="btn-blue" (click)="saveAmend()">Save &amp; approve</button>
-                    <button class="btn-line" (click)="closeDecisionPanel()">Cancel</button>
+                    <button class="btn-blue" [disabled]="store.decisionState() === 'saving'" (click)="saveAmend()">Save &amp; approve</button>
+                    <button class="btn-line" [disabled]="store.decisionState() === 'saving'" (click)="closeDecisionPanel()">Cancel</button>
                   </div>
                 </div>
               }
@@ -142,8 +174,8 @@
                     (input)="updateDeclineReason($any($event.target).value)"
                   ></textarea>
                   <div style="display:flex;gap:8px;padding-top:6px">
-                    <button class="btn-line danger" [disabled]="!declineReason().trim()" (click)="confirmDecline()">Confirm decline</button>
-                    <button class="btn-line" (click)="closeDecisionPanel()">Cancel</button>
+                    <button class="btn-line danger" [disabled]="!declineReason().trim() || store.decisionState() === 'saving'" (click)="confirmDecline()">Confirm decline</button>
+                    <button class="btn-line" [disabled]="store.decisionState() === 'saving'" (click)="closeDecisionPanel()">Cancel</button>
                   </div>
                 </div>
               }
