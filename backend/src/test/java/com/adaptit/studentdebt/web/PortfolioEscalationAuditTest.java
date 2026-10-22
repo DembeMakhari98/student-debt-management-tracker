@@ -65,7 +65,7 @@ class PortfolioEscalationAuditTest {
 
     @Test
     void everyScopedEndpointIsAudited() throws Exception {
-        for (String path : new String[]{"/api/summary", "/api/ageing", "/api/debtors/export"}) {
+        for (String path : new String[]{"/api/summary", "/api/ageing", "/api/debtors/export", "/api/reminders/progress"}) {
             long before = repository.count();
             mockMvc.perform(get(path).param("portfolio", "all").with(grace())).andExpect(status().isOk());
             assertEquals(before + 1, repository.count(), path + " was not audited");
