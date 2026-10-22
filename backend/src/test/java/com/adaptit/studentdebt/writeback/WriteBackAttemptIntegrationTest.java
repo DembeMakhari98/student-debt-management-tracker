@@ -1,6 +1,7 @@
 package com.adaptit.studentdebt.writeback;
 
 import com.adaptit.studentdebt.domain.ActivityLogEntry;
+import com.adaptit.studentdebt.domain.WriteBackAttempt;
 import com.adaptit.studentdebt.domain.WriteBackStatus;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.WriteBackAttemptRepository;
@@ -66,6 +67,11 @@ class WriteBackAttemptIntegrationTest {
         assertThat(originalRow.getAttemptNumber()).isEqualTo(1);
         assertThat(originalRow.getStatus()).isEqualTo(WriteBackStatus.FAILED);
 
-        assertThat(writeBackService.failures()).isEmpty();
+        // Scoped to this test's own entry, not a global "no failures anywhere" assumption — the
+        // Spring test context (and its H2 instance) is shared and reused across every @SpringBootTest
+        // class in the same run, so other tests' deliberate failures legitimately coexist here.
+        assertThat(writeBackService.failures())
+                .extracting(WriteBackAttempt::getActivityLogEntryId)
+                .doesNotContain(entry.getId());
     }
 }
