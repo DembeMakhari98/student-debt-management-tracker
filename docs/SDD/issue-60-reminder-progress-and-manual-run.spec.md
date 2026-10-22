@@ -1,6 +1,6 @@
 # Reminder Cadence — Progress Read and Manual Run Specification
 
-**Status:** Draft — awaiting Gate 1 approval
+**Status:** Implemented
 **Owner:** Oamogetswe-Makgopela
 **Created:** 2026-10-22
 **Last Updated:** 2026-10-22
@@ -151,8 +151,11 @@ All merged.
 - **This changes two files other people own.** `ReminderCadenceService` (#9, thabiso2-4) gets a
   return value instead of `void`; `WebConfig` (#62, PhinduloMutavhatsindi27) gets one more audited
   path. Both are needed for this ticket (the issue says to return "what was dispatched", and the
-  audit rule says every portfolio-scoped endpoint is audited). *Mitigation:* no behaviour change in
-  either; both owners are asked to review.
+  audit rule says every portfolio-scoped endpoint is audited). Both changes were approved at Gate 1.
+  *Mitigation:* no behaviour change in either; the PR asks both owners to review.
+- **The progress read loads the whole progress table and filters in memory** (two queries, no
+  N+1). Fine at the current scale. If the table ever grows very large, push the scope filter into
+  the query and add paging; no paging requirement exists today.
 - **A manual run and the 02:00 run overlapping.** Each step is guarded by "not sent yet", but two
   transactions at the same moment could both dispatch one. *Mitigation:* unlikely; noted, not
   built (see Open Questions).
@@ -162,11 +165,11 @@ All merged.
 
 ## Open Questions
 
-1. **Audit the new endpoint's `all` view?** Recommended yes (one line in `WebConfig`). The
-   alternative is to refuse `portfolio=all` on this endpoint, which stops managers seeing the
-   whole book of reminders. *Needs a decision.*
-2. **Guard against overlapping runs?** An in-process lock that answers 409 if a run is already in
-   progress. Recommended no for now; add only if it ever shows up.
+1. **Audit the new endpoint's `all` view?** **Decided: yes.** One line in `WebConfig` adds
+   `/api/reminders/progress` to the audited paths. The alternative, refusing `portfolio=all` here,
+   would stop managers seeing the whole book of reminders.
+2. **Guard against overlapping runs?** **Decided: no, not built.** An in-process lock that answers
+   409 while a run is in progress can be added later if overlapping runs ever show up.
 
 ## References
 

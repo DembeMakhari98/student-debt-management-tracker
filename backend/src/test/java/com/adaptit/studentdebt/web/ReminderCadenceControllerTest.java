@@ -148,7 +148,10 @@ class ReminderCadenceControllerTest {
     void aManagersOwnViewDoesNotIncludeOtherOfficersCases() throws Exception {
         mockMvc.perform(get("/api/reminders/progress").with(grace()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].debtorKey", not(hasItems(NOMSA_CASE, SIBUSISO_CASE, PRIYA_CASE))));
+                .andExpect(jsonPath("$[*].debtorKey", not(hasItem(NOMSA_CASE))))
+                .andExpect(jsonPath("$[*].debtorKey", not(hasItem(SIBUSISO_CASE))))
+                .andExpect(jsonPath("$[*].debtorKey", not(hasItem(PRIYA_CASE))))
+                .andExpect(jsonPath("$[*].debtorKey", not(hasItem(THATO_CASE))));
     }
 
     @Test
