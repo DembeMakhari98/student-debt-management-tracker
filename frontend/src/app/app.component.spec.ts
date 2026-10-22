@@ -151,3 +151,82 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     expect(TestBed.inject(DebtService).autonomy()).toBe(3);
   });
 });
+
+describe('AppComponent — Write-back failures nav link (issue #69)', () => {
+  const STORAGE_KEY = 'sdt.session';
+  let http: HttpTestingController;
+
+  function signInAs(role: 'OFFICER' | 'MANAGER'): void {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        token: 't',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        user: {
+          username: role === 'MANAGER' ? 'grace.vanrooyen' : 'anele.dube',
+          displayName: role === 'MANAGER' ? 'Grace van Rooyen' : 'Anele Dube',
+          role,
+          team: role === 'MANAGER' ? 'Team C' : 'Team B',
+          officerKey: role === 'MANAGER' ? 'grace-van-rooyen' : 'anele-dube',
+        },
+      }),
+    );
+  }
+
+  function flushWorklist(): void {
+    http.match((r) => r.url.startsWith(`${API_BASE}/api/debtors`)).forEach((r) => r.flush([]));
+  }
+
+  function flushSummary(): void {
+    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
+      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
+      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
+    });
+  }
+
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(STORAGE_KEY);
+  });
+
+  function navLink(fixture: ReturnType<typeof TestBed.createComponent<AppComponent>>): HTMLAnchorElement | null {
+    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('a.tab')).find(
+      (a) => a.textContent?.trim() === 'Write-back failures',
+    ) ?? null;
+  }
+
+  it('hides the nav link for an officer', () => {
+    signInAs('OFFICER');
+    TestBed.configureTestingModule({
+      imports: [AppComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
+    flushWorklist();
+    flushSummary();
+
+    expect(navLink(fixture)).toBeNull();
+  });
+
+  it('shows the nav link for a manager', () => {
+    signInAs('MANAGER');
+    TestBed.configureTestingModule({
+      imports: [AppComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
+    http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
+    flushWorklist();
+    flushSummary();
+
+    const link = navLink(fixture);
+    expect(link).toBeTruthy();
+    expect(link!.getAttribute('href')).toBe('/writebacks');
+  });
+});

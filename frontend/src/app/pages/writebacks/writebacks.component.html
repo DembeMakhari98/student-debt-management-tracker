@@ -1,0 +1,49 @@
+<div class="stack">
+  <div class="page-head">
+    <div>
+      <h1>Write-back failures</h1>
+      <p>
+        Activity log entries that have exhausted every retry writing back to ITS Integrator —
+        surfaced here, rather than silently dropped, so a manager or administrator can follow up.
+      </p>
+    </div>
+    <button class="btn-line" style="padding:6px 12px;font-size:12px" (click)="refresh()">Refresh</button>
+  </div>
+
+  @if (api.error()) {
+    <p class="note" style="color:var(--ai-red)">Backend unreachable — write-back failures shown may be out of date.</p>
+  }
+
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="c-title">Exhausted write-backs — {{ api.failures().length }} entr{{ api.failures().length === 1 ? 'y' : 'ies' }}</span>
+      <span class="c-hint">Every entry here failed all 3 attempts to write back to ITS Integrator. A manual retry lands with issue #61.</span>
+    </div>
+    @if (api.loading()) {
+      <p class="note" style="margin:0">Loading…</p>
+    } @else if (!api.failures().length) {
+      <p class="note" style="margin:0">No write-back failures — everything has synced to ITS Integrator.</p>
+    } @else {
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th><th>Entry</th><th class="num">Attempts</th><th>Last error</th><th>Last attempted</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of api.failures(); track row.activityLogEntryId) {
+              <tr>
+                <td class="tag">{{ row.debtorKey || '—' }}</td>
+                <td style="font-size:12.5px">{{ row.text || '—' }}</td>
+                <td class="num mono">{{ row.attemptCount }}</td>
+                <td style="font-size:12.5px;color:var(--ai-red)">{{ row.lastError || '—' }}</td>
+                <td class="mono" style="font-size:12px">{{ lastAttemptedLabel(row.lastAttemptedAt) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
