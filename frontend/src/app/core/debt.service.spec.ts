@@ -898,7 +898,7 @@ describe('DebtService — live summary via GET /api/summary (issue #64)', () => 
     expectRequest().flush('boom', { status: 500, statusText: 'Server Error' });
     expect(service.summaryError()).toBeTrue();
 
-    service.setYear(service.sortedYears[0]);
+    service.setYear(2024);
     expectRequest().flush(DTO);
 
     expect(service.summaryError()).toBeFalse();

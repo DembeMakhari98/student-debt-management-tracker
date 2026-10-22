@@ -38,7 +38,7 @@
       <select class="aut-select" aria-label="Agent autonomy" [disabled]="!auth.canSeeAdminJobs()"
               [title]="auth.canSeeAdminJobs() ? '' : 'Only a debt manager or administrator can change the autonomy level'"
               (change)="onAutonomyChange($any($event.target).value)">
-        @for (l of levels; track l.name; let i = $index) {
+        @for (l of levels(); track l.name; let i = $index) {
           <option [value]="i + 1" [selected]="debt.autonomy() === i + 1">Autonomy {{ l.name }} — {{ l.hint }}</option>
         }
       </select>
@@ -85,12 +85,20 @@
         <label for="fundSel">Funding source</label>
         <select class="filter" id="fundSel" (change)="onFundingChange($any($event.target).value)">
           <option value="all" [selected]="debt.funding() === 'all'">All funding types</option>
-          <option value="self" [selected]="debt.funding() === 'self'">Self-funded</option>
-          <option value="gov" [selected]="debt.funding() === 'gov'">Government (NSFAS)</option>
-          <option value="private" [selected]="debt.funding() === 'private'">Private / Bursary</option>
+          @for (f of debt.fundingOptions; track f.key) {
+            <option [value]="f.key" [selected]="debt.funding() === f.key">{{ f.label }}</option>
+          }
         </select>
       </span>
       <button class="btn-line" style="padding:6px 12px;font-size:12px" (click)="export()">Export CSV</button>
+      @if (metaService.loading() && !metaService.meta()) {
+        <span class="fl" aria-live="polite">Loading filters…</span>
+      } @else if (metaService.error()) {
+        <span class="fl" role="alert">
+          Couldn't load filter options.
+          <button class="btn-line" style="padding:2px 8px;font-size:11px" (click)="metaService.refresh()">Retry</button>
+        </span>
+      }
     </div>
   </div>
 </header>
