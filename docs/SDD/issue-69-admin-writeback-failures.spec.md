@@ -234,6 +234,15 @@ None — directly actionable against the existing, already-shipped
 `/api/admin/writeback/failures` endpoint and the existing role-gating
 pattern.
 
+## Addendum — Retry button (now that #61 has shipped)
+
+Supersedes the "No Retry button" non-goal and the deferred AC above.
+
+- Each row has a **Retry** button calling `POST /api/admin/writeback/{attemptId}/retry` (#61).
+- `WriteBackFailureDto` gains `attemptId` (the failing attempt the row was built from) so the button can target it.
+- The button is disabled per row while its request is in flight. On success the list refreshes and a status line appears. On 409 (already synced) and 404 (gone) the list refreshes with a message. Other errors show a retry-later message.
+- Visibility follows the page's `adminGuard` (MANAGER/ADMIN only).
+
 ## References
 
 - `docs/SDD/issue-3-activity-log-write-back.spec.md` — the backend this

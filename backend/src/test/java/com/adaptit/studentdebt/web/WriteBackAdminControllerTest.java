@@ -52,6 +52,7 @@ class WriteBackAdminControllerTest {
 
         assertThat(result).hasSize(1);
         var dto = result.get(0);
+        assertThat(dto.attemptId()).isEqualTo(exhausted.getId());
         assertThat(dto.activityLogEntryId()).isEqualTo(entryId);
         assertThat(dto.debtorKey()).isEqualTo("STU-100234-2026");
         assertThat(dto.text()).isEqualTo("Recommendation approved by Nomsa Mahlangu");

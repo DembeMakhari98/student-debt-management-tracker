@@ -14,10 +14,14 @@
     <p class="note" style="color:var(--ai-red)">Backend unreachable — write-back failures shown may be out of date.</p>
   }
 
+  @if (retryMessage()) {
+    <p class="note" role="status">{{ retryMessage() }}</p>
+  }
+
   <div class="card">
     <div style="display:flex;flex-direction:column;gap:4px">
       <span class="c-title">Exhausted write-backs — {{ api.failures().length }} entr{{ api.failures().length === 1 ? 'y' : 'ies' }}</span>
-      <span class="c-hint">Every entry here failed all 3 attempts to write back to ITS Integrator. A manual retry lands with issue #61.</span>
+      <span class="c-hint">Every entry here failed all 3 attempts to write back to ITS Integrator. Retry re-attempts the write-back immediately.</span>
     </div>
     @if (api.loading()) {
       <p class="note" style="margin:0">Loading…</p>
@@ -28,7 +32,7 @@
         <table>
           <thead>
             <tr>
-              <th>Student</th><th>Entry</th><th class="num">Attempts</th><th>Last error</th><th>Last attempted</th>
+              <th>Student</th><th>Entry</th><th class="num">Attempts</th><th>Last error</th><th>Last attempted</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -39,6 +43,12 @@
                 <td class="num mono">{{ row.attemptCount }}</td>
                 <td style="font-size:12.5px;color:var(--ai-red)">{{ row.lastError || '—' }}</td>
                 <td class="mono" style="font-size:12px">{{ lastAttemptedLabel(row.lastAttemptedAt) }}</td>
+                <td>
+                  <button class="btn-line" style="padding:4px 10px;font-size:12px"
+                          [disabled]="inFlight().has(row.attemptId)" (click)="retry(row)">
+                    {{ inFlight().has(row.attemptId) ? 'Retrying…' : 'Retry' }}
+                  </button>
+                </td>
               </tr>
             }
           </tbody>

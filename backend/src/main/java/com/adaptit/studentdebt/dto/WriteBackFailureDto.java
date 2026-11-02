@@ -5,6 +5,7 @@ import java.util.UUID;
 
 /** One activity-log entry whose write-back has exhausted every retry (issue #3). */
 public record WriteBackFailureDto(
+        UUID attemptId,
         UUID activityLogEntryId,
         String debtorKey,
         String text,

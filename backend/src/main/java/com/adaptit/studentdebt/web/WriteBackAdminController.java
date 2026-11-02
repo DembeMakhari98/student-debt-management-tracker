@@ -46,6 +46,7 @@ public class WriteBackAdminController {
     private WriteBackFailureDto toDto(WriteBackAttempt attempt) {
         ActivityLogEntry entry = activityLogEntryRepository.findById(attempt.getActivityLogEntryId()).orElse(null);
         return new WriteBackFailureDto(
+                attempt.getId(),
                 attempt.getActivityLogEntryId(),
                 entry != null ? entry.getDebtorKey() : null,
                 entry != null ? entry.getText() : null,

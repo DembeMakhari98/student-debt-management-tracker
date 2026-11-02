@@ -5,6 +5,7 @@ import { API_BASE } from './api';
 import { WriteBackFailure, WriteBackFailuresService } from './writeback-failures.service';
 
 const FAILURE: WriteBackFailure = {
+  attemptId: '33333333-3333-3333-3333-333333333333',
   activityLogEntryId: '11111111-1111-1111-1111-111111111111',
   debtorKey: 'STU-100234-2026',
   text: 'Recommendation approved by Nomsa Mahlangu',
@@ -68,5 +69,13 @@ describe('WriteBackFailuresService — GET /api/admin/writeback/failures (issue 
 
     expect(service.error()).toBeFalse();
     expect(service.failures()).toEqual([FAILURE]);
+  });
+
+  it('retry() POSTs to /api/admin/writeback/{attemptId}/retry', () => {
+    service.retry(FAILURE.attemptId).subscribe();
+
+    const req = httpMock.expectOne(`${API_BASE}/api/admin/writeback/${FAILURE.attemptId}/retry`);
+    expect(req.request.method).toBe('POST');
+    req.flush({});
   });
 });
