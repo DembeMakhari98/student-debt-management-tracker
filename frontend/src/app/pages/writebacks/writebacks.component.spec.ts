@@ -7,6 +7,7 @@ import { WritebacksComponent } from './writebacks.component';
 
 const FAILURES: WriteBackFailure[] = [
   {
+    attemptId: '33333333-3333-3333-3333-333333333333',
     activityLogEntryId: '11111111-1111-1111-1111-111111111111',
     debtorKey: 'STU-100234-2026',
     text: 'Recommendation approved by Nomsa Mahlangu',
@@ -15,6 +16,7 @@ const FAILURES: WriteBackFailure[] = [
     lastError: 'ITS Integrator unreachable',
   },
   {
+    attemptId: '44444444-4444-4444-4444-444444444444',
     activityLogEntryId: '22222222-2222-2222-2222-222222222222',
     debtorKey: null,
     text: null,
@@ -88,5 +90,40 @@ describe('WritebacksComponent — admin screen for write-back failures (issue #6
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('No write-back failures');
+  });
+
+  it('clicking Retry POSTs for that row, disables it while in flight, then refreshes the list', () => {
+    expectRequest().flush(FAILURES);
+    fixture.detectChanges();
+
+    const retryButtons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody button')) as HTMLButtonElement[];
+    retryButtons[0].click();
+    fixture.detectChanges();
+
+    expect(retryButtons[0].disabled).toBeTrue();
+    const post = httpMock.expectOne(`${API_BASE}/api/admin/writeback/${FAILURES[0].attemptId}/retry`);
+    expect(post.request.method).toBe('POST');
+    post.flush({});
+    fixture.detectChanges();
+
+    expectRequest().flush([FAILURES[1]]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Retry sent');
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr').length).toBe(1);
+  });
+
+  it('shows an already-synced message and refreshes when the retry returns 409', () => {
+    expectRequest().flush(FAILURES);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelectorAll('tbody button')[0].dispatchEvent(new Event('click'));
+    httpMock
+      .expectOne(`${API_BASE}/api/admin/writeback/${FAILURES[0].attemptId}/retry`)
+      .flush('already', { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('already synced');
+    expectRequest().flush(FAILURES);
   });
 });

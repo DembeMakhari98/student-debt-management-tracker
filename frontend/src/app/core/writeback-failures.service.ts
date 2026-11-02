@@ -1,10 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
-import { catchError, of, tap } from 'rxjs';
+import { catchError, Observable, of, tap } from 'rxjs';
 import { API_BASE } from './api';
 
 /** One row from `GET /api/admin/writeback/failures` (backend's WriteBackFailureDto, issue #3). */
 export interface WriteBackFailure {
+  attemptId: string;
   activityLogEntryId: string;
   debtorKey: string | null;
   text: string | null;
@@ -39,5 +40,10 @@ export class WriteBackFailuresService {
         }),
       )
       .subscribe(() => this.loading.set(false));
+  }
+
+  /** Re-attempts the entry behind a failed attempt now (issue #61). 409 = already succeeded; 404 = gone. */
+  retry(attemptId: string): Observable<object> {
+    return this.http.post(`${API_BASE}/api/admin/writeback/${attemptId}/retry`, {});
   }
 }
