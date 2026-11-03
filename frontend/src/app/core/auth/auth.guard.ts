@@ -14,3 +14,11 @@ export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   return auth.isAuthenticated() ? inject(Router).createUrlTree(['/home']) : true;
 };
+
+/** Admin-only pages (issue #69): an officer is bounced to /home. Belt-and-braces, same reasoning
+ *  as issue #57's autonomy-level gating — the real boundary is the backend's own
+ *  `hasAnyRole("ADMIN", "MANAGER")` on `/api/admin/**`. */
+export const adminGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.canSeeAdminJobs() ? true : inject(Router).createUrlTree(['/home']);
+};

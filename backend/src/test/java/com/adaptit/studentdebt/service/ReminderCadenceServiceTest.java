@@ -4,6 +4,8 @@ import com.adaptit.studentdebt.domain.ActivityLogEntry;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.FundingSource;
 import com.adaptit.studentdebt.domain.ReminderCadenceProgress;
+import com.adaptit.studentdebt.dto.DispatchedStepDto;
+import com.adaptit.studentdebt.dto.ReminderRunResultDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.ReminderCadenceProgressRepository;
@@ -200,5 +202,109 @@ class ReminderCadenceServiceTest {
         verify(progressRepository, never()).delete(any());
         verify(progressRepository, never()).save(any());
         verify(activityLogEntryRepository, never()).save(any());
+    }
+
+    // ---- what a run reports (issue #60) ----
+
+    @Test
+    void theResultListsEachDispatchedStepWithItsNumber() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant now = start.plusSeconds(10 * 24 * 3600);
+        Debtor d = reminderCadenceDebtor("STU-1-2026");
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress("STU-1-2026", start)));
+
+        ReminderRunResultDto result = service.dispatch(List.of(d), 4, now);
+
+        assertThat(result.ranAt()).isEqualTo(now);
+        assertThat(result.autonomyLevel()).isEqualTo(4);
+        assertThat(result.dispatchedCount()).isEqualTo(3);
+        assertThat(result.dispatched()).extracting(DispatchedStepDto::step).containsExactly(1, 2, 3);
+        assertThat(result.dispatched()).allMatch(s -> s.debtorKey().equals("STU-1-2026"));
+        assertThat(result.dispatched().get(0).action()).contains("SMS reminder sent");
+        assertThat(result.dispatched().get(2).action()).contains("Officer call task created");
+        assertThat(result.withheldCount()).isZero();
+        assertThat(result.cancelledCount()).isZero();
+    }
+
+    @Test
+    void aStepThatWasAlreadySentIsNotReportedAgain() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        ReminderCadenceProgress existing = progress("STU-1-2026", start);
+        existing.setStep1SentAt(start.plusSeconds(24 * 3600));
+        existing.setStep2SentAt(start.plusSeconds(5 * 24 * 3600));
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(existing));
+
+        ReminderRunResultDto result = service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 4,
+                start.plusSeconds(10 * 24 * 3600));
+
+        assertThat(result.dispatched()).extracting(DispatchedStepDto::step).containsExactly(3);
+    }
+
+    @Test
+    void atLevel2TheCaseIsReportedAsWithheldAndNothingIsDispatched() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress("STU-1-2026", start)));
+
+        ReminderRunResultDto result = service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 2,
+                start.plusSeconds(10 * 24 * 3600));
+
+        assertThat(result.autonomyLevel()).isEqualTo(2);
+        assertThat(result.dispatchedCount()).isZero();
+        assertThat(result.dispatched()).isEmpty();
+        assertThat(result.withheldCount()).isEqualTo(1);
+    }
+
+    @Test
+    void aCancelledCadenceIsCounted() {
+        ReminderCadenceProgress existing = progress("STU-1-2026", Instant.parse("2026-01-01T00:00:00Z"));
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(existing));
+
+        ReminderRunResultDto result = service.dispatch(List.of(monitorDebtor("STU-1-2026")), 4,
+                Instant.parse("2026-01-05T00:00:00Z"));
+
+        assertThat(result.cancelledCount()).isEqualTo(1);
+        assertThat(result.dispatchedCount()).isZero();
+        assertThat(result.withheldCount()).isZero();
+    }
+
+    @Test
+    void aNewlyStartedCadenceIsNeitherDispatchedNorWithheldNorCancelled() {
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.empty());
+
+        ReminderRunResultDto result = service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 4,
+                Instant.parse("2026-01-01T00:00:00Z"));
+
+        assertThat(result.dispatchedCount()).isZero();
+        assertThat(result.withheldCount()).isZero();
+        assertThat(result.cancelledCount()).isZero();
+    }
+
+    @Test
+    void aRunOverSeveralCasesCountsEachOutcomeSeparately() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant now = start.plusSeconds(24 * 3600);
+        when(progressRepository.findById("STU-DUE-2026")).thenReturn(Optional.of(progress("STU-DUE-2026", start)));
+        when(progressRepository.findById("STU-PAID-2026")).thenReturn(Optional.of(progress("STU-PAID-2026", start)));
+        when(progressRepository.findById("STU-NEW-2026")).thenReturn(Optional.empty());
+
+        ReminderRunResultDto result = service.dispatch(List.of(
+                reminderCadenceDebtor("STU-DUE-2026"),
+                monitorDebtor("STU-PAID-2026"),
+                reminderCadenceDebtor("STU-NEW-2026")), 4, now);
+
+        assertThat(result.dispatched()).extracting(DispatchedStepDto::debtorKey).containsExactly("STU-DUE-2026");
+        assertThat(result.dispatchedCount()).isEqualTo(1);
+        assertThat(result.cancelledCount()).isEqualTo(1);
+        assertThat(result.withheldCount()).isZero();
+    }
+
+    @Test
+    void anEmptyRunReportsZeroEverywhere() {
+        ReminderRunResultDto result = service.dispatch(List.of(), 2, Instant.parse("2026-01-01T00:00:00Z"));
+
+        assertThat(result.dispatchedCount()).isZero();
+        assertThat(result.withheldCount()).isZero();
+        assertThat(result.cancelledCount()).isZero();
+        assertThat(result.dispatched()).isEmpty();
     }
 }

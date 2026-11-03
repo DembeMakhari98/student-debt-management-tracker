@@ -18,6 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(portfolioEscalationAuditInterceptor)
-                .addPathPatterns("/api/debtors", "/api/debtors/export", "/api/summary", "/api/ageing");
+                .addPathPatterns("/api/debtors", "/api/debtors/export", "/api/summary", "/api/ageing",
+                        "/api/reminders/progress");
     }
 }

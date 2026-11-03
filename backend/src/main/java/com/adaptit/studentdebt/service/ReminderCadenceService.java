@@ -4,7 +4,9 @@ import com.adaptit.studentdebt.domain.ActivityLogEntry;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.RecommendationType;
 import com.adaptit.studentdebt.domain.ReminderCadenceProgress;
+import com.adaptit.studentdebt.dto.DispatchedStepDto;
 import com.adaptit.studentdebt.dto.RecommendationDto;
+import com.adaptit.studentdebt.dto.ReminderRunResultDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.ReminderCadenceProgressRepository;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -71,21 +74,27 @@ public class ReminderCadenceService {
         this.writeBackService = writeBackService;
     }
 
-    /** Runs after the nightly scoring pass would have refreshed {@code missed_instalments}. */
+    /**
+     * Runs after the nightly scoring pass would have refreshed {@code missed_instalments}. A manager
+     * can also run it on demand (issue #60); the scheduler ignores the returned summary.
+     */
     @Scheduled(cron = "0 0 2 * * *")
     @Transactional
-    public void runNightlyDispatch() {
+    public ReminderRunResultDto runNightlyDispatch() {
         int autonomyLevel = systemSettingRepository.findById("autonomy_level")
                 .map(s -> Integer.parseInt(s.getSettingValue()))
                 .orElse(2);
-        dispatch(debtorRepository.findAll(), autonomyLevel, Instant.now(clock));
+        return dispatch(debtorRepository.findAll(), autonomyLevel, Instant.now(clock));
     }
 
     /**
      * Core dispatch pass, isolated from the scheduler/clock/setting lookup so it can be driven
-     * deterministically in tests.
+     * deterministically in tests. Returns what it did (issue #60).
      */
-    void dispatch(List<Debtor> debtors, int autonomyLevel, Instant now) {
+    ReminderRunResultDto dispatch(List<Debtor> debtors, int autonomyLevel, Instant now) {
+        List<DispatchedStepDto> dispatched = new ArrayList<>();
+        int withheld = 0;
+        int cancelled = 0;
         for (Debtor debtor : debtors) {
             RecommendationDto rec = decisionEngineService.recommend(debtor);
             ReminderCadenceProgress progress = progressRepository.findById(debtor.getDebtorKey()).orElse(null);
@@ -94,6 +103,7 @@ public class ReminderCadenceService {
                 // Resolved (paid up) or escalated to a different rule — cancel any cadence in flight.
                 if (progress != null) {
                     progressRepository.delete(progress);
+                    cancelled++;
                 }
                 continue;
             }
@@ -108,6 +118,7 @@ public class ReminderCadenceService {
                 // Needs approval at this autonomy level — queued, per issue #8's Level 2 default.
                 // The clock still starts/keeps running; only dispatch is withheld.
                 progressRepository.save(progress);
+                withheld++;
                 continue;
             }
 
@@ -115,21 +126,22 @@ public class ReminderCadenceService {
 
             if (progress.getStep1SentAt() == null && daysSinceStart >= STEP_1_DUE_DAY) {
                 progress.setStep1SentAt(now);
-                recordDispatch(debtor.getDebtorKey(), "SMS reminder sent (step 1 of 3, day 1)", now);
+                dispatched.add(recordDispatch(debtor.getDebtorKey(), 1, "SMS reminder sent (step 1 of 3, day 1)", now));
             }
             if (progress.getStep2SentAt() == null && daysSinceStart >= STEP_2_DUE_DAY) {
                 progress.setStep2SentAt(now);
-                recordDispatch(debtor.getDebtorKey(), "WhatsApp reminder sent (step 2 of 3, day 5)", now);
+                dispatched.add(recordDispatch(debtor.getDebtorKey(), 2, "WhatsApp reminder sent (step 2 of 3, day 5)", now));
             }
             if (progress.getStep3SentAt() == null && daysSinceStart >= STEP_3_DUE_DAY) {
                 progress.setStep3SentAt(now);
-                recordDispatch(debtor.getDebtorKey(), "Officer call task created (step 3 of 3, day 10)", now);
+                dispatched.add(recordDispatch(debtor.getDebtorKey(), 3, "Officer call task created (step 3 of 3, day 10)", now));
             }
             progressRepository.save(progress);
         }
+        return new ReminderRunResultDto(now, autonomyLevel, dispatched.size(), withheld, cancelled, List.copyOf(dispatched));
     }
 
-    private void recordDispatch(String debtorKey, String text, Instant now) {
+    private DispatchedStepDto recordDispatch(String debtorKey, int step, String text, Instant now) {
         ActivityLogEntry entry = activityLogEntryRepository.save(ActivityLogEntry.builder()
                 .debtorKey(debtorKey)
                 .text(text)
@@ -138,5 +150,6 @@ public class ReminderCadenceService {
                 .build());
         writeBackService.recordAndAttempt(entry);
         log.info("Reminder cadence step dispatched for debtorKey={}: {}", debtorKey, text);
+        return new DispatchedStepDto(debtorKey, step, text);
     }
 }
