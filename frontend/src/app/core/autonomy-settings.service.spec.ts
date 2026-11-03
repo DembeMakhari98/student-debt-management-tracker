@@ -18,17 +18,6 @@ describe('AutonomySettingsService (issue #57)', () => {
 
   afterEach(() => http.verify());
 
-  it('fetchLevel() reads autonomyLevel off GET /api/meta', () => {
-    let result: number | undefined;
-    service.fetchLevel().subscribe((level) => (result = level));
-
-    const req = http.expectOne(`${API_BASE}/api/meta`);
-    expect(req.request.method).toBe('GET');
-    req.flush({ autonomyLevel: 3, years: [], currentCalendarYear: 2026, defaultYear: 2026, fundingSources: [], autonomyLevels: [] });
-
-    expect(result).toBe(3);
-  });
-
   it('updateLevel() PUTs the level and resolves with the persisted value', () => {
     let result: number | undefined;
     service.updateLevel(4).subscribe((level) => (result = level));

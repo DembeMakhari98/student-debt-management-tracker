@@ -1,4 +1,4 @@
-import { Component, effect, inject, untracked } from '@angular/core';
+import { Component, computed, effect, inject, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
@@ -6,9 +6,9 @@ import { CaseStore } from './core/case-store.service';
 import { DebtService } from './core/debt.service';
 import { ExtractStatusService } from './core/extract-status.service';
 import { AutonomySettingsService } from './core/autonomy-settings.service';
+import { MetaService } from './core/meta.service';
 import { AuthService } from './core/auth/auth.service';
 import { officerFor, roleLabel } from './core/auth/auth.models';
-import { LEVELS } from './core/constants';
 import { FundKey, PortfolioScope } from './core/models';
 
 interface TabDef {
@@ -27,7 +27,9 @@ interface TabDef {
 })
 export class AppComponent {
   private readonly router = inject(Router);
-  readonly levels = LEVELS;
+  readonly metaService = inject(MetaService);
+  /** Autonomy level choices for the chrome's dropdown (issue #63) — empty until GET /api/meta loads. */
+  readonly levels = computed(() => this.metaService.meta()?.autonomyLevels ?? []);
   readonly roleLabel = roleLabel;
 
   /** The workspace chrome is hidden on the sign-in screen. */
@@ -50,6 +52,10 @@ export class AppComponent {
     { path: 'ageing', label: 'Age Analysis', badge: () => '' },
   ];
 
+  /** Guards the sign-in effect below against re-running merely because AuthService's startup
+   *  GET /api/auth/me check (issue #63) replaced auth.user() with a new-but-equal object. */
+  private signedInAs: string | null = null;
+
   constructor(
     public debt: DebtService,
     public store: CaseStore,
@@ -60,16 +66,28 @@ export class AppComponent {
     // Portfolio scoping and the access log act as whoever is signed in.
     effect(() => {
       const user = this.auth.user();
-      if (!user) return;
+      if (!user) {
+        this.signedInAs = null;
+        return;
+      }
+      if (user.username === this.signedInAs) return;
+      this.signedInAs = user.username;
       untracked(() => {
         this.debt.signInAs(officerFor(user));
         // An admin has no caseload of their own; start them on the whole book.
         if (user.role === 'ADMIN') this.debt.setPortfolioScope('all');
         // The extract history is an admin endpoint: only ask when the user may see it.
         if (this.auth.canSeeAdminJobs()) this.extractStatus.refresh();
-        // Everyone may see the persisted autonomy level; only managers/admins may change it (issue #57).
-        this.autonomySettings.fetchLevel().subscribe((level) => this.debt.setAutonomy(level));
+        // Years, funding sources, autonomy levels/current level — all one call (issue #63).
+        this.metaService.refresh();
       });
+    });
+
+    // Everyone may see the persisted autonomy level; only managers/admins may change it (issue #57).
+    effect(() => {
+      const meta = this.metaService.meta();
+      if (!meta) return;
+      untracked(() => this.debt.setAutonomy(meta.autonomyLevel));
     });
   }
 

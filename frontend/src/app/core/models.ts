@@ -129,6 +129,22 @@ export interface AutonomyLevelDef {
   hint: string;
 }
 
+/** One funding-source option as the backend names it (`FundingSource` enum, e.g. "SELF"). */
+export interface FundingOption {
+  value: string;
+  label: string;
+}
+
+/** Mirrors the backend's MetaDto (`GET /api/meta`, issue #63) field-for-field. */
+export interface Meta {
+  years: number[];
+  currentCalendarYear: number;
+  defaultYear: number;
+  fundingSources: FundingOption[];
+  autonomyLevel: number;
+  autonomyLevels: AutonomyLevelDef[];
+}
+
 /** Mirrors the backend's SummaryDto (`GET /api/summary`, issue #64) field-for-field. */
 export interface DebtSummary {
   debtorCount: number;

@@ -29,6 +29,14 @@ describe('AuthService (JWT login)', () => {
     return TestBed.inject(AuthService);
   }
 
+  /** Flushes the GET /api/auth/me revalidation call every restored-session startup issues (issue #63). */
+  function flushMe(user = response().user, status = 200): void {
+    const req = http.expectOne(`${API_BASE}/api/auth/me`);
+    expect(req.request.method).toBe('GET');
+    if (status === 200) req.flush(user);
+    else req.flush({ message: 'Unauthorized' }, { status, statusText: 'Unauthorized' });
+  }
+
   beforeEach(() => {
     localStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_KEY);
@@ -85,6 +93,46 @@ describe('AuthService (JWT login)', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(response()));
     const auth = setup();
     expect(auth.user()?.displayName).toBe('Grace van Rooyen');
+    expect(auth.restoringSession()).toBeTrue();
+
+    flushMe();
+    expect(auth.restoringSession()).toBeFalse();
+  });
+
+  it('refreshes the user from GET /api/auth/me on startup', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(response()));
+    const auth = setup();
+
+    flushMe({ username: 'grace.vanrooyen', displayName: 'Grace van Rooyen', role: 'ADMIN', team: null, officerKey: null });
+
+    expect(auth.user()?.role).toBe('ADMIN');
+    expect(auth.canSeeAdminJobs()).toBeTrue();
+    expect(auth.restoreError()).toBeFalse();
+  });
+
+  it('signs out via the interceptor when GET /api/auth/me returns 401 on startup', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(response()));
+    const auth = setup();
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+
+    flushMe(undefined, 401);
+
+    expect(auth.isAuthenticated()).toBeFalse();
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('keeps the cached session and sets restoreError() when the startup check cannot reach the backend', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(response()));
+    const auth = setup();
+
+    const req = http.expectOne(`${API_BASE}/api/auth/me`);
+    req.error(new ProgressEvent('error'), { status: 0 });
+
+    expect(auth.isAuthenticated()).toBeTrue();
+    expect(auth.user()?.displayName).toBe('Grace van Rooyen');
+    expect(auth.restoreError()).toBeTrue();
+    expect(auth.restoringSession()).toBeFalse();
   });
 
   it('discards an expired stored session', () => {
@@ -97,6 +145,7 @@ describe('AuthService (JWT login)', () => {
   it('attaches the bearer token to API calls', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(response()));
     setup();
+    flushMe();
     TestBed.inject(HttpClient).get(`${API_BASE}/api/debtors`).subscribe();
 
     const req = http.expectOne(`${API_BASE}/api/debtors`);
@@ -107,6 +156,7 @@ describe('AuthService (JWT login)', () => {
   it('does not send the token to other hosts', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(response()));
     setup();
+    flushMe();
     TestBed.inject(HttpClient).get('https://example.org/data').subscribe();
 
     const req = http.expectOne('https://example.org/data');
@@ -119,6 +169,7 @@ describe('AuthService (JWT login)', () => {
     const auth = setup();
     const router = TestBed.inject(Router);
     spyOn(router, 'navigate').and.resolveTo(true);
+    flushMe();
 
     TestBed.inject(HttpClient).get(`${API_BASE}/api/debtors`).subscribe({ error: () => undefined });
     http.expectOne(`${API_BASE}/api/debtors`).flush({}, { status: 401, statusText: 'Unauthorized' });

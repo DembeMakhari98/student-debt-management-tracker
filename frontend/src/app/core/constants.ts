@@ -1,4 +1,4 @@
-import { AgeBucketDef, AutonomyLevelDef, FundDef, FundKey } from './models';
+import { AgeBucketDef, FundDef, FundKey } from './models';
 
 export const RED = 'var(--ai-red)';
 export const RED_TEXT = 'var(--red-text)';
@@ -55,13 +55,6 @@ export const AGENTS: Record<string, string> = {
   'Reminder cadence': 'Engagement Agent',
   Monitor: 'Risk Sentinel',
 };
-
-export const LEVELS: AutonomyLevelDef[] = [
-  { name: '1 · Observe', hint: 'Score and report only' },
-  { name: '2 · Recommend', hint: 'Human accepts every action' },
-  { name: '3 · Act within policy', hint: 'Low-risk actions automatic' },
-  { name: '4 · Act and report', hint: 'Full workflow, post-hoc review' },
-];
 
 /** Registered head-count per financial year — from Student Records. */
 export const REGISTERED: Record<number, number> = {
