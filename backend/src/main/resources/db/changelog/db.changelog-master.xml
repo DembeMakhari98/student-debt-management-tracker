@@ -21,5 +21,6 @@
     <include file="db/changelog/009-autonomy-level-audit.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/010-debtor-assignment.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/011-portfolio-escalation.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/012-seed-test-scenarios.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

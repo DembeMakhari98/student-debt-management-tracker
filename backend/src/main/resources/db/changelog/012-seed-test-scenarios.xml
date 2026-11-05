@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Fills every gap identified between the base demo book (001-011) and the full set of
+        scenarios the app can produce: officer decisions (approve/amend/decline), write-back
+        failures (stuck + still-retrying), nightly-extract job history (success + failure),
+        reminder-cadence progress at every stage, autonomy-level change history, portfolio
+        escalation audit rows, an unassigned debtor, and risk-score band boundary cases.
+        See docs/TEST_SCENARIOS.md for the full narrative behind every row here.
+    -->
+
+    <!-- ============================================================ -->
+    <!-- 8 additional debtors covering: unassigned caseload, exact     -->
+    <!-- WATCH/ELEVATED (44/45) and ELEVATED/HIGH (69/70) score-band   -->
+    <!-- boundaries, and 3 more Reminder-cadence (missed==1) cases so  -->
+    <!-- every cadence-progress stage has its own debtor.              -->
+    <!-- ============================================================ -->
+    <changeSet id="012-01-seed-boundary-and-cadence-debtors" author="student-debt-tracker" context="!prod and !test">
+        <!-- Unassigned (no assigned_officer) — only visible under portfolio=ALL (MANAGER/ADMIN). Score 4, WATCH, MONITOR. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100401-2026"/><column name="student_id" value="STU-100401"/><column name="name" value="Lindiwe Khumalo"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="NC(V) L2 Office Administration"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="0"/><column name="last_payment_date" valueDate="2026-09-10"/>
+            <column name="ageing_current" valueNumeric="2500"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="0"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+        </insert>
+
+        <!-- Score exactly 44 (WATCH, <45): d60+d90+missed2*7+fundingWeight8 = 8+14+14+8. Decision: Payment arrangement. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100402-2026"/><column name="student_id" value="STU-100402"/><column name="name" value="Mandla Ndlovu"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="NC(V) L4 Hospitality"/>
+            <column name="funding_source" value="PRIVATE"/><column name="funding_status" value="Bursary partial"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2026-03-01"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="4800"/><column name="ageing_90" valueNumeric="7200"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="sibusiso-khoza"/>
+        </insert>
+
+        <!-- Score exactly 45 (ELEVATED, >=45): d60+d90+missed1*7+fundingWeight16 = 8+14+7+16. Decision: Hardship fund (declined wins over missed==1). -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100403-2026"/><column name="student_id" value="STU-100403"/><column name="name" value="Siyabonga Radebe"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="Report 191 N5 Marketing Management"/>
+            <column name="funding_source" value="GOV"/><column name="funding_status" value="NSFAS declined"/>
+            <column name="missed_instalments" valueNumeric="1"/><column name="last_payment_date" valueDate="2026-04-15"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="3100"/><column name="ageing_90" valueNumeric="9400"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="anele-dube"/>
+        </insert>
+
+        <!-- Score exactly 69 (ELEVATED, <70): d120(min,18.025)+d90+d60+missed2*7+fundingWeight15(lapsed) = 18.025+14+8+14+15. Decision: Hardship fund. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100404-2026"/><column name="student_id" value="STU-100404"/><column name="name" value="Boitumelo Seroka"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="Report 191 N6 Human Resource Management"/>
+            <column name="funding_source" value="GOV"/><column name="funding_status" value="NSFAS lapsed"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2026-02-20"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="5200"/><column name="ageing_90" valueNumeric="6600"/><column name="ageing_120" valueNumeric="100"/>
+            <column name="assigned_officer" value="priya-naidoo"/>
+        </insert>
+
+        <!-- Score exactly 70 (HIGH, >=70): same shape as above but fundingWeight16 (declined) = 18.025+14+8+14+16. Decision: Hardship fund. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100405-2026"/><column name="student_id" value="STU-100405"/><column name="name" value="Karabo Modise"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="NC(V) L3 Civil Engineering and Building Construction"/>
+            <column name="funding_source" value="GOV"/><column name="funding_status" value="NSFAS declined"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2026-05-05"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="6700"/><column name="ageing_90" valueNumeric="8100"/><column name="ageing_120" valueNumeric="100"/>
+            <column name="assigned_officer" value="thato-mokoena"/>
+        </insert>
+
+        <!-- Reminder cadence, day 0 — cadence starts today, nothing dispatched yet (see 012-06). -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100406-2026"/><column name="student_id" value="STU-100406"/><column name="name" value="Nandi Mkhize"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="Report 191 N6 Business Management"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="1"/><column name="last_payment_date" valueDate="2026-10-20"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="3000"/>
+            <column name="ageing_60" valueNumeric="0"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="nomsa-mahlangu"/>
+        </insert>
+
+        <!-- Reminder cadence, complete — all 3 steps dispatched (see 012-06). -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100407-2026"/><column name="student_id" value="STU-100407"/><column name="name" value="Tumi Sithole"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="NC(V) L4 Electrical Infrastructure Construction"/>
+            <column name="funding_source" value="PRIVATE"/><column name="funding_status" value="Bursary partial"/>
+            <column name="missed_instalments" valueNumeric="1"/><column name="last_payment_date" valueDate="2026-10-15"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="2800"/>
+            <column name="ageing_60" valueNumeric="0"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="sibusiso-khoza"/>
+        </insert>
+
+        <!-- Reminder cadence, withheld — day1 and day5 thresholds have long passed (cadence started 9 days ago)
+             but nothing dispatched, because autonomy is seeded at Level 2 (Recommend) and REMINDER_CADENCE
+             only auto-dispatches at Level 3+. Raising the level and re-running /api/admin/reminders/run should
+             fire steps 1 and 2 together immediately (day 10 / step 3 still 1 day away). -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100408-2026"/><column name="student_id" value="STU-100408"/><column name="name" value="Zanele Dube"/>
+            <column name="financial_year" valueNumeric="2026"/><column name="programme" value="Report 191 N4 Financial Management"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="1"/><column name="last_payment_date" valueDate="2026-10-01"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="3500"/>
+            <column name="ageing_60" valueNumeric="0"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="anele-dube"/>
+        </insert>
+    </changeSet>
+
+    <!-- Baseline "nightly extract" activity entry for each of the 8 new debtors, matching 004's pattern. -->
+    <changeSet id="012-02-seed-activity-log-for-new-debtors" author="student-debt-tracker" context="!prod and !test">
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000001"/><column name="debtor_key" value="STU-100401-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000002"/><column name="debtor_key" value="STU-100402-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000003"/><column name="debtor_key" value="STU-100403-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000004"/><column name="debtor_key" value="STU-100404-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000005"/><column name="debtor_key" value="STU-100405-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000006"/><column name="debtor_key" value="STU-100406-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000007"/><column name="debtor_key" value="STU-100407-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa010001-0000-4000-8000-000000000008"/><column name="debtor_key" value="STU-100408-2026"/><column name="text" value="Nightly extract loaded from Debtors, Student Fees and Cashiering"/><column name="source" value="Debt Tracker Service · nightly extract"/><column name="created_at" valueComputed="CURRENT_TIMESTAMP"/></insert>
+    </changeSet>
+
+    <!-- ============================================================ -->
+    <!-- Officer decisions: one APPROVE, one AMEND, one DECLINE, each  -->
+    <!-- against a debtor whose live recommendation still matches the -->
+    <!-- stored recommendation_type, so the case shows as "resolved". -->
+    <!-- ============================================================ -->
+    <changeSet id="012-03-seed-officer-decisions" author="student-debt-tracker" context="!prod and !test">
+        <!-- APPROVE: Jessica Adams is in credit (REFUND). Approved by her officer, Priya Naidoo. -->
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa020001-0000-4000-8000-000000000001"/><column name="debtor_key" value="STU-100355-2026"/>
+            <column name="text" value="Recommendation approved by Priya Naidoo"/>
+            <column name="source" value="Officer decision · Priya Naidoo"/><column name="created_at" valueDate="2026-10-28T09:15:00"/>
+        </insert>
+        <insert tableName="officer_decision">
+            <column name="id" value="aa030001-0000-4000-8000-000000000001"/><column name="debtor_key" value="STU-100355-2026"/>
+            <column name="recommendation_type" value="REFUND"/><column name="action" value="APPROVE"/>
+            <column name="decided_by" value="Priya Naidoo"/><column name="decided_at" valueDate="2026-10-28T09:15:00"/>
+        </insert>
+
+        <!-- AMEND: Ayanda Pillay (PAYMENT_ARRANGEMENT). Amended by her officer, Nomsa Mahlangu, requesting month-end debit alignment. -->
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa020001-0000-4000-8000-000000000002"/><column name="debtor_key" value="STU-100333-2026"/>
+            <column name="text" value="Recommendation amended and approved by Nomsa Mahlangu"/>
+            <column name="source" value="Officer decision · Nomsa Mahlangu"/><column name="created_at" valueDate="2026-10-25T14:40:00"/>
+        </insert>
+        <insert tableName="officer_decision">
+            <column name="id" value="aa030001-0000-4000-8000-000000000002"/><column name="debtor_key" value="STU-100333-2026"/>
+            <column name="recommendation_type" value="PAYMENT_ARRANGEMENT"/><column name="action" value="AMEND"/>
+            <column name="amended_terms" value="6 instalments of R866.67, first debit on the 1st of next month — student requested month-end pay-cycle alignment instead of the 22nd."/>
+            <column name="decided_by" value="Nomsa Mahlangu"/><column name="decided_at" valueDate="2026-10-25T14:40:00"/>
+        </insert>
+
+        <!-- DECLINE: Refilwe van Wyk (REGISTRATION_HOLD). Declined by her officer, Thato Mokoena, pending a hardship assessment. -->
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa020001-0000-4000-8000-000000000003"/><column name="debtor_key" value="STU-100301-2026"/>
+            <column name="text" value="Recommendation declined by Thato Mokoena — Student has since made contact; holding the registration hold pending a hardship-fund assessment this week."/>
+            <column name="source" value="Officer decision · Thato Mokoena"/><column name="created_at" valueDate="2026-10-29T11:05:00"/>
+        </insert>
+        <insert tableName="officer_decision">
+            <column name="id" value="aa030001-0000-4000-8000-000000000003"/><column name="debtor_key" value="STU-100301-2026"/>
+            <column name="recommendation_type" value="REGISTRATION_HOLD"/><column name="action" value="DECLINE"/>
+            <column name="reason" value="Student has since made contact; holding the registration hold pending a hardship-fund assessment this week."/>
+            <column name="decided_by" value="Thato Mokoena"/><column name="decided_at" valueDate="2026-10-29T11:05:00"/>
+        </insert>
+
+        <!-- Each decision's write-back succeeds first time — the baseline/happy-path write-back outcome. -->
+        <insert tableName="write_back_attempt"><column name="id" value="aa060001-0000-4000-8000-000000000001"/><column name="activity_log_entry_id" value="aa020001-0000-4000-8000-000000000001"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-28T09:15:02"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa060001-0000-4000-8000-000000000002"/><column name="activity_log_entry_id" value="aa020001-0000-4000-8000-000000000002"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-25T14:40:02"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa060001-0000-4000-8000-000000000003"/><column name="activity_log_entry_id" value="aa020001-0000-4000-8000-000000000003"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-29T11:05:02"/></insert>
+    </changeSet>
+
+    <!-- ============================================================ -->
+    <!-- Write-back failures: one permanently stuck at attempt 3/3     -->
+    <!-- (surfaces on GET /api/admin/writeback/failures), one still    -->
+    <!-- within its retry budget at attempt 2/3 (does not surface yet, -->
+    <!-- and will self-heal on the next 15-minute sweep or a manual    -->
+    <!-- retry, since the mock adapter always succeeds).                -->
+    <!-- ============================================================ -->
+    <changeSet id="012-04-seed-write-back-failures" author="student-debt-tracker" context="!prod and !test">
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa040001-0000-4000-8000-000000000001"/><column name="debtor_key" value="STU-100251-2026"/>
+            <column name="text" value="Holding arrangement confirmation sent to ITS Integrator"/>
+            <column name="source" value="Intervention Planner · payment arrangement"/><column name="created_at" valueDate="2026-11-02T08:00:00"/>
+        </insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa050001-0000-4000-8000-000000000001"/><column name="activity_log_entry_id" value="aa040001-0000-4000-8000-000000000001"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="FAILED"/><column name="error_message" value="ITS Integrator connection refused"/><column name="attempted_at" valueDate="2026-11-02T08:00:00"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa050001-0000-4000-8000-000000000002"/><column name="activity_log_entry_id" value="aa040001-0000-4000-8000-000000000001"/><column name="attempt_number" valueNumeric="2"/><column name="status" value="FAILED"/><column name="error_message" value="ITS Integrator connection timed out after 5000ms"/><column name="attempted_at" valueDate="2026-11-02T08:15:00"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa050001-0000-4000-8000-000000000003"/><column name="activity_log_entry_id" value="aa040001-0000-4000-8000-000000000001"/><column name="attempt_number" valueNumeric="3"/><column name="status" value="FAILED"/><column name="error_message" value="ITS Integrator returned 503 Service Unavailable"/><column name="attempted_at" valueDate="2026-11-02T08:30:00"/></insert>
+
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa040001-0000-4000-8000-000000000002"/><column name="debtor_key" value="STU-098111-2025"/>
+            <column name="text" value="WhatsApp reminder sent (step 2 of 3, day 5)"/>
+            <column name="source" value="Engagement Agent · Reminder cadence"/><column name="created_at" valueDate="2026-11-02T09:00:00"/>
+        </insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa050001-0000-4000-8000-000000000004"/><column name="activity_log_entry_id" value="aa040001-0000-4000-8000-000000000002"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="FAILED"/><column name="error_message" value="ITS Integrator connection refused"/><column name="attempted_at" valueDate="2026-11-02T09:00:00"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa050001-0000-4000-8000-000000000005"/><column name="activity_log_entry_id" value="aa040001-0000-4000-8000-000000000002"/><column name="attempt_number" valueNumeric="2"/><column name="status" value="FAILED"/><column name="error_message" value="ITS Integrator connection timed out after 5000ms"/><column name="attempted_at" valueDate="2026-11-02T09:15:00"/></insert>
+    </changeSet>
+
+    <!-- One manual engagement (CALL, with a note) exercising POST /api/debtors/{key}/engagements directly. -->
+    <changeSet id="012-05-seed-manual-engagement" author="student-debt-tracker" context="!prod and !test">
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa090001-0000-4000-8000-000000000001"/><column name="debtor_key" value="STU-098044-2025"/>
+            <column name="text" value="Call logged with student — Explained the hardship fund referral and requested an updated NSFAS appeal reference number."/>
+            <column name="source" value="Engagement Agent · Grace van Rooyen"/><column name="created_at" valueDate="2026-10-27T13:20:00"/>
+        </insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa0a0001-0000-4000-8000-000000000001"/><column name="activity_log_entry_id" value="aa090001-0000-4000-8000-000000000001"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-27T13:20:02"/></insert>
+    </changeSet>
+
+    <!-- ============================================================ -->
+    <!-- Reminder cadence progress at every stage. Kagiso Botha        -->
+    <!-- (existing) is mid-cadence; the 3 new debtors from 012-01      -->
+    <!-- cover day-0, complete, and gate-withheld.                    -->
+    <!-- ============================================================ -->
+    <changeSet id="012-06-seed-reminder-cadence-progress" author="student-debt-tracker" context="!prod and !test">
+        <!-- Kagiso Botha: started 2026-10-29, step 1 sent next run (2026-10-30). 5 days elapsed as of
+             "today" (2026-11-03) — step 2 is now due and will dispatch once autonomy allows it. -->
+        <insert tableName="reminder_cadence_progress">
+            <column name="debtor_key" value="STU-100288-2026"/><column name="started_at" valueDate="2026-10-29T02:00:00"/>
+            <column name="step1_sent_at" valueDate="2026-10-30T02:00:00"/>
+        </insert>
+        <insert tableName="activity_log_entry">
+            <column name="id" value="aa070001-0000-4000-8000-000000000001"/><column name="debtor_key" value="STU-100288-2026"/>
+            <column name="text" value="SMS reminder sent (step 1 of 3, day 1)"/>
+            <column name="source" value="Engagement Agent · Reminder cadence"/><column name="created_at" valueDate="2026-10-30T02:00:00"/>
+        </insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa080001-0000-4000-8000-000000000001"/><column name="activity_log_entry_id" value="aa070001-0000-4000-8000-000000000001"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-30T02:00:02"/></insert>
+
+        <!-- Nandi Mkhize (STU-100406-2026): cadence starts today, nothing due yet. -->
+        <insert tableName="reminder_cadence_progress">
+            <column name="debtor_key" value="STU-100406-2026"/><column name="started_at" valueDate="2026-11-03T02:00:00"/>
+        </insert>
+
+        <!-- Tumi Sithole (STU-100407-2026): full 3/3 cadence completed. -->
+        <insert tableName="reminder_cadence_progress">
+            <column name="debtor_key" value="STU-100407-2026"/><column name="started_at" valueDate="2026-10-18T02:00:00"/>
+            <column name="step1_sent_at" valueDate="2026-10-19T02:00:00"/>
+            <column name="step2_sent_at" valueDate="2026-10-23T02:00:00"/>
+            <column name="step3_sent_at" valueDate="2026-10-28T02:00:00"/>
+        </insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa070001-0000-4000-8000-000000000002"/><column name="debtor_key" value="STU-100407-2026"/><column name="text" value="SMS reminder sent (step 1 of 3, day 1)"/><column name="source" value="Engagement Agent · Reminder cadence"/><column name="created_at" valueDate="2026-10-19T02:00:00"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa070001-0000-4000-8000-000000000003"/><column name="debtor_key" value="STU-100407-2026"/><column name="text" value="WhatsApp reminder sent (step 2 of 3, day 5)"/><column name="source" value="Engagement Agent · Reminder cadence"/><column name="created_at" valueDate="2026-10-23T02:00:00"/></insert>
+        <insert tableName="activity_log_entry"><column name="id" value="aa070001-0000-4000-8000-000000000004"/><column name="debtor_key" value="STU-100407-2026"/><column name="text" value="Officer call task created (step 3 of 3, day 10)"/><column name="source" value="Engagement Agent · Reminder cadence"/><column name="created_at" valueDate="2026-10-28T02:00:00"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa080001-0000-4000-8000-000000000002"/><column name="activity_log_entry_id" value="aa070001-0000-4000-8000-000000000002"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-19T02:00:02"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa080001-0000-4000-8000-000000000003"/><column name="activity_log_entry_id" value="aa070001-0000-4000-8000-000000000003"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-23T02:00:02"/></insert>
+        <insert tableName="write_back_attempt"><column name="id" value="aa080001-0000-4000-8000-000000000004"/><column name="activity_log_entry_id" value="aa070001-0000-4000-8000-000000000004"/><column name="attempt_number" valueNumeric="1"/><column name="status" value="SUCCESS"/><column name="attempted_at" valueDate="2026-10-28T02:00:02"/></insert>
+
+        <!-- Zanele Dube (STU-100408-2026): started 9 days ago — day1 and day5 thresholds have long
+             passed but nothing has dispatched, because autonomy is at Level 2. Demonstrates "withheld,
+             not cancelled": the clock keeps running even though dispatch is gated. -->
+        <insert tableName="reminder_cadence_progress">
+            <column name="debtor_key" value="STU-100408-2026"/><column name="started_at" valueDate="2026-10-25T02:00:00"/>
+        </insert>
+    </changeSet>
+
+    <!-- ============================================================ -->
+    <!-- Nightly-extract job history: one success, two distinct        -->
+    <!-- failure modes.                                                -->
+    <!-- ============================================================ -->
+    <changeSet id="012-07-seed-job-run-log" author="student-debt-tracker" context="!prod and !test">
+        <insert tableName="job_run_log">
+            <column name="id" value="ab010001-0000-4000-8000-000000000001"/><column name="job_name" value="nightly-debtor-extract"/>
+            <column name="status" value="SUCCESS"/><column name="started_at" valueDate="2026-11-02T02:00:00"/>
+            <column name="finished_at" valueDate="2026-11-02T02:00:47"/><column name="records_processed" valueNumeric="34"/>
+        </insert>
+        <insert tableName="job_run_log">
+            <column name="id" value="ab010001-0000-4000-8000-000000000002"/><column name="job_name" value="nightly-debtor-extract"/>
+            <column name="status" value="FAILURE"/><column name="started_at" valueDate="2026-11-01T02:00:00"/>
+            <column name="finished_at" valueDate="2026-11-01T02:00:05"/><column name="records_processed" valueNumeric="0"/>
+            <column name="error_message" value="Connection to the Debtors source view timed out after 5000ms"/>
+        </insert>
+        <insert tableName="job_run_log">
+            <column name="id" value="ab010001-0000-4000-8000-000000000003"/><column name="job_name" value="nightly-debtor-extract"/>
+            <column name="status" value="FAILURE"/><column name="started_at" valueDate="2026-10-31T02:00:00"/>
+            <column name="finished_at" valueDate="2026-10-31T02:00:22"/><column name="records_processed" valueNumeric="14"/>
+            <column name="error_message" value="Student Funding extract returned a malformed row at offset 15 — batch aborted"/>
+        </insert>
+    </changeSet>
+
+    <!-- ============================================================ -->
+    <!-- Autonomy level change history — a full up/down cycle ending   -->
+    <!-- at the currently seeded level (2), so it stays consistent     -->
+    <!-- with 002-03-seed-system-setting.                              -->
+    <!-- ============================================================ -->
+    <changeSet id="012-08-seed-autonomy-level-audit" author="student-debt-tracker" context="!prod and !test">
+        <insert tableName="autonomy_level_audit">
+            <column name="id" value="ab020001-0000-4000-8000-000000000001"/><column name="old_level" valueNumeric="1"/><column name="new_level" valueNumeric="2"/>
+            <column name="changed_by" value="System Administrator"/><column name="changed_at" valueDate="2026-08-01T08:00:00"/>
+        </insert>
+        <insert tableName="autonomy_level_audit">
+            <column name="id" value="ab020001-0000-4000-8000-000000000002"/><column name="old_level" valueNumeric="2"/><column name="new_level" valueNumeric="3"/>
+            <column name="changed_by" value="Grace van Rooyen"/><column name="changed_at" valueDate="2026-09-15T10:00:00"/>
+        </insert>
+        <insert tableName="autonomy_level_audit">
+            <column name="id" value="ab020001-0000-4000-8000-000000000003"/><column name="old_level" valueNumeric="3"/><column name="new_level" valueNumeric="2"/>
+            <column name="changed_by" value="System Administrator"/><column name="changed_at" valueDate="2026-09-22T09:00:00"/>
+        </insert>
+    </changeSet>
+
+    <!-- ============================================================ -->
+    <!-- Portfolio escalation audit — manager/admin portfolio=all      -->
+    <!-- views across different endpoints and filter combinations.    -->
+    <!-- ============================================================ -->
+    <changeSet id="012-09-seed-portfolio-escalation" author="student-debt-tracker" context="!prod and !test">
+        <insert tableName="portfolio_escalation">
+            <column name="id" value="ab030001-0000-4000-8000-000000000001"/><column name="username" value="grace.vanrooyen"/>
+            <column name="display_name" value="Grace van Rooyen"/><column name="role" value="MANAGER"/>
+            <column name="endpoint" value="/api/debtors"/><column name="year_filter" value="2026"/><column name="list_scope" value="cases"/>
+            <column name="created_at" valueDate="2026-10-20T11:00:00"/>
+        </insert>
+        <insert tableName="portfolio_escalation">
+            <column name="id" value="ab030001-0000-4000-8000-000000000002"/><column name="username" value="admin"/>
+            <column name="display_name" value="System Administrator"/><column name="role" value="ADMIN"/>
+            <column name="endpoint" value="/api/summary"/>
+            <column name="created_at" valueDate="2026-10-21T09:30:00"/>
+        </insert>
+        <insert tableName="portfolio_escalation">
+            <column name="id" value="ab030001-0000-4000-8000-000000000003"/><column name="username" value="grace.vanrooyen"/>
+            <column name="display_name" value="Grace van Rooyen"/><column name="role" value="MANAGER"/>
+            <column name="endpoint" value="/api/debtors/export"/><column name="year_filter" value="2025"/>
+            <column name="funding_filter" value="GOV"/><column name="list_scope" value="refunds"/>
+            <column name="created_at" valueDate="2026-10-25T14:45:00"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -13,6 +13,10 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
+    # Keeps the extra scenario-coverage fixtures (012) out of the test suite's fixed baseline —
+    # many tests assert exact fixture shapes (debtor counts, caseload lists) against the original
+    # demo book. The demo users/assignments (008/010, context "!prod") still apply here as before.
+    contexts: test
 
 app:
   security:
