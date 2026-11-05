@@ -180,6 +180,7 @@ export class DebtService {
         { by: officer.name, team: officer.team, at: new Date().toISOString() },
       ]);
     }
+    this.refreshSummary();
   }
 
   /** Pure — safe to call from a computed(). */
@@ -470,7 +471,7 @@ export class DebtService {
     this.summaryErrorFlag.set(false);
     this.summarySub = this.http
       .get<SummaryApiResponse>(`${API_BASE}/api/summary`, {
-        params: { year: String(this.year()), funding: String(this.funding()) },
+        params: { year: String(this.year()), funding: String(this.funding()), portfolio: this.portfolioScope() },
       })
       .pipe(
         map((dto) => toDebtSummary(dto)),
