@@ -9,6 +9,7 @@ import com.adaptit.studentdebt.dto.EngagementRequestDto;
 import com.adaptit.studentdebt.security.CurrentUser;
 import com.adaptit.studentdebt.security.PortfolioResolver;
 import com.adaptit.studentdebt.service.AssignmentService;
+import com.adaptit.studentdebt.service.CaseAccessLogService;
 import com.adaptit.studentdebt.service.CaseService;
 import com.adaptit.studentdebt.service.CsvExportService;
 import com.adaptit.studentdebt.service.DebtorQueryService;
@@ -42,11 +43,13 @@ public class DebtorController {
     private final PortfolioResolver portfolioResolver;
     private final AssignmentService assignmentService;
     private final EngagementService engagementService;
+    private final CaseAccessLogService caseAccessLogService;
 
     public DebtorController(DebtorQueryService debtorQueryService, CaseService caseService,
                              DecisionService decisionService, CsvExportService csvExportService,
                              PortfolioResolver portfolioResolver, AssignmentService assignmentService,
-                             EngagementService engagementService) {
+                             EngagementService engagementService,
+                             CaseAccessLogService caseAccessLogService) {
         this.debtorQueryService = debtorQueryService;
         this.caseService = caseService;
         this.decisionService = decisionService;
@@ -54,6 +57,7 @@ public class DebtorController {
         this.portfolioResolver = portfolioResolver;
         this.assignmentService = assignmentService;
         this.engagementService = engagementService;
+        this.caseAccessLogService = caseAccessLogService;
     }
 
     /**
@@ -80,6 +84,9 @@ public class DebtorController {
     @GetMapping("/{debtorKey}")
     public CaseDetailDto detail(@PathVariable String debtorKey, Authentication authentication) {
         debtorQueryService.requireAccess(debtorKey, portfolioResolver.caseAccess(authentication));
+        // Every opening of a student's financial detail is recorded against the caller before it is
+        // returned (spec §7, POPIA): if it can't be recorded, the case isn't shown.
+        caseAccessLogService.recordView(debtorKey, authentication);
         return caseService.detailFor(debtorKey);
     }
 

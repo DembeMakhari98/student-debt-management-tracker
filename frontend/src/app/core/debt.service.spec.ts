@@ -761,18 +761,13 @@ describe('DebtService — portfolio access control (issue #18)', () => {
     ownIds.forEach((id) => expect(teamIds.has(id)).withContext(id).toBeTrue());
   });
 
-  it('setCase() logs exactly one access entry per distinct case, not on re-selecting the same one', () => {
+  it('setCase() does not log access in the browser; the backend records it (FTC-38, #161)', () => {
     const d = service.caseRows()[0];
-    expect(service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log')).length).toBe(0);
 
     service.setCase(d.id);
-    let entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
-    expect(entries.length).toBe(1);
-    expect(entries[0].t).toContain('Nomsa Mahlangu');
 
-    service.setCase(d.id); // re-selecting the same case
-    entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
-    expect(entries.length).toBe(1);
+    expect(service.caseId()).toBe(d.id);
+    expect(service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log')).length).toBe(0);
   });
 
   it('Home\'s allPickedRows()/allPayingRows() stay institution-wide regardless of officer/scope', () => {

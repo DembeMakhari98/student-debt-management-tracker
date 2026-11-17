@@ -21,6 +21,17 @@ export class CasesComponent {
   readonly POLICY = POLICY;
   readonly AGE_BUCKETS = AGE_BUCKETS;
 
+  /** e.g. "17 Nov 2026, 09:42" — the time on a stored activity entry. */
+  when(iso: string): string {
+    return new Date(iso).toLocaleString('en-ZA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   private readonly queryParams: Signal<ParamMap | undefined>;
 
   constructor(
