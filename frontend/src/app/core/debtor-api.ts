@@ -108,6 +108,42 @@ export function encodeAmendedTerms(terms: Term[]): string {
 
 /* Mapping into the view models the pages already render. */
 
+/**
+ * The backend sends a recommendation's type as its enum name (`RecommendationType`). The agent and
+ * policy-clause tables (`AGENTS`, `POLICY`), the hard-manual check and the lists are keyed by the
+ * display name instead, so the name is mapped here, once, where API data enters the app (issue #277).
+ * A type this table does not know is passed through unchanged.
+ */
+export const RECOMMENDATION_LABELS: Record<string, string> = {
+  REFUND: 'Refund',
+  REGISTRATION_HOLD: 'Registration hold',
+  HARDSHIP_FUND: 'Hardship fund',
+  PAYMENT_ARRANGEMENT: 'Payment arrangement',
+  FUNDING_CHASE: 'Funding chase',
+  REMINDER_CADENCE: 'Reminder cadence',
+  MONITOR: 'Monitor',
+};
+
+export function recommendationLabel(type: string): string {
+  return RECOMMENDATION_LABELS[type] ?? type;
+}
+
+/**
+ * The backend sends the risk band as its enum name (`RiskBand`, or `CREDIT` for a student owed money).
+ * `bandColor` compares against the display names, so without this every badge fell back to the
+ * default colour on real data (issue #277, same class of mismatch). `CREDIT` passes through; credit
+ * rows are coloured by the `isCredit` check, not by band.
+ */
+export const RISK_BAND_LABELS: Record<string, string> = {
+  WATCH: 'Watch',
+  ELEVATED: 'Elevated',
+  HIGH: 'High',
+};
+
+export function riskBandLabel(band: string): RiskBand {
+  return (RISK_BAND_LABELS[band] ?? band) as RiskBand;
+}
+
 const ACTIONS: Record<string, DecisionAction> = {
   APPROVE: 'Approved',
   APPROVED: 'Approved',
@@ -166,15 +202,16 @@ export function toDebtor(row: DebtorRowDto): Debtor {
 
 export function toCaseView(row: DebtorRowDto, evidence: string[] = [], activity: ActivityEntry[] = []): CaseView {
   const rec = row.recommendation;
+  const type = recommendationLabel(rec.type);
   return {
     d: toDebtor(row),
     score: row.riskScore,
-    band: row.riskBand as RiskBand,
+    band: riskBandLabel(row.riskBand),
     debt: row.debt,
     credit: row.credit,
     signals: row.signals.map((s) => ({ t: s.text, hot: s.hot })),
     rec: {
-      type: rec.type,
+      type,
       action: rec.action,
       status: rec.status as CaseView['rec']['status'],
       rationale: rec.rationale,
@@ -182,7 +219,7 @@ export function toCaseView(row: DebtorRowDto, evidence: string[] = [], activity:
     },
     evidence,
     activity,
-    decision: toDecision(row.lastDecision, rec.type),
+    decision: toDecision(row.lastDecision, type),
   };
 }
 

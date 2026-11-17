@@ -4,6 +4,10 @@ import { TrackerComponent } from './tracker.component';
 import { CaseStore } from '../../core/case-store.service';
 import { DebtService } from '../../core/debt.service';
 import { mockApi, mockApiProviders, resetMockApi } from '../../testing/mock-api';
+import { AGENTS } from '../../core/constants';
+
+/** The backend's recommendation type names (RecommendationType.java) — none of these may reach the screen. */
+const RAW_BACKEND_TYPE = /\b(REFUND|REGISTRATION_HOLD|HARDSHIP_FUND|PAYMENT_ARRANGEMENT|FUNDING_CHASE|REMINDER_CADENCE|MONITOR)\b/;
 
 describe('TrackerComponent — Debt Management Tracker workspace (issues #11, #65)', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<TrackerComponent>>;
@@ -38,6 +42,20 @@ describe('TrackerComponent — Debt Management Tracker workspace (issues #11, #6
     expect(scopes).toEqual(['paying', 'picked', 'refunds']);
     expect(store.state()).toBe('ready');
     expect(component.pickedCases().length).toBeGreaterThan(0);
+  });
+
+  it('#277 — every row names the agent that proposes the action, and shows no raw recommendation name', () => {
+    const rows = Array.from(fixture.nativeElement.querySelectorAll('app-case-row')) as HTMLElement[];
+    expect(rows.length).toBeGreaterThan(0);
+    const agents = Object.values(AGENTS);
+
+    rows.forEach((row, i) => {
+      const text = row.textContent ?? '';
+      expect(agents.some((agent) => text.includes(`${agent} proposes`)))
+        .withContext(`row ${i} has no agent: "${text.replace(/\s+/g, ' ').slice(0, 120)}"`)
+        .toBeTrue();
+      expect(text).withContext(`row ${i} shows a raw recommendation name`).not.toMatch(RAW_BACKEND_TYPE);
+    });
   });
 
   it('renders the picked-up list sorted by risk score descending', () => {

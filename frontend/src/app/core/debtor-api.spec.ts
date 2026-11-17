@@ -2,7 +2,20 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_BASE } from './api';
-import { CaseDetailDto, DebtorApi, DebtorRowDto, encodeAmendedTerms, parseAmendedTerms, toCaseView, toDecision } from './debtor-api';
+import { AGENTS, POLICY } from './constants';
+import { DebtService } from './debt.service';
+import { RiskBand } from './models';
+import {
+  CaseDetailDto,
+  DebtorApi,
+  DebtorRowDto,
+  RECOMMENDATION_LABELS,
+  encodeAmendedTerms,
+  parseAmendedTerms,
+  recommendationLabel,
+  toCaseView,
+  toDecision,
+} from './debtor-api';
 
 function row(overrides: Partial<DebtorRowDto> = {}): DebtorRowDto {
   return {
@@ -24,7 +37,7 @@ function row(overrides: Partial<DebtorRowDto> = {}): DebtorRowDto {
     owedToStudent: false,
     pickedUp: true,
     riskScore: 71,
-    riskBand: 'High',
+    riskBand: 'HIGH',
     assignedOfficer: 'nomsa-mahlangu',
     signals: [{ text: 'Missed 2 instalments', hot: true }],
     recommendation: {
@@ -195,5 +208,79 @@ describe('debtor-api mapping helpers', () => {
     expect(toDecision({ ...dto, action: 'DECLINE', reason: 'Not eligible' }, 'arrangement')?.reason).toBe('Not eligible');
     expect(toDecision({ ...dto, action: 'SHRUG' }, 'arrangement')).toBeNull();
     expect(toDecision(null, 'arrangement')).toBeNull();
+  });
+});
+
+describe('recommendation type mapping (issue #277)', () => {
+  /**
+   * The backend's `RecommendationType` enum (RecommendationType.java): the name it sends as
+   * `recommendation.type`, with the owning agent and policy clause it sends alongside. Spelled out
+   * here so the app's own tables are checked against the real contract, not against themselves.
+   */
+  const BACKEND_TYPES: [name: string, label: string, agent: string, clause: string][] = [
+    ['REFUND', 'Refund', 'Assurance Agent', 'FIN-02.6'],
+    ['REGISTRATION_HOLD', 'Registration hold', 'Assurance Agent', 'FIN-09.3'],
+    ['HARDSHIP_FUND', 'Hardship fund', 'Funding Broker', 'FIN-07.1'],
+    ['PAYMENT_ARRANGEMENT', 'Payment arrangement', 'Intervention Planner', 'FIN-04.2'],
+    ['FUNDING_CHASE', 'Funding chase', 'Funding Broker', 'FIN-05.4'],
+    ['REMINDER_CADENCE', 'Reminder cadence', 'Engagement Agent', 'FIN-03.1'],
+    ['MONITOR', 'Monitor', 'Risk Sentinel', 'FIN-01.0'],
+  ];
+
+  const rowOfType = (name: string, agent: string, clause: string) => {
+    const base = row();
+    return row({ recommendation: { ...base.recommendation, type: name, agent, policyClause: clause } });
+  };
+
+  for (const [name, label, agent, clause] of BACKEND_TYPES) {
+    it(`${name} becomes "${label}", whose agent and policy clause are ${agent} and ${clause}`, () => {
+      const view = toCaseView(rowOfType(name, agent, clause));
+
+      expect(view.rec.type).toBe(label);
+      expect(AGENTS[view.rec.type]).withContext('agent looked up by the mapped type').toBe(agent);
+      expect(POLICY[view.rec.type]).withContext('policy clause looked up by the mapped type').toBe(clause);
+    });
+  }
+
+  it('covers every recommendation the agent and policy tables know about, and nothing else', () => {
+    expect(Object.values(RECOMMENDATION_LABELS).sort()).toEqual(Object.keys(AGENTS).sort());
+    expect(Object.values(RECOMMENDATION_LABELS).sort()).toEqual(Object.keys(POLICY).sort());
+    expect(Object.keys(RECOMMENDATION_LABELS).sort()).toEqual(BACKEND_TYPES.map(([name]) => name).sort());
+  });
+
+  it('shows no raw enum name for any type', () => {
+    for (const [name, , agent, clause] of BACKEND_TYPES) {
+      expect(toCaseView(rowOfType(name, agent, clause)).rec.type).not.toBe(name);
+    }
+  });
+
+  it('passes a type it does not know through unchanged', () => {
+    expect(recommendationLabel('SOMETHING_NEW')).toBe('SOMETHING_NEW');
+    expect(toCaseView(rowOfType('SOMETHING_NEW', 'X', 'Y')).rec.type).toBe('SOMETHING_NEW');
+  });
+
+  it('maps the risk band enum name to the display name bandColor compares against, so High is red and Elevated is honey', () => {
+    // RiskBand.java sends WATCH / ELEVATED / HIGH; CREDIT is sent for a student owed money.
+    const bands: [string, string][] = [['WATCH', 'Watch'], ['ELEVATED', 'Elevated'], ['HIGH', 'High']];
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const debt = TestBed.inject(DebtService);
+    for (const [name, label] of bands) {
+      expect(toCaseView(row({ riskBand: name })).band).toBe(label as RiskBand);
+    }
+    expect(debt.bandColor(toCaseView(row({ riskBand: 'HIGH' })).band)).not.toBe(debt.bandColor('Watch'));
+    expect(debt.bandColor(toCaseView(row({ riskBand: 'ELEVATED' })).band)).not.toBe(debt.bandColor('Watch'));
+    expect(toCaseView(row({ riskBand: 'CREDIT' })).band as string).toBe('CREDIT');
+  });
+
+  it('records a saved decision against the same mapped type as the row, so the case is not reopened', () => {
+    const decided = row({
+      recommendation: { ...row().recommendation, type: 'REFUND', agent: 'Assurance Agent', policyClause: 'FIN-02.6' },
+      lastDecision: { action: 'APPROVE', amendedTerms: null, reason: null, decidedBy: 'Nomsa Mahlangu', decidedAt: '2026-10-01T08:00:00Z' },
+    });
+
+    const view = toCaseView(decided);
+
+    expect(view.decision?.recommendationType).toBe('Refund');
+    expect(view.decision?.recommendationType).toBe(view.rec.type);
   });
 });
