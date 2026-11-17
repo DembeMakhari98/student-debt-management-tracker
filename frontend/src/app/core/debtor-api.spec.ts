@@ -3,6 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_BASE } from './api';
 import { AGENTS, POLICY } from './constants';
+import { DebtService } from './debt.service';
+import { RiskBand } from './models';
 import {
   CaseDetailDto,
   DebtorApi,
@@ -35,7 +37,7 @@ function row(overrides: Partial<DebtorRowDto> = {}): DebtorRowDto {
     owedToStudent: false,
     pickedUp: true,
     riskScore: 71,
-    riskBand: 'High',
+    riskBand: 'HIGH',
     assignedOfficer: 'nomsa-mahlangu',
     signals: [{ text: 'Missed 2 instalments', hot: true }],
     recommendation: {
@@ -255,6 +257,19 @@ describe('recommendation type mapping (issue #277)', () => {
   it('passes a type it does not know through unchanged', () => {
     expect(recommendationLabel('SOMETHING_NEW')).toBe('SOMETHING_NEW');
     expect(toCaseView(rowOfType('SOMETHING_NEW', 'X', 'Y')).rec.type).toBe('SOMETHING_NEW');
+  });
+
+  it('maps the risk band enum name to the display name bandColor compares against, so High is red and Elevated is honey', () => {
+    // RiskBand.java sends WATCH / ELEVATED / HIGH; CREDIT is sent for a student owed money.
+    const bands: [string, string][] = [['WATCH', 'Watch'], ['ELEVATED', 'Elevated'], ['HIGH', 'High']];
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const debt = TestBed.inject(DebtService);
+    for (const [name, label] of bands) {
+      expect(toCaseView(row({ riskBand: name })).band).toBe(label as RiskBand);
+    }
+    expect(debt.bandColor(toCaseView(row({ riskBand: 'HIGH' })).band)).not.toBe(debt.bandColor('Watch'));
+    expect(debt.bandColor(toCaseView(row({ riskBand: 'ELEVATED' })).band)).not.toBe(debt.bandColor('Watch'));
+    expect(toCaseView(row({ riskBand: 'CREDIT' })).band as string).toBe('CREDIT');
   });
 
   it('records a saved decision against the same mapped type as the row, so the case is not reopened', () => {

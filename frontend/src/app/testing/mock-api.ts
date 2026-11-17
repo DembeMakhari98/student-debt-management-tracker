@@ -82,6 +82,9 @@ const BACKEND_TYPE: Record<string, string> = {
   Monitor: 'MONITOR',
 };
 
+/** Likewise for the risk band: the real API sends the enum name, never "High" (issue #277). */
+const BACKEND_BAND: Record<string, string> = { Watch: 'WATCH', Elevated: 'ELEVATED', High: 'HIGH' };
+
 function backendTypeOf(localType: string): string {
   const type = BACKEND_TYPE[localType];
   if (!type) throw new Error(`mock-api: no backend enum name for recommendation type "${localType}"`);
@@ -110,7 +113,7 @@ function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
     owedToStudent: debt.owedToStudent(d),
     pickedUp: debt.pickedUp(d),
     riskScore: score,
-    riskBand: debt.bandOf(score),
+    riskBand: debt.owedToStudent(d) ? 'CREDIT' : BACKEND_BAND[debt.bandOf(score)],
     assignedOfficer: d.assignedOfficer || null,
     signals: debt.signalsOf(d).map((s) => ({ text: s.t, hot: s.hot })),
     recommendation: {

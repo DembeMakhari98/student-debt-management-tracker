@@ -128,6 +128,22 @@ export function recommendationLabel(type: string): string {
   return RECOMMENDATION_LABELS[type] ?? type;
 }
 
+/**
+ * The backend sends the risk band as its enum name (`RiskBand`, or `CREDIT` for a student owed money).
+ * `bandColor` compares against the display names, so without this every badge fell back to the
+ * default colour on real data (issue #277, same class of mismatch). `CREDIT` passes through; credit
+ * rows are coloured by the `isCredit` check, not by band.
+ */
+export const RISK_BAND_LABELS: Record<string, string> = {
+  WATCH: 'Watch',
+  ELEVATED: 'Elevated',
+  HIGH: 'High',
+};
+
+export function riskBandLabel(band: string): RiskBand {
+  return (RISK_BAND_LABELS[band] ?? band) as RiskBand;
+}
+
 const ACTIONS: Record<string, DecisionAction> = {
   APPROVE: 'Approved',
   APPROVED: 'Approved',
@@ -190,7 +206,7 @@ export function toCaseView(row: DebtorRowDto, evidence: string[] = [], activity:
   return {
     d: toDebtor(row),
     score: row.riskScore,
-    band: row.riskBand as RiskBand,
+    band: riskBandLabel(row.riskBand),
     debt: row.debt,
     credit: row.credit,
     signals: row.signals.map((s) => ({ t: s.text, hot: s.hot })),
