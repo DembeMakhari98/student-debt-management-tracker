@@ -5,7 +5,10 @@ import { CasesComponent } from './cases.component';
 import { CaseStore } from '../../core/case-store.service';
 import { DebtService } from '../../core/debt.service';
 import { mockApi, mockApiProviders, resetMockApi } from '../../testing/mock-api';
-import { FUND, POLICY } from '../../core/constants';
+import { AGENTS, FUND, POLICY } from '../../core/constants';
+
+/** The backend's recommendation type names (RecommendationType.java) — none of these may reach the screen. */
+const RAW_BACKEND_TYPE = /\b(REFUND|REGISTRATION_HOLD|HARDSHIP_FUND|PAYMENT_ARRANGEMENT|FUNDING_CHASE|REMINDER_CADENCE|MONITOR)\b/;
 
 describe('CasesComponent — case list & case detail (issue #12)', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<CasesComponent>>;
@@ -93,6 +96,26 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
       expect(text).toContain(String(sel.score));
     }
     sel.signals.forEach((s) => expect(text).toContain(s.t));
+  });
+
+  it('#277 — every case shows its owning agent and policy clause, and never a raw recommendation name', () => {
+    const typesSeen = new Set<string>();
+
+    for (const c of component.list()) {
+      component.selectCase(c.d.id);
+      fixture.detectChanges();
+      const text = fixture.nativeElement.textContent as string;
+      const who = `${c.d.id} (${c.rec.type})`;
+
+      expect(AGENTS[c.rec.type]).withContext(`${who}: no agent for this type`).toBeTruthy();
+      expect(POLICY[c.rec.type]).withContext(`${who}: no policy clause for this type`).toBeTruthy();
+      expect(text).withContext(`${who}: agent not on screen`).toContain(`${AGENTS[c.rec.type]} · AI recommendation`);
+      expect(text).withContext(`${who}: policy clause not on screen`).toContain(POLICY[c.rec.type]);
+      expect(text).withContext(`${who}: a raw recommendation name is on screen`).not.toMatch(RAW_BACKEND_TYPE);
+      typesSeen.add(c.rec.type);
+    }
+
+    expect(typesSeen.size).withContext('the fixture should exercise several recommendation types').toBeGreaterThanOrEqual(4);
   });
 
   it('AC5 — the ageing position bars are scaled to the largest bucket on the case, and the total is shown', () => {

@@ -65,6 +65,29 @@ export function resetMockApi(): void {
   serverActivity.clear();
 }
 
+/**
+ * The backend's `RecommendationType` enum names, keyed by the display name the local engine uses.
+ * Spelled out here on purpose, independently of the app's own `RECOMMENDATION_LABELS`: this double
+ * stands in for the real API, so it must send what the real API sends. Deriving one table from the
+ * other would mirror a typo on both sides and let the bug in issue #277 (blank agent and policy
+ * clause on real data) pass the tests again.
+ */
+const BACKEND_TYPE: Record<string, string> = {
+  Refund: 'REFUND',
+  'Registration hold': 'REGISTRATION_HOLD',
+  'Hardship fund': 'HARDSHIP_FUND',
+  'Payment arrangement': 'PAYMENT_ARRANGEMENT',
+  'Funding chase': 'FUNDING_CHASE',
+  'Reminder cadence': 'REMINDER_CADENCE',
+  Monitor: 'MONITOR',
+};
+
+function backendTypeOf(localType: string): string {
+  const type = BACKEND_TYPE[localType];
+  if (!type) throw new Error(`mock-api: no backend enum name for recommendation type "${localType}"`);
+  return type;
+}
+
 function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
   const rec = debt.recommend(d);
   const score = debt.riskScore(d);
@@ -91,7 +114,7 @@ function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
     assignedOfficer: d.assignedOfficer || null,
     signals: debt.signalsOf(d).map((s) => ({ text: s.t, hot: s.hot })),
     recommendation: {
-      type: rec.type,
+      type: backendTypeOf(rec.type),
       action: rec.action,
       status: rec.status,
       rationale: rec.rationale,
