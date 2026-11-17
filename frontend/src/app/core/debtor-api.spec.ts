@@ -98,12 +98,26 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
     const body: CaseDetailDto = {
       debtor: row(),
       evidence: ['Ageing: 60 days'],
-      activity: [{ text: 'Risk scored', source: 'Risk Sentinel', createdAt: null }],
+      activity: [
+        { text: 'Risk scored', source: 'Risk Sentinel', createdAt: null },
+        {
+          text: 'Case detail viewed by Nomsa Mahlangu',
+          source: 'Access log · Nomsa Mahlangu · Officer · Team A',
+          createdAt: '2026-11-17T07:42:00Z',
+        },
+      ],
       lastDecision: null,
     };
     req.flush(body);
     expect(view?.evidence).toEqual(['Ageing: 60 days']);
-    expect(view?.activity).toEqual([{ t: 'Risk scored', m: 'Risk Sentinel' }]);
+    expect(view?.activity).toEqual([
+      { t: 'Risk scored', m: 'Risk Sentinel' },
+      {
+        t: 'Case detail viewed by Nomsa Mahlangu',
+        m: 'Access log · Nomsa Mahlangu · Officer · Team A',
+        at: '2026-11-17T07:42:00Z',
+      },
+    ]);
   });
 
   describe('decide() — POST /api/debtors/{key}/decision (issue #66)', () => {
