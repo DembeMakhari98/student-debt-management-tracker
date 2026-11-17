@@ -162,6 +162,10 @@ export class DebtService {
   signInAs(officer: Officer): void {
     this.actingOfficer.set(officer);
     this.portfolioScope.set('own');
+    // The constructor's summary fetch runs before sign-in, without a token, and fails with 401
+    // (FTC-37/TC-03, bug #158). Drop whatever was shown before and fetch again as this user.
+    this.summaryData.set(null);
+    this.refreshSummary();
   }
 
   /** Every Level 3 escalation, logged — not tied to any one debtor, so kept separate from
@@ -759,7 +763,7 @@ export class DebtService {
   exportCsv(): void {
     this.http
       .get(`${API_BASE}/api/debtors/export`, {
-        params: { year: String(this.year()), funding: String(this.funding()) },
+        params: { year: String(this.year()), funding: String(this.funding()), portfolio: this.portfolioScope() },
         responseType: 'text',
         observe: 'response',
       })
