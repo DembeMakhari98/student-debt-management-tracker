@@ -218,6 +218,7 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
 describe('CasesComponent — engagement channels panel (issue #14)', () => {
   let component: CasesComponent;
   let debt: DebtService;
+  let store: CaseStore;
 
   beforeEach(() => {
     resetMockApi();
@@ -240,6 +241,7 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
 
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
     spyOn(debt, 'logEngagementAction');
+    store = TestBed.inject(CaseStore);
   });
 
   it('sendSms() logs an SMS entry against the selected case', () => {
@@ -263,9 +265,27 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
     expect(debt.logEngagementAction).toHaveBeenCalledWith(id, jasmine.objectContaining({ t: 'Call logged with student' }));
   });
 
-  it('handToAdaptConnect() is a no-op (button ships disabled pending the hand-off interface)', () => {
+  it('canHandOver() is false, and handToAdaptConnect() calls the API nowhere, for a case that is not an approved Registration hold (issue #269)', () => {
+    const engageSpy = spyOn(store, 'engage').and.callThrough();
+    expect(component.canHandOver()).toBeFalse();
+
     component.handToAdaptConnect();
+
+    expect(engageSpy).not.toHaveBeenCalled();
     expect(debt.logEngagementAction).not.toHaveBeenCalled();
+  });
+
+  it('canHandOver() is true once the selected case is an approved Registration hold, and handToAdaptConnect() records the hand-over (issue #269)', () => {
+    const key = 'STU-100301'; // Defaulted/no-payment debtor, recommends Registration hold (debt.service rule 2)
+    store.decide(key, { action: 'APPROVE' }).subscribe();
+    component.selectCase(key);
+    TestBed.flushEffects();
+
+    expect(component.canHandOver()).toBeTrue();
+
+    component.handToAdaptConnect();
+
+    expect(store.detail()!.activity[0].t).toBe('Case handed over to Adapt Connect');
   });
 });
 

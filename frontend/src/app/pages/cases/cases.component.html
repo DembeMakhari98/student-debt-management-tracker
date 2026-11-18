@@ -221,7 +221,7 @@
                 <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="sendSms()">Send SMS</button>
                 <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="sendWhatsApp()">Send WhatsApp</button>
                 <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="logCall()">Log a call</button>
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" disabled title="Pending Adapt Connect hand-off interface confirmation — see issue #14" (click)="handToAdaptConnect()">Hand to Adapt Connect</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" [disabled]="!canHandOver()" [title]="handOverTooltip()" (click)="handToAdaptConnect()">Hand to Adapt Connect</button>
               </div>
             </div>
           </div>

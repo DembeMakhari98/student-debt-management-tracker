@@ -192,9 +192,11 @@ export class CasesComponent {
   }
 
   /* =========================================================================
-     ENGAGEMENT CHANNELS (issue #14) — frontend-only, session-lifetime activity
-     entries. No real SMS/WhatsApp/Adapt Connect dispatch — see
-     docs/SDD/issue-14-engagement-channels-panel.spec.md.
+     ENGAGEMENT CHANNELS (issue #14) — SMS/WhatsApp/call are still frontend-only,
+     session-lifetime activity entries (see docs/SDD/issue-14-engagement-channels-
+     panel.spec.md). Hand to Adapt Connect goes through the real engagement API
+     (issue #59, #269) since it is gated server-side on an approved Registration
+     hold decision, not merely logged.
      ========================================================================= */
 
   private logEngagement(entry: ActivityEntry): void {
@@ -216,6 +218,23 @@ export class CasesComponent {
     this.logEngagement({ t: 'Call logged with student', m: 'Engagement Agent · Officer action' });
   }
 
-  /** No-op: button is disabled pending the Adapt Connect hand-off interface (issue #14). */
-  handToAdaptConnect(): void {}
+  /** Hand-over is only available once an officer has approved (or amended-and-approved) the case's
+   *  Registration hold recommendation — the same rule the server enforces (issue #269, spec rule 7). */
+  readonly canHandOver = computed(() => {
+    const sel = this.selected();
+    return !!sel && sel.rec.type === 'Registration hold'
+      && (sel.decision?.action === 'Approved' || sel.decision?.action === 'Amended');
+  });
+
+  handOverTooltip(): string {
+    return this.canHandOver()
+      ? 'Hand this case to Adapt Connect for collections'
+      : 'Only available once an officer has approved this case’s Registration hold recommendation';
+  }
+
+  handToAdaptConnect(): void {
+    const sel = this.selected();
+    if (!sel || !this.canHandOver()) return;
+    this.store.engage(sel.d.id, { channel: 'HANDOVER' }).subscribe();
+  }
 }

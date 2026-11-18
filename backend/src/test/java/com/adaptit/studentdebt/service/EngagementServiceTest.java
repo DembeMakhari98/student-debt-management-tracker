@@ -2,13 +2,17 @@ package com.adaptit.studentdebt.service;
 
 import com.adaptit.studentdebt.domain.ActivityLogEntry;
 import com.adaptit.studentdebt.domain.Debtor;
+import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.FundingSource;
+import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.dto.ActivityEntryDto;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.EngagementRequestDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
+import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.web.BadRequestException;
+import com.adaptit.studentdebt.web.ConflictException;
 import com.adaptit.studentdebt.web.NotFoundException;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,16 +31,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** Backend counterpart of the frontend-only engagement panel, #14 (issue #59). */
+/** Backend counterpart of the frontend-only engagement panel, #14 (issue #59, #269). */
 class EngagementServiceTest {
 
     private final DebtorRepository debtorRepository = mock(DebtorRepository.class);
     private final ActivityLogEntryRepository activityLogEntryRepository = mock(ActivityLogEntryRepository.class);
     private final ActivityLogWriteBackService writeBackService = mock(ActivityLogWriteBackService.class);
     private final CaseService caseService = mock(CaseService.class);
+    private final OfficerDecisionRepository officerDecisionRepository = mock(OfficerDecisionRepository.class);
 
-    private final EngagementService engagementService =
-            new EngagementService(debtorRepository, activityLogEntryRepository, writeBackService, caseService);
+    private final EngagementService engagementService = new EngagementService(
+            debtorRepository, activityLogEntryRepository, writeBackService, caseService, officerDecisionRepository);
 
     @BeforeEach
     void setUp() {
@@ -125,5 +131,63 @@ class EngagementServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).text()).isEqualTo("x");
+    }
+
+    @Test
+    void handoverRecordsTheExpectedTextOnceTheRegistrationHoldIsApproved() {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
+                "STU-100234-2026", "REGISTRATION_HOLD"))
+                .thenReturn(Optional.of(decision(DecisionAction.APPROVE)));
+
+        engagementService.record("STU-100234-2026", new EngagementRequestDto("HANDOVER", null), "Nomsa Mahlangu");
+
+        ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
+        verify(activityLogEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getText()).isEqualTo("Case handed over to Adapt Connect");
+    }
+
+    @Test
+    void handoverSucceedsWhenTheRegistrationHoldWasAmendedAndApproved() {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
+                "STU-100234-2026", "REGISTRATION_HOLD"))
+                .thenReturn(Optional.of(decision(DecisionAction.AMEND)));
+
+        engagementService.record("STU-100234-2026", new EngagementRequestDto("HANDOVER", null), "Nomsa Mahlangu");
+
+        verify(activityLogEntryRepository).save(any());
+    }
+
+    @Test
+    void handoverIsRejectedWhenTheRegistrationHoldWasDeclined() {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
+                "STU-100234-2026", "REGISTRATION_HOLD"))
+                .thenReturn(Optional.of(decision(DecisionAction.DECLINE)));
+
+        assertThatThrownBy(() ->
+                engagementService.record("STU-100234-2026", new EngagementRequestDto("HANDOVER", null), "Nomsa Mahlangu"))
+                .isInstanceOf(ConflictException.class);
+        verify(activityLogEntryRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void handoverIsRejectedWhenTheCaseHasNoRegistrationHoldDecisionAtAll() {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
+                "STU-100234-2026", "REGISTRATION_HOLD"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                engagementService.record("STU-100234-2026", new EngagementRequestDto("HANDOVER", null), "Nomsa Mahlangu"))
+                .isInstanceOf(ConflictException.class);
+        verify(activityLogEntryRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    private static OfficerDecision decision(DecisionAction action) {
+        return OfficerDecision.builder()
+                .debtorKey("STU-100234-2026")
+                .recommendationType("REGISTRATION_HOLD")
+                .action(action)
+                .decidedBy("Thato Mokoena")
+                .decidedAt(Instant.parse("2026-10-29T11:05:00Z"))
+                .build();
     }
 }

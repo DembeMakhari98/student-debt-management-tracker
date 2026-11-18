@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AsyncSubject, Observable, Subscription, forkJoin } from 'rxjs';
 import { AuthService } from './auth/auth.service';
 import { DebtService } from './debt.service';
-import { DebtorApi, DecisionRequest } from './debtor-api';
+import { DebtorApi, DecisionRequest, EngagementRequest } from './debtor-api';
 import { CaseView, FundKey, PortfolioScope } from './models';
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
@@ -64,11 +64,35 @@ export class CaseStore {
     }
   });
 
+  /** Recording an engagement action — SMS/WhatsApp/call/hand-over (issue #59, #269). */
+  readonly engagementState = signal<SaveState>('idle');
+  readonly engagementErrorStatus = signal<number | null>(null);
+  readonly engagementErrorFor = signal<string | null>(null);
+  readonly engagementErrorMessage = computed(() => {
+    switch (this.engagementErrorStatus()) {
+      case 409:
+        return 'This case is no longer eligible for that action — refresh and try again.';
+      case 403:
+        return "This case belongs to another team, so you can't act on it.";
+      case 404:
+        return 'This case no longer exists.';
+      case 401:
+        return 'Your session has expired. Sign in again.';
+      case 400:
+        return 'The server rejected that action.';
+      default:
+        return "Couldn't record that action. Check your connection and try again.";
+    }
+  });
+
   private listSub?: Subscription;
   private detailSub?: Subscription;
   private decideSub?: Subscription;
+  private engageSub?: Subscription;
   /** Emits the in-flight save's outcome; kept so a sign-out can finish it. */
   private pendingDone?: AsyncSubject<boolean>;
+  /** Emits the in-flight engagement's outcome; kept so a sign-out can finish it. */
+  private pendingEngagementDone?: AsyncSubject<boolean>;
   /** The case whose detail the officer has open, or null. A save for any other case leaves it alone. */
   private openKey: string | null = null;
 
@@ -119,6 +143,8 @@ export class CaseStore {
     // the lists or the detail after sign-out, and tell the page it did not save.
     this.decideSub?.unsubscribe();
     this.finishDecision(false);
+    this.engageSub?.unsubscribe();
+    this.finishEngagement(false);
     this.openKey = null;
     this.picked.set([]);
     this.refunds.set([]);
@@ -131,6 +157,9 @@ export class CaseStore {
     this.decisionState.set('idle');
     this.decisionErrorStatus.set(null);
     this.decisionErrorFor.set(null);
+    this.engagementState.set('idle');
+    this.engagementErrorStatus.set(null);
+    this.engagementErrorFor.set(null);
   }
 
   /**
@@ -173,6 +202,56 @@ export class CaseStore {
     this.pendingDone = undefined;
     done?.next(saved);
     done?.complete();
+  }
+
+  /**
+   * Records an engagement action (SMS/WhatsApp/call/hand-over) and, on success, replaces the case's
+   * activity log with the server's refreshed copy — same in-flight/sign-out guards as {@link decide}.
+   */
+  engage(debtorKey: string, request: EngagementRequest): Observable<boolean> {
+    if (this.engagementState() === 'saving') {
+      const refused = new AsyncSubject<boolean>();
+      refused.next(false);
+      refused.complete();
+      return refused.asObservable();
+    }
+    const done = new AsyncSubject<boolean>();
+    this.pendingEngagementDone = done;
+    this.engagementState.set('saving');
+    this.engagementErrorStatus.set(null);
+    this.engagementErrorFor.set(null);
+    this.engageSub = this.api.engage(debtorKey, request).subscribe({
+      next: (activity) => {
+        this.applyActivity(debtorKey, activity);
+        this.engagementState.set('idle');
+        this.finishEngagement(true);
+      },
+      error: (err: unknown) => {
+        this.engagementErrorStatus.set(err instanceof HttpErrorResponse ? err.status : null);
+        this.engagementErrorFor.set(debtorKey);
+        this.engagementState.set('error');
+        this.finishEngagement(false);
+      },
+    });
+    return done.asObservable();
+  }
+
+  private finishEngagement(saved: boolean): void {
+    const done = this.pendingEngagementDone;
+    this.pendingEngagementDone = undefined;
+    done?.next(saved);
+    done?.complete();
+  }
+
+  private applyActivity(debtorKey: string, activity: CaseView['activity']): void {
+    const swap = (list: WritableSignal<CaseView[]>) =>
+      list.update((rows) => rows.map((r) => (r.d.id === debtorKey ? { ...r, activity } : r)));
+    swap(this.picked);
+    swap(this.refunds);
+    swap(this.paying);
+    if (this.openKey !== debtorKey) return;
+    const current = this.detail();
+    if (current) this.detail.set({ ...current, activity });
   }
 
   /**
