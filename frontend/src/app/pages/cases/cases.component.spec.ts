@@ -259,11 +259,36 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
     expect(store.detail()!.activity[0].t).toBe('WhatsApp message sent to student');
   });
 
-  it('logCall() records a call engagement against the selected case through the real API (issue #268)', () => {
+  it('openLogCall() opens the outcome capture, and confirmLogCall() is a no-op without one (issue #218 AC2)', () => {
+    component.openLogCall();
+    expect(component.logCallOpen()).toBeTrue();
+
+    component.confirmLogCall();
+
+    expect(mockApi.engagementCalls).toEqual([]);
+    expect(component.logCallOpen()).withContext('stays open so the officer can enter an outcome').toBeTrue();
+  });
+
+  it('confirmLogCall() records a call engagement with the entered outcome through the real API (issue #218 AC2, #268)', () => {
     const id = component.selected()!.d.id;
-    component.logCall();
-    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'CALL' } }]);
-    expect(store.detail()!.activity[0].t).toBe('Call logged with student');
+    component.openLogCall();
+    component.updateCallOutcome('Promised to pay Friday');
+
+    component.confirmLogCall();
+
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'CALL', note: 'Promised to pay Friday' } }]);
+    expect(store.detail()!.activity[0].t).toBe('Call logged with student — Promised to pay Friday');
+    expect(component.logCallOpen()).toBeFalse();
+  });
+
+  it('cancelLogCall() closes the outcome capture without recording anything', () => {
+    component.openLogCall();
+    component.updateCallOutcome('Some notes');
+
+    component.cancelLogCall();
+
+    expect(component.logCallOpen()).toBeFalse();
+    expect(mockApi.engagementCalls).toEqual([]);
   });
 
   it('canHandOver() is false, and handToAdaptConnect() calls the API nowhere, for a case that is not an approved Registration hold (issue #269)', () => {

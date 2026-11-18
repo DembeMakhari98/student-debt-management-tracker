@@ -199,10 +199,10 @@ export class CasesComponent {
      item (Spec §6.3) — only Hand to Adapt Connect's Registration-hold gate exists.
      ========================================================================= */
 
-  private engage(channel: EngagementChannel): void {
+  private engage(channel: EngagementChannel, note?: string): void {
     const sel = this.selected();
     if (!sel) return;
-    this.store.engage(sel.d.id, { channel }).subscribe();
+    this.store.engage(sel.d.id, note ? { channel, note } : { channel }).subscribe();
   }
 
   sendSms(): void {
@@ -214,8 +214,29 @@ export class CasesComponent {
     this.engage('WHATSAPP');
   }
 
-  logCall(): void {
-    this.engage('CALL');
+  /** A call needs the outcome the officer heard, so this opens an inline capture instead of
+   *  logging immediately — the case history must show more than just "a call happened" (#218 AC2). */
+  readonly logCallOpen = signal(false);
+  readonly callOutcome = signal('');
+
+  openLogCall(): void {
+    this.callOutcome.set('');
+    this.logCallOpen.set(true);
+  }
+
+  updateCallOutcome(value: string): void {
+    this.callOutcome.set(value);
+  }
+
+  cancelLogCall(): void {
+    this.logCallOpen.set(false);
+  }
+
+  confirmLogCall(): void {
+    const outcome = this.callOutcome().trim();
+    if (!outcome) return;
+    this.engage('CALL', outcome);
+    this.logCallOpen.set(false);
   }
 
   /** Hand-over is only available once an officer has approved (or amended-and-approved) the case's
