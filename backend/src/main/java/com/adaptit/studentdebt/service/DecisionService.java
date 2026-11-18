@@ -12,8 +12,10 @@ import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.web.BadRequestException;
+import com.adaptit.studentdebt.web.ConflictException;
 import com.adaptit.studentdebt.web.NotFoundException;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -74,6 +76,15 @@ public class DecisionService {
         }
 
         RecommendationDto rec = decisionEngineService.recommend(debtor);
+
+        // One final decision per recommendation (issue #215, #149): reject a second decision on the
+        // same case's current recommendation outright, with who already decided it and when.
+        officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(debtorKey, rec.type())
+                .ifPresent(existing -> {
+                    throw new ConflictException("This recommendation was already decided by "
+                            + existing.getDecidedBy() + " at " + existing.getDecidedAt());
+                });
+
         Instant now = Instant.now();
 
         OfficerDecision decision = OfficerDecision.builder()
@@ -85,7 +96,14 @@ public class DecisionService {
                 .decidedBy(request.decidedBy())
                 .decidedAt(now)
                 .build();
-        officerDecisionRepository.save(decision);
+        try {
+            // Flushed immediately (not just scheduled) so a genuinely simultaneous second request —
+            // one that passed the check above before this one committed — is caught here by the
+            // uq_officer_decision_debtor_recommendation constraint, instead of both inserts succeeding.
+            officerDecisionRepository.saveAndFlush(decision);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("This recommendation has already been decided by another officer");
+        }
 
         String verb = switch (action) {
             case APPROVE -> "approved";

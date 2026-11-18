@@ -11,15 +11,18 @@ import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.web.BadRequestException;
+import com.adaptit.studentdebt.web.ConflictException;
 import com.adaptit.studentdebt.web.NotFoundException;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,7 +75,7 @@ class DecisionServiceTest {
         decisionService.decide("STU-100234-2026", new DecisionRequestDto("APPROVE", null, null, "Nomsa Mahlangu"));
 
         ArgumentCaptor<OfficerDecision> captor = ArgumentCaptor.forClass(OfficerDecision.class);
-        verify(officerDecisionRepository).save(captor.capture());
+        verify(officerDecisionRepository).saveAndFlush(captor.capture());
         OfficerDecision saved = captor.getValue();
         assertThat(saved.getAction()).isEqualTo(DecisionAction.APPROVE);
         assertThat(saved.getDecidedBy()).isEqualTo("Nomsa Mahlangu");
@@ -96,7 +99,7 @@ class DecisionServiceTest {
                 new DecisionRequestDto("AMEND", "6 x R 1200", null, "Nomsa Mahlangu"));
 
         ArgumentCaptor<OfficerDecision> captor = ArgumentCaptor.forClass(OfficerDecision.class);
-        verify(officerDecisionRepository).save(captor.capture());
+        verify(officerDecisionRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getAmendedTerms()).isEqualTo("6 x R 1200");
     }
 
@@ -135,7 +138,7 @@ class DecisionServiceTest {
                 new DecisionRequestDto("DECLINE", null, "Student already on a verbal arrangement", "Nomsa Mahlangu"));
 
         ArgumentCaptor<OfficerDecision> captor = ArgumentCaptor.forClass(OfficerDecision.class);
-        verify(officerDecisionRepository).save(captor.capture());
+        verify(officerDecisionRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getAction()).isEqualTo(DecisionAction.DECLINE);
         assertThat(captor.getValue().getReason()).isEqualTo("Student already on a verbal arrangement");
     }
@@ -154,5 +157,37 @@ class DecisionServiceTest {
         assertThatThrownBy(() ->
                 decisionService.decide("nope", new DecisionRequestDto("APPROVE", null, null, "Nomsa Mahlangu")))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void aSecondDecisionOnTheSameRecommendationIsRejectedWithWhoDecidedItFirst() {
+        OfficerDecision existing = OfficerDecision.builder()
+                .debtorKey("STU-100234-2026")
+                .recommendationType("PAYMENT_ARRANGEMENT")
+                .action(DecisionAction.APPROVE)
+                .decidedBy("Sibusiso Khoza")
+                .decidedAt(Instant.parse("2026-11-12T10:04:00Z"))
+                .build();
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
+                "STU-100234-2026", "PAYMENT_ARRANGEMENT")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() ->
+                decisionService.decide("STU-100234-2026", new DecisionRequestDto("APPROVE", null, null, "Nomsa Mahlangu")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Sibusiso Khoza");
+
+        verify(officerDecisionRepository, org.mockito.Mockito.never()).saveAndFlush(any());
+        verify(activityLogEntryRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void aTrueConcurrentRaceIsCaughtByTheDatabaseUniqueConstraintAtInsertTime() {
+        when(officerDecisionRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThatThrownBy(() ->
+                decisionService.decide("STU-100234-2026", new DecisionRequestDto("APPROVE", null, null, "Nomsa Mahlangu")))
+                .isInstanceOf(ConflictException.class);
+
+        verify(activityLogEntryRepository, org.mockito.Mockito.never()).save(any());
     }
 }

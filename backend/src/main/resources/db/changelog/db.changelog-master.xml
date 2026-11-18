@@ -22,5 +22,6 @@
     <include file="db/changelog/010-debtor-assignment.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/011-portfolio-escalation.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/012-seed-test-scenarios.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/013-officer-decision-unique.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
