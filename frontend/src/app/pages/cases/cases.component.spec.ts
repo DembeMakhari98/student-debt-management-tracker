@@ -94,6 +94,7 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     expect(text).toContain(POLICY[sel.rec.type]);
     if (!component.isCredit(sel)) {
       expect(text).toContain(String(sel.score));
+      expect(text).withContext('the band badge must show its name, not just a colour (issue #260)').toContain(sel.band);
     }
     sel.signals.forEach((s) => expect(text).toContain(s.t));
   });
