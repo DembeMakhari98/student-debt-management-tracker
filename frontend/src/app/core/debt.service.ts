@@ -415,9 +415,9 @@ export class DebtService {
     return DEBTORS.filter((d) => (year === 'all' || d.year === year) && (funding === 'all' || d.funding === funding));
   });
 
-  /** Institution-wide, deliberately NOT portfolio-scoped (issue #18 non-goal) — Home's
-   *  aggregate dashboard KPIs are the only intended consumers. Everything else (Tracker,
-   *  Cases, CSV export) must use the scoped `pickedRows`/`refundRows`/`payingRows` below. */
+  /** Institution-wide, NOT portfolio-scoped — the unscoped base the scoped
+   *  `pickedRows`/`refundRows`/`payingRows` below filter. UI counts (Home callout, tab badges)
+   *  read the API-backed CaseStore lists instead, so they follow the portfolio scope (#256). */
   readonly allPickedRows = computed<Debtor[]>(() =>
     this.rows()
       .filter((d) => this.pickedUp(d))
