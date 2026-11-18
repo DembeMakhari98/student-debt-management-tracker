@@ -6,6 +6,7 @@ import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
+import com.adaptit.studentdebt.dto.RecommendationDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
@@ -30,6 +31,7 @@ public class DecisionService {
     private final OfficerDecisionRepository officerDecisionRepository;
     private final ActivityLogEntryRepository activityLogEntryRepository;
     private final DecisionEngineService decisionEngineService;
+    private final CaseAssemblyService caseAssemblyService;
     private final CaseService caseService;
     private final ActivityLogWriteBackService writeBackService;
 
@@ -37,12 +39,14 @@ public class DecisionService {
                             OfficerDecisionRepository officerDecisionRepository,
                             ActivityLogEntryRepository activityLogEntryRepository,
                             DecisionEngineService decisionEngineService,
+                            CaseAssemblyService caseAssemblyService,
                             CaseService caseService,
                             ActivityLogWriteBackService writeBackService) {
         this.debtorRepository = debtorRepository;
         this.officerDecisionRepository = officerDecisionRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.decisionEngineService = decisionEngineService;
+        this.caseAssemblyService = caseAssemblyService;
         this.caseService = caseService;
         this.writeBackService = writeBackService;
     }
@@ -65,7 +69,8 @@ public class DecisionService {
             throw new ValidationException("reason is required when action = DECLINE");
         }
 
-        String recommendationType = decisionEngineService.recommend(debtor).type();
+        RecommendationDto recommendation = decisionEngineService.recommend(debtor);
+        String recommendationType = recommendation.type();
         Instant now = Instant.now();
 
         OfficerDecision decision = OfficerDecision.builder()
@@ -89,6 +94,8 @@ public class DecisionService {
                 .text("Recommendation " + verb + " by " + request.decidedBy()
                         + (action == DecisionAction.DECLINE ? " — " + request.reason() : ""))
                 .source("Officer decision · " + request.decidedBy())
+                .rationale(recommendation.rationale())
+                .evidence(String.join("; ", caseAssemblyService.evidenceOf(debtor)))
                 .createdAt(now)
                 .build());
         writeBackService.recordAndAttempt(entry);

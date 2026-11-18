@@ -3,6 +3,7 @@ package com.adaptit.studentdebt.service;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.FundingSource;
+import com.adaptit.studentdebt.domain.ActivityLogEntry;
 import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
@@ -34,11 +35,12 @@ class DecisionServiceTest {
     private final ActivityLogEntryRepository activityLogEntryRepository = mock(ActivityLogEntryRepository.class);
     private final CaseService caseService = mock(CaseService.class);
     private final DecisionEngineService decisionEngineService = new DecisionEngineService();
+    private final CaseAssemblyService caseAssemblyService = new CaseAssemblyService();
     private final ActivityLogWriteBackService writeBackService = mock(ActivityLogWriteBackService.class);
 
     private final DecisionService decisionService = new DecisionService(
             debtorRepository, officerDecisionRepository, activityLogEntryRepository, decisionEngineService,
-            caseService, writeBackService);
+            caseAssemblyService, caseService, writeBackService);
 
     private Debtor debtor;
 
@@ -77,6 +79,23 @@ class DecisionServiceTest {
 
         verify(activityLogEntryRepository).save(any());
         verify(writeBackService).recordAndAttempt(any());
+    }
+
+    @Test
+    void theActivityEntryWrittenBackCarriesTheRecommendationsRationaleAndTheEvidenceTheAgentRead() {
+        decisionService.decide("STU-100234-2026", new DecisionRequestDto("APPROVE", null, null, "Nomsa Mahlangu"));
+
+        ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
+        verify(activityLogEntryRepository).save(captor.capture());
+        ActivityLogEntry saved = captor.getValue();
+
+        String expectedRationale = decisionEngineService.recommend(debtor).rationale();
+        assertThat(saved.getRationale()).isEqualTo(expectedRationale);
+        assertThat(saved.getRationale()).isNotBlank();
+
+        String expectedEvidence = String.join("; ", caseAssemblyService.evidenceOf(debtor));
+        assertThat(saved.getEvidence()).isEqualTo(expectedEvidence);
+        assertThat(saved.getEvidence()).contains("Funding · Self-funded");
     }
 
     @Test
