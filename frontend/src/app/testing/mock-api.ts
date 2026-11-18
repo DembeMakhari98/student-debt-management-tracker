@@ -112,6 +112,9 @@ function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
     credit: Math.abs(Math.min(0, debt.rowTotal(d))),
     owedToStudent: debt.owedToStudent(d),
     pickedUp: debt.pickedUp(d),
+    // Tracking when a case was newly picked up (issue #132) happens server-side only, during the
+    // real nightly extract — this mock has no equivalent run to simulate, so it is always false.
+    newToday: false,
     riskScore: score,
     riskBand: debt.owedToStudent(d) ? 'CREDIT' : BACKEND_BAND[debt.bandOf(score)],
     assignedOfficer: d.assignedOfficer || null,

@@ -88,6 +88,11 @@ public class Debtor {
     @Column(name = "assigned_officer", length = 60)
     private String assignedOfficer;
 
+    /** When DebtMath.pickedUp() was last seen to flip false -> true for this debtor (issue #132);
+     *  null if not currently picked up. Set by NightlyExtractService, never by the API layer. */
+    @Column(name = "picked_up_since")
+    private Instant pickedUpSince;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

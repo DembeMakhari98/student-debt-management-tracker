@@ -61,6 +61,7 @@ export interface DebtorRowDto {
   credit: number;
   owedToStudent: boolean;
   pickedUp: boolean;
+  newToday: boolean;
   riskScore: number;
   riskBand: string;
   /** The owning officer's key (issue #55); null while the case is unassigned. */
@@ -220,6 +221,7 @@ export function toCaseView(row: DebtorRowDto, evidence: string[] = [], activity:
     evidence,
     activity,
     decision: toDecision(row.lastDecision, type),
+    newToday: row.newToday,
   };
 }
 

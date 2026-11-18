@@ -36,6 +36,7 @@ function row(overrides: Partial<DebtorRowDto> = {}): DebtorRowDto {
     credit: 0,
     owedToStudent: false,
     pickedUp: true,
+    newToday: false,
     riskScore: 71,
     riskBand: 'HIGH',
     assignedOfficer: 'nomsa-mahlangu',

@@ -110,6 +110,10 @@ export interface CaseView {
   activity: ActivityEntry[];
   /** Null while the current recommendation is still awaiting an officer decision (issue #13). */
   decision: Decision | null;
+  /** True if the agent newly picked this case up in its most recent run (issue #132) — what the
+   *  Home "picked up today" call-to-action promises, as opposed to a case that has simply stayed
+   *  picked up since an earlier run. */
+  newToday: boolean;
 }
 
 export interface AgeBucketDef {

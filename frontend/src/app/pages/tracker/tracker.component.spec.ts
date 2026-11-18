@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { of } from 'rxjs';
 import { TrackerComponent } from './tracker.component';
 import { CaseStore } from '../../core/case-store.service';
 import { DebtService } from '../../core/debt.service';
@@ -27,7 +28,11 @@ describe('TrackerComponent — Debt Management Tracker workspace (issues #11, #6
     navigate = jasmine.createSpy('navigate');
     TestBed.configureTestingModule({
       imports: [TrackerComponent],
-      providers: [{ provide: Router, useValue: { navigate } }, ...mockApiProviders()],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+        { provide: Router, useValue: { navigate } },
+        ...mockApiProviders(),
+      ],
     });
 
     fixture = TestBed.createComponent(TrackerComponent);
@@ -184,5 +189,74 @@ describe('TrackerComponent — Debt Management Tracker workspace (issues #11, #6
     store.picked.set([]);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No student in this selection has missed a payment');
+  });
+
+  it('#132 — with no filter query param, shows the whole picked-up worklist, not just today\'s', () => {
+    expect(component.onlyNewToday()).toBeFalse();
+    expect(component.pickedCases().length).toBe(component.allPickedCases().length);
+  });
+});
+
+describe('TrackerComponent — /tracker?filter=new, the Home "picked up today" call-to-action (issue #132)', () => {
+  let fixture: ReturnType<typeof TestBed.createComponent<TrackerComponent>>;
+  let component: TrackerComponent;
+  let store: CaseStore;
+  let navigate: jasmine.Spy;
+
+  function settle(): void {
+    TestBed.flushEffects();
+    fixture.detectChanges();
+  }
+
+  beforeEach(() => {
+    resetMockApi();
+    navigate = jasmine.createSpy('navigate');
+    TestBed.configureTestingModule({
+      imports: [TrackerComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({ filter: 'new' })) } },
+        { provide: Router, useValue: { navigate } },
+        ...mockApiProviders(),
+      ],
+    });
+
+    fixture = TestBed.createComponent(TrackerComponent);
+    component = fixture.componentInstance;
+    store = TestBed.inject(CaseStore);
+    settle();
+  });
+
+  it('scopes the picked-up list to only the cases newly flagged today', () => {
+    const all = component.allPickedCases();
+    expect(all.length).toBeGreaterThan(0);
+    store.picked.set(all.map((c, i) => ({ ...c, newToday: i === 0 })));
+    fixture.detectChanges();
+
+    expect(component.onlyNewToday()).toBeTrue();
+    expect(component.pickedCases().length).toBe(1);
+    expect(component.pickedCases()[0].newToday).toBeTrue();
+    expect(fixture.nativeElement.querySelectorAll('app-case-row').length)
+      .toBe(1 + component.refundCases().length);
+  });
+
+  it('shows a banner naming how many of the full worklist are newly flagged, with a way back to the full list', () => {
+    const all = component.allPickedCases();
+    store.picked.set(all.map((c, i) => ({ ...c, newToday: i === 0 })));
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Showing 1 case');
+    expect(text).toContain(`out of ${all.length}`);
+
+    (fixture.nativeElement.querySelector('button.btn-line') as HTMLButtonElement).click();
+    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: {} }));
+  });
+
+  it('shows a distinct empty state when nothing was newly flagged today, rather than the full-worklist message', () => {
+    store.picked.set(component.allPickedCases().map((c) => ({ ...c, newToday: false })));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('No case was newly picked up by the agent today');
+    expect(fixture.nativeElement.textContent).not.toContain('No student in this selection has missed a payment');
   });
 });

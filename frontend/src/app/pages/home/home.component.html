@@ -68,7 +68,7 @@
       <span class="c-title">The agent has picked up {{ picked() }} student{{ picked() === 1 ? '' : 's' }} for a human today</span>
       <span class="c-hint">Missed instalments, arrears beyond current, or funding that has not resolved. {{ paying() }} debtor{{ paying() === 1 ? '' : 's' }} paying on cycle were left alone.</span>
     </div>
-    <a class="btn-blue" routerLink="/tracker" style="text-decoration:none;display:inline-block">Review the pickup</a>
+    <a class="btn-blue" routerLink="/tracker" [queryParams]="{ filter: 'new' }" style="text-decoration:none;display:inline-block">Review the pickup</a>
   </div>
 
   <div class="eyebrow">Workspaces</div>
