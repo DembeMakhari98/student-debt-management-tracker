@@ -894,6 +894,21 @@ describe('DebtService — live summary via GET /api/summary (issue #64)', () => 
     });
   });
 
+  it('re-fetches the summary once the signed-in officer is known, not just on a filter change (issue #96/#158)', () => {
+    // The construction-time fetch (fired before any officer is known) comes back 401'd.
+    expectRequest().flush('boom', { status: 401, statusText: 'Unauthorized' });
+    expect(service.summaryError()).toBeTrue();
+
+    service.setCurrentOfficer('grace-van-rooyen');
+
+    // Signing in must fire its own fetch — an officer must never be stuck behind a false
+    // "backend unreachable" banner until they happen to touch the year/funding filter.
+    const req = expectRequest();
+    req.flush(DTO);
+    expect(service.summaryError()).toBeFalse();
+    expect(service.summary().registered).toBe(DTO.registeredStudents);
+  });
+
   it('a later successful request clears a previous error', () => {
     expectRequest().flush('boom', { status: 500, statusText: 'Server Error' });
     expect(service.summaryError()).toBeTrue();

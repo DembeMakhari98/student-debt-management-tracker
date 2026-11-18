@@ -158,10 +158,15 @@ export class DebtService {
     if (officer) this.signInAs(officer);
   }
 
-  /** Acts as the signed-in user, who may not be on the case-assignment roster (e.g. an admin). */
+  /** Acts as the signed-in user, who may not be on the case-assignment roster (e.g. an admin).
+   *  Re-fetches the KPI summary (issue #96/#158): the very first fetch, fired from this
+   *  service's own constructor, goes out before login and so is always unauthenticated — this
+   *  is the only fetch guaranteed to happen once the officer (and their portfolio) is actually
+   *  known, which is what the Home dashboard's tiles must reflect. */
   signInAs(officer: Officer): void {
     this.actingOfficer.set(officer);
     this.portfolioScope.set('own');
+    this.refreshSummary();
   }
 
   /** Every Level 3 escalation, logged — not tied to any one debtor, so kept separate from

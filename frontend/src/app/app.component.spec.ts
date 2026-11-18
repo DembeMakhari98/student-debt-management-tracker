@@ -28,6 +28,21 @@ function meta(overrides: Partial<Meta> = {}): Meta {
   };
 }
 
+/** DebtService fires GET /api/summary once unauthenticated from its own constructor and again
+ *  once the officer is known (issue #96/#158) — the first is always cancelled by the second,
+ *  so only the still-open one(s) can be flushed. These tests don't care about the response. */
+function flushSummary(http: HttpTestingController): void {
+  http
+    .match((r) => r.url === `${API_BASE}/api/summary`)
+    .filter((r) => !r.cancelled)
+    .forEach((r) =>
+      r.flush({
+        registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
+        atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
+      }),
+    );
+}
+
 describe('AppComponent — global chrome export button (issue #17)', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<AppComponent>>;
   let debt: DebtService;
@@ -137,10 +152,7 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     http.expectOne(`${API_BASE}/api/auth/me`).flush({ username: 'anele.dube', displayName: 'Anele Dube', role: 'OFFICER', team: 'Team B', officerKey: 'anele-dube' });
     http.expectOne(`${API_BASE}/api/meta`).flush(meta({ autonomyLevel: 2 }));
     flushWorklist();
-    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
-      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
-      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
-    });
+    flushSummary(http);
 
     expect(autonomySelect(fixture).disabled).toBeTrue();
   });
@@ -158,10 +170,7 @@ describe('AppComponent — autonomy dropdown gating (issue #57)', () => {
     http.expectOne(`${API_BASE}/api/meta`).flush(meta({ autonomyLevel: 2 }));
     http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
     flushWorklist();
-    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
-      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
-      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
-    });
+    flushSummary(http);
     fixture.detectChanges();
 
     const select = autonomySelect(fixture);
@@ -218,10 +227,7 @@ describe('AppComponent — reference data from GET /api/meta (issue #63)', () =>
     const fixture = create();
     http.expectOne(`${API_BASE}/api/meta`).flush(meta());
     http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
-    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
-      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
-      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
-    });
+    flushSummary(http);
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
 
@@ -253,10 +259,7 @@ describe('AppComponent — reference data from GET /api/meta (issue #63)', () =>
     retry.click();
     http.expectOne(`${API_BASE}/api/meta`).flush(meta());
     http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
-    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
-      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
-      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
-    });
+    flushSummary(http);
     fixture.detectChanges();
 
     expect(el.textContent).not.toContain("Couldn't load filter options.");
@@ -296,13 +299,6 @@ describe('AppComponent — Write-back failures nav link (issue #69)', () => {
     http.match((r) => r.url.startsWith(`${API_BASE}/api/debtors`)).forEach((r) => r.flush([]));
   }
 
-  function flushSummary(): void {
-    http.expectOne((r) => r.url === `${API_BASE}/api/summary`).flush({
-      registeredStudents: 0, totalDebt: 0, debtorCount: 0, totalCredit: 0, creditCount: 0,
-      atRisk90Plus: 0, atRisk90PlusPct: 0, averageBalance: 0,
-    });
-  }
-
   afterEach(() => {
     http.verify();
     localStorage.removeItem(STORAGE_KEY);
@@ -326,7 +322,7 @@ describe('AppComponent — Write-back failures nav link (issue #69)', () => {
     flushAuthMe('OFFICER');
     http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
     flushWorklist();
-    flushSummary();
+    flushSummary(http);
 
     expect(navLink(fixture)).toBeNull();
   });
@@ -344,7 +340,7 @@ describe('AppComponent — Write-back failures nav link (issue #69)', () => {
     http.expectOne(`${API_BASE}/api/meta`).flush({ autonomyLevel: 2 });
     http.expectOne((r) => r.url.includes('/api/admin/extract/history')).flush([]);
     flushWorklist();
-    flushSummary();
+    flushSummary(http);
 
     const link = navLink(fixture);
     expect(link).toBeTruthy();
