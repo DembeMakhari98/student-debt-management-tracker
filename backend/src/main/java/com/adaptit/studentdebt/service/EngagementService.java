@@ -2,6 +2,7 @@ package com.adaptit.studentdebt.service;
 
 import com.adaptit.studentdebt.domain.ActivityLogEntry;
 import com.adaptit.studentdebt.domain.DecisionAction;
+import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.EngagementChannel;
 import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.domain.RecommendationType;
@@ -35,22 +36,25 @@ public class EngagementService {
     private final ActivityLogWriteBackService writeBackService;
     private final CaseService caseService;
     private final OfficerDecisionRepository officerDecisionRepository;
+    private final DecisionEngineService decisionEngineService;
 
     public EngagementService(DebtorRepository debtorRepository,
                               ActivityLogEntryRepository activityLogEntryRepository,
                               ActivityLogWriteBackService writeBackService,
                               CaseService caseService,
-                              OfficerDecisionRepository officerDecisionRepository) {
+                              OfficerDecisionRepository officerDecisionRepository,
+                              DecisionEngineService decisionEngineService) {
         this.debtorRepository = debtorRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.writeBackService = writeBackService;
         this.caseService = caseService;
         this.officerDecisionRepository = officerDecisionRepository;
+        this.decisionEngineService = decisionEngineService;
     }
 
     @Transactional
     public List<ActivityEntryDto> record(String debtorKey, EngagementRequestDto request, String officerDisplayName) {
-        debtorRepository.findById(debtorKey)
+        Debtor debtor = debtorRepository.findById(debtorKey)
                 .orElseThrow(() -> new NotFoundException("No debtor found for " + debtorKey));
 
         EngagementChannel channel;
@@ -68,7 +72,7 @@ public class EngagementService {
             case SMS -> "SMS sent to student";
             case WHATSAPP -> "WhatsApp message sent to student";
             case CALL -> "Call logged with student";
-            case HANDOVER -> "Case handed over to Adapt Connect";
+            case HANDOVER -> handOverHeadline(debtor);
         };
         String text = isBlank(request.note()) ? headline : headline + " — " + request.note();
 
@@ -98,6 +102,28 @@ public class EngagementService {
             throw new ConflictException(
                     "Case must be an approved Registration hold case before it can be handed to Adapt Connect");
         }
+    }
+
+    /**
+     * Collections needs the case's balance, ageing position and the AI's rationale to act without
+     * the officer re-keying it (issue #138, #218 AC3). No live Adapt Connect interface is confirmed
+     * yet (technical spec open item 5) — like SMS/WhatsApp, the payload is simulated as a detailed
+     * activity-log entry rather than a real outbound call.
+     */
+    private String handOverHeadline(Debtor debtor) {
+        return "Case handed over to Adapt Connect — balance " + MoneyFormat.r(DebtMath.rowDebt(debtor))
+                + ", ageing to " + oldestAgeingBucketLabel(debtor)
+                + ", rationale: " + decisionEngineService.recommend(debtor).rationale();
+    }
+
+    private static String oldestAgeingBucketLabel(Debtor debtor) {
+        AgeBucket[] oldestFirst = {AgeBucket.D120, AgeBucket.D90, AgeBucket.D60, AgeBucket.D30, AgeBucket.CURRENT};
+        for (AgeBucket bucket : oldestFirst) {
+            if (bucket.positiveOf(debtor).signum() > 0) {
+                return bucket.getLabel();
+            }
+        }
+        return AgeBucket.CURRENT.getLabel();
     }
 
     private static boolean isBlank(String s) {

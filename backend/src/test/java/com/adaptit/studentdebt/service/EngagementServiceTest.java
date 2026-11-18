@@ -40,19 +40,23 @@ class EngagementServiceTest {
     private final CaseService caseService = mock(CaseService.class);
     private final OfficerDecisionRepository officerDecisionRepository = mock(OfficerDecisionRepository.class);
 
+    private final DecisionEngineService decisionEngineService = new DecisionEngineService();
+
     private final EngagementService engagementService = new EngagementService(
-            debtorRepository, activityLogEntryRepository, writeBackService, caseService, officerDecisionRepository);
+            debtorRepository, activityLogEntryRepository, writeBackService, caseService, officerDecisionRepository,
+            decisionEngineService);
 
     @BeforeEach
     void setUp() {
         Debtor debtor = new Debtor();
         debtor.setDebtorKey("STU-100234-2026");
         debtor.setFundingSource(FundingSource.SELF);
+        debtor.setArrangementStatus("Defaulted"); // so a HANDOVER's rationale reflects a real Registration-hold case
         debtor.setAgeingCurrent(BigDecimal.ZERO);
         debtor.setAgeing30(BigDecimal.ZERO);
         debtor.setAgeing60(BigDecimal.ZERO);
         debtor.setAgeing90(BigDecimal.ZERO);
-        debtor.setAgeing120(BigDecimal.ZERO);
+        debtor.setAgeing120(BigDecimal.valueOf(5000));
         when(debtorRepository.findById("STU-100234-2026")).thenReturn(Optional.of(debtor));
         when(activityLogEntryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(caseService.detailFor("STU-100234-2026")).thenReturn(
@@ -134,7 +138,7 @@ class EngagementServiceTest {
     }
 
     @Test
-    void handoverRecordsTheExpectedTextOnceTheRegistrationHoldIsApproved() {
+    void handoverRecordsTheCasesBalanceAgeingAndRationaleOnceApproved() {
         when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
                 "STU-100234-2026", "REGISTRATION_HOLD"))
                 .thenReturn(Optional.of(decision(DecisionAction.APPROVE)));
@@ -143,7 +147,10 @@ class EngagementServiceTest {
 
         ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
         verify(activityLogEntryRepository).save(captor.capture());
-        assertThat(captor.getValue().getText()).isEqualTo("Case handed over to Adapt Connect");
+        assertThat(captor.getValue().getText())
+                .startsWith("Case handed over to Adapt Connect — balance " + MoneyFormat.r(BigDecimal.valueOf(5000)))
+                .contains("ageing to 120+ days")
+                .contains("rationale: A prior arrangement defaulted");
     }
 
     @Test

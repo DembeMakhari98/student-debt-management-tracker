@@ -165,6 +165,9 @@ class EngagementEndpointTest {
 
         ActivityEntryDto[] activity =
                 objectMapper.readValue(result.getResponse().getContentAsString(), ActivityEntryDto[].class);
-        assertThat(activity).anySatisfy(a -> assertThat(a.text()).isEqualTo("Case handed over to Adapt Connect"));
+        assertThat(activity).anySatisfy(a -> assertThat(a.text())
+                .startsWith("Case handed over to Adapt Connect — balance")
+                .contains("ageing to")
+                .contains("rationale:"));
     }
 }
