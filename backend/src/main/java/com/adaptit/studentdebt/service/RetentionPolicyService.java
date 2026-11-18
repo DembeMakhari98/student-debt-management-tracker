@@ -2,6 +2,7 @@ package com.adaptit.studentdebt.service;
 
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
+import com.adaptit.studentdebt.repository.CaseAccessLogRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -33,17 +34,20 @@ public class RetentionPolicyService {
     private final DebtorRepository debtorRepository;
     private final ActivityLogEntryRepository activityLogEntryRepository;
     private final OfficerDecisionRepository officerDecisionRepository;
+    private final CaseAccessLogRepository caseAccessLogRepository;
     private final Clock clock;
     private final int retentionYears;
 
     public RetentionPolicyService(DebtorRepository debtorRepository,
                                    ActivityLogEntryRepository activityLogEntryRepository,
                                    OfficerDecisionRepository officerDecisionRepository,
+                                   CaseAccessLogRepository caseAccessLogRepository,
                                    Clock clock,
                                    @Value("${app.retention.case-history-years:7}") int retentionYears) {
         this.debtorRepository = debtorRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.officerDecisionRepository = officerDecisionRepository;
+        this.caseAccessLogRepository = caseAccessLogRepository;
         this.clock = clock;
         this.retentionYears = retentionYears;
     }
@@ -74,6 +78,7 @@ public class RetentionPolicyService {
             for (Debtor row : rows) {
                 activityLogEntryRepository.deleteAllByDebtorKey(row.getDebtorKey());
                 officerDecisionRepository.deleteAllByDebtorKey(row.getDebtorKey());
+                caseAccessLogRepository.deleteAllByDebtorKey(row.getDebtorKey());
             }
             debtorRepository.deleteAll(rows);
             log.info("Purged case history for studentId={} ({} financial year rows) — retention period expired",
