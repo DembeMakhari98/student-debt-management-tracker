@@ -35,7 +35,10 @@ public record AgeingResponseDto(
             java.time.LocalDate creditSince,
             int daysOwing,
             String ageingBandLabel,
-            BigDecimal amountOwed
+            BigDecimal amountOwed,
+            /** A distinct compliance finding from the 90-day audit threshold above (issue #125/#160):
+             *  true once the debtor's financial year itself has ended, regardless of daysOwing. */
+            boolean pastTermEnd
     ) {
     }
 }
