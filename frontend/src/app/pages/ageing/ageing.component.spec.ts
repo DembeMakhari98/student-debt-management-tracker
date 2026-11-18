@@ -252,12 +252,31 @@ describe('AgeingComponent — fetch, re-fetch and failure handling (issue #67)',
     httpMock.verify();
   });
 
-  it('requests GET /api/ageing with the current year and funding as query params on construction', () => {
+  it('requests GET /api/ageing with the current year, funding and portfolio scope as query params on construction', () => {
     const req = expectRequest();
     expect(req.request.method).toBe('GET');
     expect(req.request.params.get('year')).toBe(String(debt.year()));
     expect(req.request.params.get('funding')).toBe(String(debt.funding()));
+    expect(req.request.params.get('portfolio')).toBe(debt.portfolioScope());
     req.flush(FIXTURE);
+  });
+
+  it('re-fetches when the portfolio scope changes, so the stale-credit audit banner is not silently limited to the caller\'s own caseload (#224)', () => {
+    expectRequest().flush(FIXTURE);
+
+    debt.setPortfolioScope('team');
+    fixture.detectChanges();
+    const req = expectRequest();
+    expect(req.request.params.get('portfolio')).toBe('team');
+    const teamScopedExtraCredit = { ...FIXTURE.credits[0], studentId: 'STU-100355-2026', amountOwed: 7300 };
+    req.flush({
+      ...FIXTURE,
+      credits: [...FIXTURE.credits, teamScopedExtraCredit],
+      staleCreditTotal: 19100,
+      staleCreditCount: 2,
+    });
+
+    expect(component.staleAmount()).toBe(19100);
   });
 
   it('is loading until the request resolves', () => {
