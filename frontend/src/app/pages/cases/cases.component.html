@@ -60,7 +60,12 @@
         <div class="card">
           <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
             <div style="display:flex;gap:16px;align-items:flex-start">
-              <div class="score" style="width:52px;height:52px;font-size:18px;flex:none" [style.background]="bandColor(sel)">{{ isCredit(sel) ? '↩' : sel.score }}</div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:none">
+                <div class="score" style="width:52px;height:52px;font-size:18px" [style.background]="bandColor(sel)">{{ isCredit(sel) ? '↩' : sel.score }}</div>
+                @if (!isCredit(sel)) {
+                  <span class="tag" style="font-size:10px">{{ sel.band }}</span>
+                }
+              </div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 <span style="font-size:20px;font-weight:700;color:var(--fg-1);line-height:1.15">{{ sel.d.name }}</span>
                 <span class="tag" style="font-size:12px">{{ sel.d.id }} · {{ sel.d.prog }}</span>
