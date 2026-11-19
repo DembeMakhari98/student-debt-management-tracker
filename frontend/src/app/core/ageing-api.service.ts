@@ -26,6 +26,8 @@ export interface AgeingCreditRow {
   daysOwing: number;
   ageingBandLabel: string;
   amountOwed: number;
+  /** A compliance finding distinct from the 90-day audit threshold above (issue #125/#160). */
+  pastTermEnd: boolean;
 }
 
 /** The shape of `GET /api/ageing`'s response (backend's AgeingResponseDto, issue #67). */

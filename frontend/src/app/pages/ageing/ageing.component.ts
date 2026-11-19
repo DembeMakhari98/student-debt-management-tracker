@@ -40,6 +40,7 @@ interface CreditRow {
   bandColor: string;
   amount: number;
   pct: number;
+  pastTermEnd: boolean;
 }
 
 /** Backend's FundingSource enum name ("SELF"/"GOV"/"PRIVATE") to the frontend's FundKey. */
@@ -158,6 +159,7 @@ export class AgeingComponent {
         bandLabel: c.ageingBandLabel,
         bandColor: band.color,
         amount: c.amountOwed,
+        pastTermEnd: c.pastTermEnd,
       };
     });
   });

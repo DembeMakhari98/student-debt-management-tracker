@@ -48,11 +48,13 @@ const FIXTURE: AgeingApiResponse = {
       daysOwing: 190,
       ageingBandLabel: '120+ days',
       amountOwed: 11800,
+      // Stale by the 90-day rule, but 2026's own term hasn't ended yet — the two findings are independent (#125).
+      pastTermEnd: false,
     },
     {
       studentId: 'STU-100341',
       name: 'Noah Smith',
-      year: 2026,
+      year: 2024,
       fundingSource: 'SELF',
       fundingLabel: 'Self-funded',
       creditReason: 'Overpayment',
@@ -60,6 +62,8 @@ const FIXTURE: AgeingApiResponse = {
       daysOwing: 24,
       ageingBandLabel: 'Current',
       amountOwed: 500,
+      // Well under the 90-day threshold, but 2024's term ended long ago.
+      pastTermEnd: true,
     },
   ],
   staleCreditTotal: 11800,
@@ -197,6 +201,28 @@ describe('AgeingComponent — Age Analysis workspace, live data from GET /api/ag
     it('totals the stale amount and names the single oldest case', () => {
       expect(component.staleAmount()).toBe(11800);
       expect(component.oldestCredit()?.d.id).toBe('STU-100355');
+    });
+  });
+
+  describe('AC: past-term-end compliance finding, independent of the 90-day audit threshold (issue #125)', () => {
+    it('maps pastTermEnd from the API onto each credit row', () => {
+      const stale = component.creditRows().find((r) => r.d.id === 'STU-100355')!;
+      const pastTermEnd = component.creditRows().find((r) => r.d.id === 'STU-100341')!;
+
+      expect(stale.days).toBeGreaterThan(90);
+      expect(stale.pastTermEnd).toBeFalse();
+
+      expect(pastTermEnd.days).toBeLessThan(90);
+      expect(pastTermEnd.pastTermEnd).toBeTrue();
+    });
+
+    it('renders a "Past term end" badge only for the flagged row', () => {
+      const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr'));
+      const flaggedRow = rows.find((r) => r.textContent?.includes('Noah Smith'))!;
+      const staleRow = rows.find((r) => r.textContent?.includes('Jessica Adams'))!;
+
+      expect(flaggedRow.textContent).toContain('Past term end');
+      expect(staleRow.textContent).not.toContain('Past term end');
     });
   });
 
