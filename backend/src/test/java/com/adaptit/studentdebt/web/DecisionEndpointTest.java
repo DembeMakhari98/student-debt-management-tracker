@@ -1,6 +1,7 @@
 package com.adaptit.studentdebt.web;
 
 import com.adaptit.studentdebt.dto.CaseDetailDto;
+import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +35,8 @@ class DecisionEndpointTest {
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private OfficerDecisionRepository officerDecisionRepository;
 
     @MockitoBean
     private com.adaptit.studentdebt.writeback.ActivityLogWriteBackAdapter adapter;
@@ -69,6 +72,9 @@ class DecisionEndpointTest {
     @WithMockUser(username = "nomsa.mahlangu", roles = "MANAGER")
     void amendRecordsBothTheOriginalAndTheAmendedTermsOnTheActivityLog() throws Exception {
         when(adapter.attemptWrite(any())).thenReturn(com.adaptit.studentdebt.writeback.WriteBackResult.ok());
+        // This debtor is seeded with a decision already (012-seed-test-scenarios.xml); clear it so
+        // this AMEND isn't rejected as a second decision on the same recommendation (issue #215).
+        officerDecisionRepository.deleteAllByDebtorKey(DEBTOR_KEY);
 
         MvcResult result = mockMvc.perform(post("/api/debtors/{debtorKey}/decision", DEBTOR_KEY)
                         .contentType("application/json")
@@ -81,5 +87,27 @@ class DecisionEndpointTest {
             assertThat(a.text()).contains("original terms:").contains("amended to: Instalments: 4");
             assertThat(a.source()).isEqualTo("Officer decision · nomsa.mahlangu");
         });
+    }
+
+    @Test
+    @WithMockUser(username = "nomsa.mahlangu", roles = "MANAGER")
+    void onlyTheFirstOfTwoApprovalsOnTheSameRecommendationSucceeds() throws Exception {
+        // STU-100234-2026 has no seeded decision (see EngagementServiceTest) — both calls contend
+        // for the same, still-undecided, recommendation (issue #215, #149: one final decision per
+        // recommendation).
+        String debtorKey = "STU-100234-2026";
+        when(adapter.attemptWrite(any())).thenReturn(com.adaptit.studentdebt.writeback.WriteBackResult.ok());
+
+        mockMvc.perform(post("/api/debtors/{debtorKey}/decision", debtorKey)
+                        .contentType("application/json")
+                        .content("{\"action\":\"APPROVE\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/debtors/{debtorKey}/decision", debtorKey)
+                        .contentType("application/json")
+                        .content("{\"action\":\"APPROVE\"}"))
+                .andExpect(status().isConflict());
+
+        assertThat(officerDecisionRepository.findAllByDebtorKeyOrderByDecidedAtDesc(debtorKey)).hasSize(1);
     }
 }
