@@ -9,6 +9,8 @@ import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 
 /** Assembles the one shared row shape used by the Tracker worklist and the case list. */
@@ -67,6 +69,7 @@ public class RowAssembler {
                 credit,
                 owedToStudent,
                 DebtMath.pickedUp(d, fundingRiskWeights),
+                newToday(d),
                 score,
                 band,
                 caseAssemblyService.signalsOf(d, fundingRiskWeights),
@@ -78,5 +81,12 @@ public class RowAssembler {
 
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /** Was this case newly flagged by the extract run that most recently set pickedUpSince
+     *  (issue #132) — the "picked up today" the Home CTA promises? Server-local calendar day. */
+    private static boolean newToday(Debtor d) {
+        return d.getPickedUpSince() != null
+                && d.getPickedUpSince().atZone(ZoneId.systemDefault()).toLocalDate().equals(LocalDate.now());
     }
 }

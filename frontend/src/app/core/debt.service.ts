@@ -718,6 +718,9 @@ export class DebtService {
          officer/agent actions); reverse for display so the panel reads newest-first (#12). */
       activity: [...this.activityOf(d), ...(this.engagementLog().get(d.id) ?? [])].reverse(),
       decision: this.decisionOf(d, rec),
+      // This builder derives a case purely from a Debtor, with no extract run behind it to track
+      // a pickup transition against (issue #132) — only the live API can say this is true.
+      newToday: false,
     };
   }
 

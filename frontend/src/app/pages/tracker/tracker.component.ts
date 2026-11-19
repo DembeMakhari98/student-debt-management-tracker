@@ -1,5 +1,6 @@
-import { Component, computed } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, Signal, computed } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { CaseStore } from '../../core/case-store.service';
 import { DebtService, formatRand } from '../../core/debt.service';
 import { AGENTS, FUND } from '../../core/constants';
@@ -19,15 +20,33 @@ export class TrackerComponent {
   readonly FUND = FUND;
   readonly AGENTS = AGENTS;
 
+  private readonly queryParams: Signal<ParamMap | undefined>;
+
   constructor(
     public debt: DebtService,
     public store: CaseStore,
+    private route: ActivatedRoute,
     private router: Router,
-  ) {}
+  ) {
+    this.queryParams = toSignal(this.route.queryParamMap, { requireSync: false });
+  }
 
-  readonly pickedCases = computed<CaseView[]>(() => this.store.picked().map((c) => this.debt.withLocalState(c)));
+  /** /tracker?filter=new — the Home "picked up today" call-to-action (issue #132), scoped to
+   *  cases the agent newly flagged in its most recent run rather than the whole worklist. */
+  readonly onlyNewToday = computed(() => this.queryParams()?.get('filter') === 'new');
+
+  readonly allPickedCases = computed<CaseView[]>(() => this.store.picked().map((c) => this.debt.withLocalState(c)));
+  readonly newTodayCount = computed(() => this.allPickedCases().filter((c) => c.newToday).length);
+
+  readonly pickedCases = computed<CaseView[]>(() =>
+    this.onlyNewToday() ? this.allPickedCases().filter((c) => c.newToday) : this.allPickedCases(),
+  );
   readonly refundCases = computed<CaseView[]>(() => this.store.refunds().map((c) => this.debt.withLocalState(c)));
   readonly payingCases = computed<CaseView[]>(() => this.store.paying());
+
+  showFullWorklist(): void {
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
+  }
 
   statusColor(status: string): string {
     return status === 'Needs approval' ? 'var(--red-text)' : status === 'Agent acting' ? 'var(--ai-mid-blue)' : 'var(--fg-3)';

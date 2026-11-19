@@ -39,8 +39,8 @@ describe('HomeComponent — pick-up callout (TC-37 #256, FTC-95 #199)', () => {
     expect(fixture.componentInstance.paying()).toBe(0);
   });
 
-  it('links the callout to the Tracker', () => {
+  it('links the callout to the Tracker, scoped to today\'s pickups (issue #132)', () => {
     const link = fixture.nativeElement.querySelector('a.btn-blue') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/tracker');
+    expect(link.getAttribute('href')).toBe('/tracker?filter=new');
   });
 });
