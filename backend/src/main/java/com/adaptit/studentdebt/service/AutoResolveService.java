@@ -5,6 +5,7 @@ import com.adaptit.studentdebt.dto.AutoResolveResultDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
 import com.adaptit.studentdebt.dto.RecommendationDto;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -17,6 +18,12 @@ import java.util.List;
  * a human APPROVE click uses, so the officer_decision row, activity log entry and ITS Integrator
  * write-back (issue #3) all happen identically — just attributed to "Autonomous Agent" instead
  * of a signed-in officer.
+ *
+ * <p>Runs nightly, same schedule as {@link com.adaptit.studentdebt.extract.NightlyExtractService}
+ * and {@link ReminderCadenceService} (issue #121, #185: raising the autonomy level had no visible
+ * effect because nothing but a direct {@code POST /api/cases/auto-resolve} call — issue #60's
+ * manager "run now" — ever invoked this). Manager/admin can still trigger it on demand through
+ * that endpoint; this just means they no longer have to.
  */
 @Service
 public class AutoResolveService {
@@ -44,6 +51,7 @@ public class AutoResolveService {
         this.decisionService = decisionService;
     }
 
+    @Scheduled(cron = "0 0 2 * * *")
     public AutoResolveResultDto autoResolve() {
         int level = autonomySettingService.currentLevel();
         List<String> resolved = new ArrayList<>();
