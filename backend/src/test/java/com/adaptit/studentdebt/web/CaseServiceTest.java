@@ -76,9 +76,16 @@ class CaseServiceTest {
                 "Arrangement · Defaulted"
         ), detail.evidence());
 
-        // First 5 entries are computed live on every read (§4.6, rules 1-5); the 6th is the
-        // persisted "Nightly extract loaded..." seed entry (004-seed-activity-log.xml).
-        List<ActivityEntryDto> activity = detail.activity();
+        // First 5 entries are computed live on every read (§4.6, rules 1-5); stored entries follow,
+        // newest first, so this read's own access entry comes next. Other tests' reads of the same
+        // case add older access entries, so those are set aside before checking the rest.
+        List<ActivityEntryDto> all = detail.activity();
+        assertEquals("Case detail viewed by user", all.get(5).text());
+        assertEquals("Access log · user · Manager", all.get(5).source());
+
+        List<ActivityEntryDto> activity = all.stream()
+                .filter(a -> !a.source().startsWith("Access log"))
+                .toList();
         assertEquals(6, activity.size());
         assertEquals("Risk scored 96 and banded HIGH", activity.get(0).text());
         assertEquals("Risk Sentinel · overnight run", activity.get(0).source());
@@ -98,7 +105,8 @@ class CaseServiceTest {
         detailFor(DEBTOR_KEY);
 
         long after = activityLogEntryRepository.findAllByDebtorKeyOrderByCreatedAtDesc(DEBTOR_KEY).size();
-        assertEquals(before, after, "reading case detail must never write to the persisted activity log");
+        assertEquals(before, after, "reading case detail must never write to the persisted activity log"
+                + " (access is recorded separately, in case_access_log)");
     }
 
     private CaseDetailDto detailFor(String debtorKey) throws Exception {

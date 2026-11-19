@@ -33,6 +33,7 @@ function caseView(overrides: Partial<CaseView> = {}): CaseView {
     evidence: [],
     activity: [],
     decision: null,
+    newToday: false,
     ...overrides,
   };
 }
@@ -103,6 +104,7 @@ describe('CaseRowComponent — Tracker worklist row (issue #11)', () => {
       evidence: [],
       activity: [],
       decision: null,
+      newToday: false,
       ...overrides,
     };
   }

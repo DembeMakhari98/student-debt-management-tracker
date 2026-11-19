@@ -22,6 +22,8 @@ export const mockApi = {
   detailStatus: 500,
   failDecision: false,
   decisionStatus: 500,
+  failEngagement: false,
+  engagementStatus: 500,
   /** While true, a decision / detail response is held back until its release function is called. */
   deferDecision: false,
   deferDetail: false,
@@ -31,6 +33,7 @@ export const mockApi = {
   listCalls: [] as string[],
   detailCalls: [] as string[],
   decisionCalls: [] as { key: string; body: DecisionRequest }[],
+  engagementCalls: [] as { key: string; body: { channel: string; note?: string } }[],
 };
 
 /** Holds a 200 response until the test calls the release function pushed onto `queue`. */
@@ -53,6 +56,8 @@ export function resetMockApi(): void {
   mockApi.detailStatus = 500;
   mockApi.failDecision = false;
   mockApi.decisionStatus = 500;
+  mockApi.failEngagement = false;
+  mockApi.engagementStatus = 500;
   mockApi.deferDecision = false;
   mockApi.deferDetail = false;
   mockApi.pendingDecisions = [];
@@ -61,6 +66,7 @@ export function resetMockApi(): void {
   mockApi.listCalls = [];
   mockApi.detailCalls = [];
   mockApi.decisionCalls = [];
+  mockApi.engagementCalls = [];
   serverDecisions.clear();
   serverActivity.clear();
 }
@@ -112,6 +118,9 @@ function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
     credit: Math.abs(Math.min(0, debt.rowTotal(d))),
     owedToStudent: debt.owedToStudent(d),
     pickedUp: debt.pickedUp(d),
+    // Tracking when a case was newly picked up (issue #132) happens server-side only, during the
+    // real nightly extract — this mock has no equivalent run to simulate, so it is always false.
+    newToday: false,
     riskScore: score,
     riskBand: debt.owedToStudent(d) ? 'CREDIT' : BACKEND_BAND[debt.bandOf(score)],
     assignedOfficer: d.assignedOfficer || null,
@@ -203,6 +212,36 @@ const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
       ...(serverActivity.get(d.id) ?? []),
     ]);
     return mockApi.deferDecision ? respondLater(mockApi.pendingDecisions, detailOf(d)) : ok(detailOf(d));
+  }
+
+  const engagementPath = /^\/api\/debtors\/([^/]+)\/engagements$/.exec(url.pathname);
+  if (engagementPath && req.method === 'POST') {
+    const engagementKey = decodeURIComponent(engagementPath[1]);
+    const request = req.body as { channel: string; note?: string };
+    mockApi.engagementCalls.push({ key: engagementKey, body: request });
+    if (mockApi.failEngagement) return throwError(() => new HttpErrorResponse({ status: mockApi.engagementStatus, url: req.url }));
+    const d = DEBTORS.find((x) => x.id === engagementKey);
+    if (!d) return throwError(() => new HttpErrorResponse({ status: 404, url: req.url }));
+    if (request.channel === 'HANDOVER') {
+      const decision = serverDecisions.get(d.id);
+      const approved = !!decision && (decision.action === 'APPROVE' || decision.action === 'AMEND');
+      const isRegistrationHold = backendTypeOf(debt.recommend(d).type) === 'REGISTRATION_HOLD';
+      if (!approved || !isRegistrationHold) return throwError(() => new HttpErrorResponse({ status: 409, url: req.url }));
+    }
+    const headline: Record<string, string> = {
+      SMS: 'SMS sent to student',
+      WHATSAPP: 'WhatsApp message sent to student',
+      CALL: 'Call logged with student',
+      HANDOVER: 'Case handed over to Adapt Connect',
+    };
+    const text = headline[request.channel] + (request.note ? ` — ${request.note}` : '');
+    serverActivity.set(d.id, [
+      { text, source: 'Engagement Agent · Test Officer', createdAt: new Date().toISOString() },
+      ...(serverActivity.get(d.id) ?? []),
+    ]);
+    // Mirrors EngagementService.record(), which returns caseService.detailFor(...).activity() —
+    // the case's full merged log, not just the entries this call added.
+    return ok(detailOf(d).activity);
   }
 
   const key = decodeURIComponent(url.pathname.replace('/api/debtors', '').replace(/^\//, ''));

@@ -40,6 +40,7 @@ interface CreditRow {
   bandColor: string;
   amount: number;
   pct: number;
+  pastTermEnd: boolean;
 }
 
 /** Backend's FundingSource enum name ("SELF"/"GOV"/"PRIVATE") to the frontend's FundKey. */
@@ -69,10 +70,10 @@ export class AgeingComponent {
     public debt: DebtService,
     public ageingApi: AgeingApiService,
   ) {
-    // The year/funding filter lives in the global chrome, not on this page — react to it
-    // changing for as long as this component is alive.
+    // The year/funding/portfolio filters live in the global chrome, not on this page — react
+    // to them changing for as long as this component is alive.
     effect(() => {
-      this.ageingApi.refresh(this.debt.year(), this.debt.funding());
+      this.ageingApi.refresh(this.debt.year(), this.debt.funding(), this.debt.portfolioScope());
     });
   }
 
@@ -158,6 +159,7 @@ export class AgeingComponent {
         bandLabel: c.ageingBandLabel,
         bandColor: band.color,
         amount: c.amountOwed,
+        pastTermEnd: c.pastTermEnd,
       };
     });
   });

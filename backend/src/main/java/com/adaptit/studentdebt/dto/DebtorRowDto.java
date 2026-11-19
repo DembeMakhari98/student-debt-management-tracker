@@ -26,6 +26,7 @@ public record DebtorRowDto(
         BigDecimal credit,
         boolean owedToStudent,
         boolean pickedUp,
+        boolean newToday,
         int riskScore,
         String riskBand,
         List<SignalDto> signals,

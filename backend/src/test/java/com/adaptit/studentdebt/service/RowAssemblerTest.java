@@ -123,4 +123,20 @@ class RowAssemblerTest {
         assertThat(row.riskScore()).isZero();
         assertThat(row.credit()).isEqualByComparingTo(BigDecimal.valueOf(20000));
     }
+
+    /** issue #132: newToday reflects pickedUpSince against the server's local calendar day. */
+    @Test
+    void newTodayIsTrueOnlyWhenPickedUpSinceFallsOnTodaysCalendarDate() {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(any(), any()))
+                .thenReturn(Optional.empty());
+
+        debtor.setPickedUpSince(Instant.now());
+        assertThat(rowAssembler.toRow(debtor, weights).newToday()).isTrue();
+
+        debtor.setPickedUpSince(Instant.now().minus(2, java.time.temporal.ChronoUnit.DAYS));
+        assertThat(rowAssembler.toRow(debtor, weights).newToday()).isFalse();
+
+        debtor.setPickedUpSince(null);
+        assertThat(rowAssembler.toRow(debtor, weights).newToday()).isFalse();
+    }
 }

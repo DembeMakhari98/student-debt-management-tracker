@@ -14,6 +14,16 @@
   <div class="eyebrow">Debt summary · {{ debt.scopeLabel() }}</div>
   <app-summary-cards></app-summary-cards>
 
+  @if (onlyNewToday()) {
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <span class="c-hint">
+        Showing {{ newTodayCount() }} case{{ newTodayCount() === 1 ? '' : 's' }} newly picked up by the agent today,
+        out of {{ allPickedCases().length }} on the full worklist.
+      </span>
+      <button class="btn-line" (click)="showFullWorklist()">Show full worklist</button>
+    </div>
+  }
+
   <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:4px">
     <span class="eyebrow">Picked up by the agent · {{ pickedCases().length }} student{{ pickedCases().length === 1 ? '' : 's' }}</span>
     <span style="font-size:11.5px;color:var(--fg-3)">Sorted by risk score · click a row to open the case</span>
@@ -31,6 +41,8 @@
     @for (c of pickedCases(); track c.d.id) {
       <app-case-row [case]="c" (open)="openCase($event)"></app-case-row>
     }
+  } @else if (onlyNewToday()) {
+    <div class="card"><span class="c-hint">No case was newly picked up by the agent today.</span></div>
   } @else {
     <div class="card"><span class="c-hint">No student in this selection has missed a payment or fallen into arrears.</span></div>
   }

@@ -2,6 +2,7 @@ package com.adaptit.studentdebt.service;
 
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
+import com.adaptit.studentdebt.repository.CaseAccessLogRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,12 +27,13 @@ class RetentionPolicyServiceTest {
     private final DebtorRepository debtorRepository = mock(DebtorRepository.class);
     private final ActivityLogEntryRepository activityLogEntryRepository = mock(ActivityLogEntryRepository.class);
     private final OfficerDecisionRepository officerDecisionRepository = mock(OfficerDecisionRepository.class);
+    private final CaseAccessLogRepository caseAccessLogRepository = mock(CaseAccessLogRepository.class);
 
     /** "Today" fixed to 2033-06-15 for every test — 2026 + 7 years = 2033-12-31, still in the future. */
     private final Clock clock = Clock.fixed(Instant.parse("2033-06-15T00:00:00Z"), ZoneOffset.UTC);
 
     private final RetentionPolicyService service = new RetentionPolicyService(
-            debtorRepository, activityLogEntryRepository, officerDecisionRepository, clock, 7);
+            debtorRepository, activityLogEntryRepository, officerDecisionRepository, caseAccessLogRepository, clock, 7);
 
     private Debtor debtor(String studentId, String debtorKey, int financialYear) {
         Debtor d = new Debtor();
@@ -88,6 +90,7 @@ class RetentionPolicyServiceTest {
 
         verify(activityLogEntryRepository).deleteAllByDebtorKey("STU-100001-2018");
         verify(officerDecisionRepository).deleteAllByDebtorKey("STU-100001-2018");
+        verify(caseAccessLogRepository).deleteAllByDebtorKey("STU-100001-2018");
         verify(debtorRepository).deleteAll(List.of(eligibleRow));
 
         verify(debtorRepository, never()).findAllByStudentId("STU-100003");
@@ -104,6 +107,7 @@ class RetentionPolicyServiceTest {
 
         verify(activityLogEntryRepository, never()).deleteAllByDebtorKey(anyString());
         verify(officerDecisionRepository, never()).deleteAllByDebtorKey(anyString());
+        verify(caseAccessLogRepository, never()).deleteAllByDebtorKey(anyString());
         verify(debtorRepository, never()).deleteAll(org.mockito.ArgumentMatchers.<List<Debtor>>any());
     }
 }

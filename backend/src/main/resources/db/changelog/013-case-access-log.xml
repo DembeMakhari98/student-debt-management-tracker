@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Who opened which student's case, and when (spec §7: every read of a student's financial
+        detail must be attributable to a logged-in user; POPIA). One row per successful
+        GET /api/debtors/{key}. Append-only, like activity_log_entry, and purged with the rest of
+        the case history by the retention job (issue #20). Kept apart from activity_log_entry so
+        reads never write to the agent/officer activity log and are never written back to ITS.
+    -->
+    <changeSet id="013-01-create-case-access-log" author="student-debt-tracker">
+        <createTable tableName="case_access_log">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="debtor_key" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="username" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="team" type="varchar(40)"/>
+            <column name="accessed_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_case_access_log_debtor_key" tableName="case_access_log">
+            <column name="debtor_key"/>
+        </createIndex>
+        <createIndex indexName="idx_case_access_log_accessed_at" tableName="case_access_log">
+            <column name="accessed_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="case_access_log" baseColumnNames="debtor_key"
+                                  constraintName="fk_case_access_log_debtor"
+                                  referencedTableName="debtor" referencedColumnNames="debtor_key"/>
+    </changeSet>
+
+</databaseChangeLog>

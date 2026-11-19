@@ -7,6 +7,8 @@ import com.adaptit.studentdebt.domain.RegisteredCount;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.JobRunLogRepository;
 import com.adaptit.studentdebt.repository.RegisteredCountRepository;
+import com.adaptit.studentdebt.service.DebtMath;
+import com.adaptit.studentdebt.service.RiskScoringService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * Extracts a fresh position for every registered debtor each night (issue #2). Reads
@@ -32,15 +35,18 @@ public class NightlyExtractService {
     private final DebtorRepository debtorRepository;
     private final RegisteredCountRepository registeredCountRepository;
     private final JobRunLogRepository jobRunLogRepository;
+    private final RiskScoringService riskScoringService;
 
     public NightlyExtractService(DebtorSourceAdapter sourceAdapter,
                                   DebtorRepository debtorRepository,
                                   RegisteredCountRepository registeredCountRepository,
-                                  JobRunLogRepository jobRunLogRepository) {
+                                  JobRunLogRepository jobRunLogRepository,
+                                  RiskScoringService riskScoringService) {
         this.sourceAdapter = sourceAdapter;
         this.debtorRepository = debtorRepository;
         this.registeredCountRepository = registeredCountRepository;
         this.jobRunLogRepository = jobRunLogRepository;
+        this.riskScoringService = riskScoringService;
     }
 
     /** Fires nightly at 02:00 server time — well before officers start their shift. */
@@ -89,8 +95,11 @@ public class NightlyExtractService {
 
     /** Upsert by debtorKey — an existing row is updated in place, never duplicated. */
     private int upsertDebtors(java.util.List<ExtractedDebtor> extracted) {
+        Map<String, Integer> fundingRiskWeights = riskScoringService.loadFundingRiskWeights();
         for (ExtractedDebtor e : extracted) {
             Debtor debtor = debtorRepository.findById(e.debtorKey()).orElseGet(Debtor::new);
+            boolean wasPickedUp = DebtMath.pickedUp(debtor, fundingRiskWeights);
+
             debtor.setDebtorKey(e.debtorKey());
             debtor.setStudentId(e.studentId());
             debtor.setName(e.name());
@@ -111,6 +120,17 @@ public class NightlyExtractService {
             debtor.setCreditDays(e.creditDays());
             debtor.setCreditReason(e.creditReason());
             debtor.setUpdatedAt(Instant.now());
+
+            // issue #132: record the instant this case was newly flagged, so the Tracker can tell
+            // a case picked up by this run from one that has simply stayed picked up since an
+            // earlier one. Untouched while it stays picked up; cleared the moment it no longer is.
+            boolean nowPickedUp = DebtMath.pickedUp(debtor, fundingRiskWeights);
+            if (nowPickedUp && !wasPickedUp) {
+                debtor.setPickedUpSince(Instant.now());
+            } else if (!nowPickedUp) {
+                debtor.setPickedUpSince(null);
+            }
+
             debtorRepository.save(debtor);
         }
         return extracted.size();

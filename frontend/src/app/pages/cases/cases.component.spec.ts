@@ -94,6 +94,7 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     expect(text).toContain(POLICY[sel.rec.type]);
     if (!component.isCredit(sel)) {
       expect(text).toContain(String(sel.score));
+      expect(text).withContext('the band badge must show its name, not just a colour (issue #260)').toContain(sel.band);
     }
     sel.signals.forEach((s) => expect(text).toContain(s.t));
   });
@@ -144,6 +145,22 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
       expect(text).toContain(a.t);
       expect(text).toContain(a.m);
     });
+  });
+
+  it('shows the time on an activity entry that has one, such as a server access entry (FTC-38)', () => {
+    const id = component.selected()!.d.id;
+    const at = '2026-11-17T07:42:00Z';
+    debt.logEngagementAction(id, {
+      t: 'Case detail viewed by Nomsa Mahlangu',
+      m: 'Access log · Nomsa Mahlangu · Officer · Team A',
+      at,
+    });
+    fixture.detectChanges();
+
+    const time = fixture.nativeElement.querySelector(`time[datetime="${at}"]`) as HTMLTimeElement | null;
+    expect(time).withContext('the entry must render a <time> element').toBeTruthy();
+    expect(time!.textContent).toBe(component.when(at));
+    expect(time!.textContent).toContain('2026');
   });
 
   it('AC6 — an action logged this session appears above the server entries', () => {
@@ -218,6 +235,7 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
 describe('CasesComponent — engagement channels panel (issue #14)', () => {
   let component: CasesComponent;
   let debt: DebtService;
+  let store: CaseStore;
 
   beforeEach(() => {
     resetMockApi();
@@ -240,32 +258,76 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
 
     expect(component.selected()).withContext('a default case must be selected for these tests').toBeTruthy();
     spyOn(debt, 'logEngagementAction');
+    store = TestBed.inject(CaseStore);
   });
 
-  it('sendSms() logs an SMS entry against the selected case', () => {
+  it('sendSms() records an SMS engagement against the selected case through the real API (issue #268)', () => {
     const id = component.selected()!.d.id;
     component.sendSms();
-    expect(debt.logEngagementAction).toHaveBeenCalledWith(id, jasmine.objectContaining({ t: 'SMS sent to student' }));
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'SMS' } }]);
+    expect(store.detail()!.activity[0].t).toBe('SMS sent to student');
   });
 
-  it('sendWhatsApp() logs a WhatsApp entry against the selected case', () => {
+  it('sendWhatsApp() records a WhatsApp engagement against the selected case through the real API (issue #268)', () => {
     const id = component.selected()!.d.id;
     component.sendWhatsApp();
-    expect(debt.logEngagementAction).toHaveBeenCalledWith(
-      id,
-      jasmine.objectContaining({ t: 'WhatsApp message sent to student' }),
-    );
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'WHATSAPP' } }]);
+    expect(store.detail()!.activity[0].t).toBe('WhatsApp message sent to student');
   });
 
-  it('logCall() logs a call entry against the selected case', () => {
+  it('openLogCall() opens the outcome capture, and confirmLogCall() is a no-op without one (issue #218 AC2)', () => {
+    component.openLogCall();
+    expect(component.logCallOpen()).toBeTrue();
+
+    component.confirmLogCall();
+
+    expect(mockApi.engagementCalls).toEqual([]);
+    expect(component.logCallOpen()).withContext('stays open so the officer can enter an outcome').toBeTrue();
+  });
+
+  it('confirmLogCall() records a call engagement with the entered outcome through the real API (issue #218 AC2, #268)', () => {
     const id = component.selected()!.d.id;
-    component.logCall();
-    expect(debt.logEngagementAction).toHaveBeenCalledWith(id, jasmine.objectContaining({ t: 'Call logged with student' }));
+    component.openLogCall();
+    component.updateCallOutcome('Promised to pay Friday');
+
+    component.confirmLogCall();
+
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'CALL', note: 'Promised to pay Friday' } }]);
+    expect(store.detail()!.activity[0].t).toBe('Call logged with student — Promised to pay Friday');
+    expect(component.logCallOpen()).toBeFalse();
   });
 
-  it('handToAdaptConnect() is a no-op (button ships disabled pending the hand-off interface)', () => {
+  it('cancelLogCall() closes the outcome capture without recording anything', () => {
+    component.openLogCall();
+    component.updateCallOutcome('Some notes');
+
+    component.cancelLogCall();
+
+    expect(component.logCallOpen()).toBeFalse();
+    expect(mockApi.engagementCalls).toEqual([]);
+  });
+
+  it('canHandOver() is false, and handToAdaptConnect() calls the API nowhere, for a case that is not an approved Registration hold (issue #269)', () => {
+    const engageSpy = spyOn(store, 'engage').and.callThrough();
+    expect(component.canHandOver()).toBeFalse();
+
     component.handToAdaptConnect();
+
+    expect(engageSpy).not.toHaveBeenCalled();
     expect(debt.logEngagementAction).not.toHaveBeenCalled();
+  });
+
+  it('canHandOver() is true once the selected case is an approved Registration hold, and handToAdaptConnect() records the hand-over (issue #269)', () => {
+    const key = 'STU-100301'; // Defaulted/no-payment debtor, recommends Registration hold (debt.service rule 2)
+    store.decide(key, { action: 'APPROVE' }).subscribe();
+    component.selectCase(key);
+    TestBed.flushEffects();
+
+    expect(component.canHandOver()).toBeTrue();
+
+    component.handToAdaptConnect();
+
+    expect(store.detail()!.activity[0].t).toBe('Case handed over to Adapt Connect');
   });
 });
 

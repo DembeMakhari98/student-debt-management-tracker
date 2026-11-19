@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { API_BASE } from './api';
 import { DebtService, formatRand } from './debt.service';
 import { Debtor, Decision } from './models';
+import { OFFICERS } from './officers';
 
 const HTTP_TEST_PROVIDERS = [provideHttpClient(), provideHttpClientTesting()];
 
@@ -570,6 +571,13 @@ describe('DebtService — CSV export, downloaded from GET /api/debtors/export (i
     expect(request.params.get('funding')).toBe('gov');
   });
 
+  it('sends the portfolio scope, so "My team" exports the whole team (FTC-66)', async () => {
+    service.setPortfolioScope('team');
+
+    const { request } = await captureExport();
+    expect(request.params.get('portfolio')).toBe('team');
+  });
+
   it('downloads the response body as the CSV text, unmodified', async () => {
     const { text } = await captureExport({ body: SAMPLE_CSV });
     expect(text).toBe(SAMPLE_CSV);
@@ -761,18 +769,13 @@ describe('DebtService — portfolio access control (issue #18)', () => {
     ownIds.forEach((id) => expect(teamIds.has(id)).withContext(id).toBeTrue());
   });
 
-  it('setCase() logs exactly one access entry per distinct case, not on re-selecting the same one', () => {
+  it('setCase() does not log access in the browser; the backend records it (FTC-38, #161)', () => {
     const d = service.caseRows()[0];
-    expect(service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log')).length).toBe(0);
 
     service.setCase(d.id);
-    let entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
-    expect(entries.length).toBe(1);
-    expect(entries[0].t).toContain('Nomsa Mahlangu');
 
-    service.setCase(d.id); // re-selecting the same case
-    entries = service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log'));
-    expect(entries.length).toBe(1);
+    expect(service.caseId()).toBe(d.id);
+    expect(service.caseOf(d).activity.filter((a) => a.m.startsWith('Access log')).length).toBe(0);
   });
 
   it('Home\'s allPickedRows()/allPayingRows() stay institution-wide regardless of officer/scope', () => {
@@ -864,6 +867,30 @@ describe('DebtService — live summary via GET /api/summary (issue #64)', () => 
     req.flush({ ...DTO, registeredStudents: 19000 });
 
     expect(service.summary().registered).toBe(19000);
+  });
+
+  it('re-fetches on sign-in, so a 401 from the pre-sign-in request does not leave the cards at 0 (FTC-37, #158)', () => {
+    // The constructor's request goes out before anyone is signed in, so it has no token.
+    expectRequest().flush('unauthorised', { status: 401, statusText: 'Unauthorized' });
+    expect(service.summaryError()).toBeTrue();
+
+    service.signInAs(OFFICERS[0]);
+    const req = expectRequest();
+    expect(req.request.params.get('portfolio')).toBe('own');
+    req.flush(DTO);
+
+    expect(service.summaryError()).toBeFalse();
+    expect(service.summary().totalDebt).toBe(DTO.totalDebt);
+  });
+
+  it("clears the previous user's figures when someone else signs in", () => {
+    expectRequest().flush(DTO);
+    expect(service.summary().totalDebt).toBe(DTO.totalDebt);
+
+    service.signInAs(OFFICERS[1]);
+    expect(service.summary().totalDebt).toBe(0);
+    expectRequest().flush({ ...DTO, totalDebt: 1234 });
+    expect(service.summary().totalDebt).toBe(1234);
   });
 
   it('cancels a still-in-flight request when the filter changes again before it resolves', () => {

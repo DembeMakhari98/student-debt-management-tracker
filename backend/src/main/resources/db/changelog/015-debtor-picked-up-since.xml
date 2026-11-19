@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <!--
+        When the agent first picked up a case (issue #132): the instant DebtMath.pickedUp() was
+        last seen to flip false -> true for this debtor, set/cleared by NightlyExtractService on
+        every extract run. Null means the case is not currently picked up, or was never seen to
+        transition (a case already picked up before this column existed stays null until it is
+        next re-scored false then true). Lets the Tracker tell a case newly flagged in the latest
+        run from one that has simply stayed picked up across several runs.
+    -->
+    <changeSet id="015-01-add-debtor-picked-up-since" author="student-debt-tracker">
+        <addColumn tableName="debtor">
+            <column name="picked_up_since" type="timestamp"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
