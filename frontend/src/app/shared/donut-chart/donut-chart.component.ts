@@ -49,7 +49,9 @@ export class DonutChartComponent {
    * It does not fetch by itself: `<app-year-chart>` on the same Home page triggers the (shared,
    * portfolio-scoped) request, and this component renders whatever that service holds.
    */
-  readonly loading = computed(() => this.yearChartApi.loading() && this.yearChartApi.data().length === 0);
+  /** True whenever a request is in flight, even if an earlier answer is still held: that answer may
+   *  be another scope's or another user's, and must not be shown beside the new KPI cards. */
+  readonly loading = computed(() => this.yearChartApi.loading());
   readonly failed = computed(() => this.yearChartApi.error());
 
   private readonly totals = computed<Record<FundKey, number>>(() => {

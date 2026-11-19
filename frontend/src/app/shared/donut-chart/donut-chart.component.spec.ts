@@ -88,7 +88,19 @@ describe('DonutChartComponent — funding mix from live data (FTC-74 #177)', () 
     load(FIXTURE);
     const rows = legendRows();
     expect(rows.reduce((s, r) => s + r.amount, 0)).toBe(component.total());
-    expect(Math.round(rows.reduce((s, r) => s + r.percent, 0) * 10) / 10).toBeCloseTo(100, 0);
+    expect(rows.reduce((s, r) => s + r.percent, 0)).toBeCloseTo(100, 1);
+  });
+
+  it('does not show the previous scope\'s numbers while a new request is in flight', () => {
+    load(FIXTURE);
+    expect(component.total()).toBe(263500);
+
+    yearChartApi.refresh('team'); // e.g. the portfolio scope changed; the answer has not arrived yet
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Loading the funding mix');
+    expect(fixture.nativeElement.querySelector('svg text')).toBeNull(); // no old total left on screen
+    byYearRequests().forEach((r) => r.flush(FIXTURE));
   });
 
   it('AC3 — for each year, the total equals that year\'s total from the endpoint (the KPI\'s own rule)', () => {
