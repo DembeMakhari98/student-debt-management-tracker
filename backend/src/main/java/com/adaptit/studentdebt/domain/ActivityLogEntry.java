@@ -38,6 +38,16 @@ public class ActivityLogEntry {
     @Column(nullable = false, length = 120)
     private String source;
 
+    /** The policy rationale behind the recommendation an officer decided on (issue #128/#162) —
+     *  null for agent-only activity (e.g. reminder cadence steps) that was never a decision. */
+    @Column(columnDefinition = "text")
+    private String rationale;
+
+    /** The evidence the agent read to reach that recommendation (issue #128/#162), joined into
+     *  one audit line — null for agent-only activity that was never a decision. */
+    @Column(columnDefinition = "text")
+    private String evidence;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }

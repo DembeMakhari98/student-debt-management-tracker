@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Every officer decision's write-back must carry the policy rationale and the evidence the
+        agent read, not just a one-line summary (issue #128, bug #162). Null for every activity_log_entry
+        written before this (agent-only activity rows, e.g. reminder cadence, never had either).
+    -->
+    <changeSet id="016-01-add-activity-log-rationale-evidence" author="student-debt-tracker">
+        <addColumn tableName="activity_log_entry">
+            <column name="rationale" type="text"/>
+            <column name="evidence" type="text"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

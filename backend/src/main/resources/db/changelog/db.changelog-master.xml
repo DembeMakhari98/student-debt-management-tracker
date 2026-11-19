@@ -25,5 +25,6 @@
     <include file="db/changelog/013-case-access-log.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/014-officer-decision-unique.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/015-debtor-picked-up-since.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/016-activity-log-rationale-evidence.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

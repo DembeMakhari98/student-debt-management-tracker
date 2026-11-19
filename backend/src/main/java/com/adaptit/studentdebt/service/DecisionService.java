@@ -37,6 +37,7 @@ public class DecisionService {
     private final OfficerDecisionRepository officerDecisionRepository;
     private final ActivityLogEntryRepository activityLogEntryRepository;
     private final DecisionEngineService decisionEngineService;
+    private final CaseAssemblyService caseAssemblyService;
     private final CaseService caseService;
     private final ActivityLogWriteBackService writeBackService;
     private final ObjectMapper objectMapper;
@@ -45,6 +46,7 @@ public class DecisionService {
                             OfficerDecisionRepository officerDecisionRepository,
                             ActivityLogEntryRepository activityLogEntryRepository,
                             DecisionEngineService decisionEngineService,
+                            CaseAssemblyService caseAssemblyService,
                             CaseService caseService,
                             ActivityLogWriteBackService writeBackService,
                             ObjectMapper objectMapper) {
@@ -52,6 +54,7 @@ public class DecisionService {
         this.officerDecisionRepository = officerDecisionRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.decisionEngineService = decisionEngineService;
+        this.caseAssemblyService = caseAssemblyService;
         this.caseService = caseService;
         this.writeBackService = writeBackService;
         this.objectMapper = objectMapper;
@@ -120,6 +123,8 @@ public class DecisionService {
                 .debtorKey(debtorKey)
                 .text("Recommendation " + verb + " by " + request.decidedBy() + detail)
                 .source("Officer decision · " + request.decidedBy())
+                .rationale(rec.rationale())
+                .evidence(String.join("; ", caseAssemblyService.evidenceOf(debtor)))
                 .createdAt(now)
                 .build());
         writeBackService.recordAndAttempt(entry);
