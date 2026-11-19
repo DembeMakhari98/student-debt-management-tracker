@@ -12,7 +12,7 @@
         next re-scored false then true). Lets the Tracker tell a case newly flagged in the latest
         run from one that has simply stayed picked up across several runs.
     -->
-    <changeSet id="013-01-add-debtor-picked-up-since" author="student-debt-tracker">
+    <changeSet id="014-01-add-debtor-picked-up-since" author="student-debt-tracker">
         <addColumn tableName="debtor">
             <column name="picked_up_since" type="timestamp"/>
         </addColumn>

@@ -4,5 +4,6 @@ package com.adaptit.studentdebt.domain;
 public enum EngagementChannel {
     SMS,
     WHATSAPP,
-    CALL
+    CALL,
+    HANDOVER
 }

@@ -60,7 +60,12 @@
         <div class="card">
           <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
             <div style="display:flex;gap:16px;align-items:flex-start">
-              <div class="score" style="width:52px;height:52px;font-size:18px;flex:none" [style.background]="bandColor(sel)">{{ isCredit(sel) ? '↩' : sel.score }}</div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:none">
+                <div class="score" style="width:52px;height:52px;font-size:18px" [style.background]="bandColor(sel)">{{ isCredit(sel) ? '↩' : sel.score }}</div>
+                @if (!isCredit(sel)) {
+                  <span class="tag" style="font-size:10px">{{ sel.band }}</span>
+                }
+              </div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 <span style="font-size:20px;font-weight:700;color:var(--fg-1);line-height:1.15">{{ sel.d.name }}</span>
                 <span class="tag" style="font-size:12px">{{ sel.d.id }} · {{ sel.d.prog }}</span>
@@ -208,7 +213,7 @@
                   <div style="width:7px;height:7px;border-radius:999px;background:var(--ai-teal);margin-top:5px;flex:none"></div>
                   <div style="display:flex;flex-direction:column;gap:2px">
                     <span style="font-size:12.5px;color:var(--fg-2);line-height:1.4">{{ a.t }}</span>
-                    <span class="tag">{{ a.m }}</span>
+                    <span class="tag">{{ a.m }}@if (a.at) { · <time [attr.datetime]="a.at">{{ when(a.at) }}</time>}</span>
                   </div>
                 </div>
               }
@@ -220,9 +225,24 @@
               <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="sendSms()">Send SMS</button>
                 <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="sendWhatsApp()">Send WhatsApp</button>
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="logCall()">Log a call</button>
-                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" disabled title="Pending Adapt Connect hand-off interface confirmation — see issue #14" (click)="handToAdaptConnect()">Hand to Adapt Connect</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" (click)="openLogCall()">Log a call</button>
+                <button class="btn-line" style="padding:9px 14px;font-size:12.5px" [disabled]="!canHandOver()" [title]="handOverTooltip()" (click)="handToAdaptConnect()">Hand to Adapt Connect</button>
               </div>
+              @if (logCallOpen()) {
+                <div class="inner-box" style="gap:8px">
+                  <span class="eyebrow" style="font-size:10px">Call outcome (required)</span>
+                  <textarea
+                    rows="3"
+                    style="width:100%;resize:vertical;font:inherit;color:var(--fg-1);border:1px solid var(--border-strong);border-radius:4px;padding:8px 10px;box-sizing:border-box"
+                    [value]="callOutcome()"
+                    (input)="updateCallOutcome($any($event.target).value)"
+                  ></textarea>
+                  <div style="display:flex;gap:8px;padding-top:6px">
+                    <button class="btn-line" [disabled]="!callOutcome().trim()" (click)="confirmLogCall()">Log call</button>
+                    <button class="btn-line" (click)="cancelLogCall()">Cancel</button>
+                  </div>
+                </div>
+              }
             </div>
           </div>
         </div>

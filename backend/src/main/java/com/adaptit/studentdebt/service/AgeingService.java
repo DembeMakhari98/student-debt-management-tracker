@@ -57,7 +57,7 @@ public class AgeingService {
                         d.getStudentId(), d.getName(), d.getFinancialYear(),
                         d.getFundingSource().name(), d.getFundingSource().getLabel(),
                         d.getCreditReason(), d.getCreditSince(), daysOwing(d), daysBandLabel(daysOwing(d)),
-                        DebtMath.rowTotal(d).abs()))
+                        DebtMath.rowTotal(d).abs(), isPastTermEnd(d, LocalDate.now())))
                 .toList();
 
         List<Debtor> stale = creditDebtors.stream().filter(d -> daysOwing(d) > 90).toList();
@@ -84,6 +84,14 @@ public class AgeingService {
         if (d.getCreditDays() != null) return d.getCreditDays();
         if (d.getCreditSince() != null) return (int) ChronoUnit.DAYS.between(d.getCreditSince(), LocalDate.now());
         return 0;
+    }
+
+    /** A term end is 31 December of the debtor's financial year — the same financial-year-end
+     *  convention {@link RetentionPolicyService} uses for the 7-year purge window. Independent of
+     *  the 90-day audit threshold above: a credit can be stale without being past its own term end
+     *  (a late-year credit), or past term end well before it would ever reach 90 days (issue #125/#160). */
+    boolean isPastTermEnd(Debtor d, LocalDate today) {
+        return today.isAfter(LocalDate.of(d.getFinancialYear(), 12, 31));
     }
 
     /** Credits age exactly like a debt does — same bucket boundaries, keyed by days rather than Rand. */

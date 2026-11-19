@@ -1,7 +1,10 @@
 package com.adaptit.studentdebt.web;
 
+import com.adaptit.studentdebt.domain.DecisionAction;
+import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.dto.ActivityEntryDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
+import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackAdapter;
 import com.adaptit.studentdebt.writeback.WriteBackResult;
 import org.junit.jupiter.api.Test;
@@ -14,7 +17,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,9 +29,14 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** HTTP-level tests for POST /api/debtors/{debtorKey}/engagements (issue #59). */
+/**
+ * HTTP-level tests for POST /api/debtors/{debtorKey}/engagements (issue #59, #269). Transactional
+ * so a test that persists an {@code OfficerDecision} (the hand-over gating tests) cannot bleed its
+ * state into another test via the shared H2 database.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 class EngagementEndpointTest {
 
     private static final String DEBTOR_KEY = "STU-100301-2026"; // seeded, see CaseServiceTest
@@ -36,6 +47,8 @@ class EngagementEndpointTest {
     private ObjectMapper objectMapper;
     @Autowired
     private ActivityLogEntryRepository activityLogEntryRepository;
+    @Autowired
+    private OfficerDecisionRepository officerDecisionRepository;
 
     @MockitoBean
     private ActivityLogWriteBackAdapter adapter;
@@ -118,5 +131,43 @@ class EngagementEndpointTest {
                         .content(objectMapper.writeValueAsString(
                                 new com.adaptit.studentdebt.dto.EngagementRequestDto("SMS", null))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "thato.mokoena", roles = "MANAGER")
+    void handoverIsRejectedWhenTheCasesRegistrationHoldWasDeclined() throws Exception {
+        // STU-100301-2026 has a seeded DECLINE registration-hold decision (012-seed-test-scenarios.xml).
+        mockMvc.perform(post("/api/debtors/{debtorKey}/engagements", DEBTOR_KEY)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new com.adaptit.studentdebt.dto.EngagementRequestDto("HANDOVER", null))))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithMockUser(username = "nomsa.mahlangu", roles = "MANAGER")
+    void handoverSucceedsOnceTheRegistrationHoldIsApproved() throws Exception {
+        when(adapter.attemptWrite(any())).thenReturn(WriteBackResult.ok());
+        officerDecisionRepository.save(OfficerDecision.builder()
+                .debtorKey(DEBTOR_KEY)
+                .recommendationType("REGISTRATION_HOLD")
+                .action(DecisionAction.APPROVE)
+                .decidedBy("Nomsa Mahlangu")
+                .decidedAt(Instant.now())
+                .build());
+
+        MvcResult result = mockMvc.perform(post("/api/debtors/{debtorKey}/engagements", DEBTOR_KEY)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new com.adaptit.studentdebt.dto.EngagementRequestDto("HANDOVER", null))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        ActivityEntryDto[] activity =
+                objectMapper.readValue(result.getResponse().getContentAsString(), ActivityEntryDto[].class);
+        assertThat(activity).anySatisfy(a -> assertThat(a.text())
+                .startsWith("Case handed over to Adapt Connect — balance")
+                .contains("ageing to")
+                .contains("rationale:"));
     }
 }

@@ -1,7 +1,7 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, effect } from '@angular/core';
 import { DebtService } from '../../core/debt.service';
 import { FUND, FUND_KEYS } from '../../core/constants';
-import { DEBTORS, YEARS } from '../../core/mock-data';
+import { YearChartApiService } from '../../core/year-chart-api.service';
 import { FundKey } from '../../core/models';
 
 interface Bar {
@@ -43,7 +43,9 @@ const PAD_B = 42;
 const PLOT_W = W - PAD_L - PAD_R;
 const PLOT_H = H - PAD_T - PAD_B;
 
-/** Total debt to the institution per year, stacked by funding source (issue #10). */
+/** Total debt to the institution per year, stacked by funding source (issue #10), from
+ *  `GET /api/summary/by-year` (issue #176) — the frontend's bundled demo data could disagree
+ *  with the real KPIs for any year with live decisions/engagements recorded against it. */
 @Component({
   selector: 'app-year-chart',
   standalone: true,
@@ -52,15 +54,22 @@ const PLOT_H = H - PAD_T - PAD_B;
 export class YearChartComponent {
   readonly viewBox = `0 0 ${W} ${H}`;
 
-  constructor(public debt: DebtService) {}
+  constructor(
+    public debt: DebtService,
+    public yearChartApi: YearChartApiService,
+  ) {
+    effect(() => {
+      this.yearChartApi.refresh(this.debt.portfolioScope());
+    });
+  }
 
   private readonly perYear = computed(() =>
-    YEARS.map((y) => {
+    this.yearChartApi.data().map((row) => {
       const totals: Record<FundKey, number> = { self: 0, gov: 0, private: 0 };
-      DEBTORS.filter((d) => d.year === y).forEach((d) => {
-        totals[d.funding] += this.debt.rowDebt(d);
+      FUND_KEYS.forEach((f) => {
+        totals[f] = row.byFundingSource[f.toUpperCase()] ?? 0;
       });
-      return { y, ...totals, total: totals['self'] + totals['gov'] + totals['private'] };
+      return { y: row.year, ...totals, total: row.total };
     }),
   );
 

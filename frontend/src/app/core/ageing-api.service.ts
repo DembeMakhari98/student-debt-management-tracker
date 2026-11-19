@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
 import { Subscription, catchError, of } from 'rxjs';
 import { API_BASE } from './api';
-import { Ageing, FundKey } from './models';
+import { Ageing, FundKey, PortfolioScope } from './models';
 
 export interface AgeingStudentRow {
   studentId: string;
@@ -26,6 +26,8 @@ export interface AgeingCreditRow {
   daysOwing: number;
   ageingBandLabel: string;
   amountOwed: number;
+  /** A compliance finding distinct from the 90-day audit threshold above (issue #125/#160). */
+  pastTermEnd: boolean;
 }
 
 /** The shape of `GET /api/ageing`'s response (backend's AgeingResponseDto, issue #67). */
@@ -56,13 +58,13 @@ export class AgeingApiService {
 
   constructor(private http: HttpClient) {}
 
-  refresh(year: number | 'all', funding: FundKey | 'all'): void {
+  refresh(year: number | 'all', funding: FundKey | 'all', portfolio: PortfolioScope): void {
     this.sub?.unsubscribe();
     this.loadingSig.set(true);
     this.errorSig.set(false);
     this.sub = this.http
       .get<AgeingApiResponse>(`${API_BASE}/api/ageing`, {
-        params: { year: String(year), funding: String(funding) },
+        params: { year: String(year), funding: String(funding), portfolio },
       })
       .pipe(
         catchError(() => {

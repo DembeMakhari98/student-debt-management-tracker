@@ -71,6 +71,8 @@ export interface Recommendation {
 export interface ActivityEntry {
   t: string;
   m: string;
+  /** When it happened (ISO 8601), for entries stored on the server. */
+  at?: string;
 }
 
 /** How far a debtor's "Reminder cadence" recommendation has progressed (issue #9). ISO

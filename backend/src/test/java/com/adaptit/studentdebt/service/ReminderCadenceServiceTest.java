@@ -109,20 +109,39 @@ class ReminderCadenceServiceTest {
     }
 
     @Test
-    void dayTenCatchUpDispatchesAllThreeStepsWhenNoneHaveFiredYet() {
+    void dayTenCatchUpDispatchesOnlyTheEarliestPendingStepInOneRun() {
         Instant start = Instant.parse("2026-01-01T00:00:00Z");
-        Instant now = start.plusSeconds(10 * 24 * 3600);
+        Instant now = start.plusSeconds(10 * 24 * 3600); // steps 1, 2 and 3 are all overdue at once
         Debtor d = reminderCadenceDebtor("STU-1-2026");
-        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress("STU-1-2026", start)));
+        ReminderCadenceProgress progress = progress("STU-1-2026", start);
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress));
 
         service.dispatch(List.of(d), 4, now);
 
         ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
-        verify(activityLogEntryRepository, times(3)).save(captor.capture());
-        List<String> texts = captor.getAllValues().stream().map(ActivityLogEntry::getText).toList();
-        assertThat(texts).anyMatch(t -> t.contains("SMS reminder sent"));
-        assertThat(texts).anyMatch(t -> t.contains("WhatsApp reminder sent"));
-        assertThat(texts).anyMatch(t -> t.contains("Officer call task created"));
+        verify(activityLogEntryRepository, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getText()).contains("SMS reminder sent");
+        assertThat(progress.getStep2SentAt())
+                .as("step 2 must wait for its own run, not fire alongside step 1 (issue #267)")
+                .isNull();
+        assertThat(progress.getStep3SentAt()).isNull();
+    }
+
+    @Test
+    void aMissedWindowCatchesUpOneStepPerSubsequentRun() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant now = start.plusSeconds(10 * 24 * 3600); // everything is already overdue
+        ReminderCadenceProgress progress = progress("STU-1-2026", start);
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress));
+
+        service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 4, now); // catches up step 1
+        service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 4, now); // catches up step 2
+        service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 4, now); // catches up step 3
+
+        assertThat(progress.getStep1SentAt()).isNotNull();
+        assertThat(progress.getStep2SentAt()).isNotNull();
+        assertThat(progress.getStep3SentAt()).isNotNull();
+        verify(activityLogEntryRepository, times(3)).save(any());
     }
 
     @Test
@@ -207,9 +226,9 @@ class ReminderCadenceServiceTest {
     // ---- what a run reports (issue #60) ----
 
     @Test
-    void theResultListsEachDispatchedStepWithItsNumber() {
+    void theResultListsTheDispatchedStepWithItsNumber() {
         Instant start = Instant.parse("2026-01-01T00:00:00Z");
-        Instant now = start.plusSeconds(10 * 24 * 3600);
+        Instant now = start.plusSeconds(24 * 3600);
         Debtor d = reminderCadenceDebtor("STU-1-2026");
         when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress("STU-1-2026", start)));
 
@@ -217,13 +236,25 @@ class ReminderCadenceServiceTest {
 
         assertThat(result.ranAt()).isEqualTo(now);
         assertThat(result.autonomyLevel()).isEqualTo(4);
-        assertThat(result.dispatchedCount()).isEqualTo(3);
-        assertThat(result.dispatched()).extracting(DispatchedStepDto::step).containsExactly(1, 2, 3);
+        assertThat(result.dispatchedCount()).isEqualTo(1);
+        assertThat(result.dispatched()).extracting(DispatchedStepDto::step).containsExactly(1);
         assertThat(result.dispatched()).allMatch(s -> s.debtorKey().equals("STU-1-2026"));
         assertThat(result.dispatched().get(0).action()).contains("SMS reminder sent");
-        assertThat(result.dispatched().get(2).action()).contains("Officer call task created");
         assertThat(result.withheldCount()).isZero();
         assertThat(result.cancelledCount()).isZero();
+    }
+
+    @Test
+    void aCatchUpRunReportsOnlyTheOneStepItActuallySent() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant now = start.plusSeconds(10 * 24 * 3600); // steps 1, 2 and 3 are all overdue at once
+        Debtor d = reminderCadenceDebtor("STU-1-2026");
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress("STU-1-2026", start)));
+
+        ReminderRunResultDto result = service.dispatch(List.of(d), 4, now);
+
+        assertThat(result.dispatchedCount()).isEqualTo(1);
+        assertThat(result.dispatched()).extracting(DispatchedStepDto::step).containsExactly(1);
     }
 
     @Test

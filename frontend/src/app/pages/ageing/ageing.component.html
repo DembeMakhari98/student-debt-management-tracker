@@ -141,7 +141,7 @@
               <th>Student</th>
               @if (showYear()) { <th>Year</th> }
               <th>Funding</th><th>Why the credit arose</th><th>Credit since</th>
-              <th class="num">Days owing</th><th>Ageing band</th><th class="num">Owed to student</th>
+              <th class="num">Days owing</th><th>Ageing band</th><th>Compliance</th><th class="num">Owed to student</th>
             </tr>
           </thead>
           <tbody>
@@ -159,11 +159,19 @@
                     <div class="bar-track"><div style="height:100%;border-radius:999px" [style.width.%]="row.pct" [style.background]="row.bandColor"></div></div>
                   </div>
                 </td>
+                <td>
+                  @if (row.pastTermEnd) {
+                    <span class="pill" style="background:rgba(192,0,66,.08);border:1px solid rgba(192,0,66,.3);color:var(--ai-blush)">Past term end</span>
+                  } @else {
+                    <span class="tag">—</span>
+                  }
+                </td>
                 <td class="num pos">{{ R(row.amount) }}</td>
               </tr>
             }
             <tr style="font-weight:700">
               <td [attr.colspan]="showYear() ? 6 : 5" style="color:var(--fg-1)">Total owed to students</td>
+              <td></td>
               <td></td>
               <td class="num pos">{{ R(creditTotal()) }}</td>
             </tr>

@@ -124,15 +124,22 @@ public class ReminderCadenceService {
 
             long daysSinceStart = Duration.between(progress.getStartedAt(), now).toDays();
 
-            if (progress.getStep1SentAt() == null && daysSinceStart >= STEP_1_DUE_DAY) {
-                progress.setStep1SentAt(now);
-                dispatched.add(recordDispatch(debtor.getDebtorKey(), 1, "SMS reminder sent (step 1 of 3, day 1)", now));
-            }
-            if (progress.getStep2SentAt() == null && daysSinceStart >= STEP_2_DUE_DAY) {
-                progress.setStep2SentAt(now);
-                dispatched.add(recordDispatch(debtor.getDebtorKey(), 2, "WhatsApp reminder sent (step 2 of 3, day 5)", now));
-            }
-            if (progress.getStep3SentAt() == null && daysSinceStart >= STEP_3_DUE_DAY) {
+            // At most one step per case per run (issue #267, spec rule 7): if a run is missed and
+            // several steps fall overdue at once, only the earliest pending one fires here — the rest
+            // wait for a later run. Without this, a job outage made every overdue step fire in the
+            // same instant (SMS, WhatsApp and the officer call together), defeating the whole point of
+            // a *paced* cadence that gives the student a fair chance to pay between steps.
+            if (progress.getStep1SentAt() == null) {
+                if (daysSinceStart >= STEP_1_DUE_DAY) {
+                    progress.setStep1SentAt(now);
+                    dispatched.add(recordDispatch(debtor.getDebtorKey(), 1, "SMS reminder sent (step 1 of 3, day 1)", now));
+                }
+            } else if (progress.getStep2SentAt() == null) {
+                if (daysSinceStart >= STEP_2_DUE_DAY) {
+                    progress.setStep2SentAt(now);
+                    dispatched.add(recordDispatch(debtor.getDebtorKey(), 2, "WhatsApp reminder sent (step 2 of 3, day 5)", now));
+                }
+            } else if (progress.getStep3SentAt() == null && daysSinceStart >= STEP_3_DUE_DAY) {
                 progress.setStep3SentAt(now);
                 dispatched.add(recordDispatch(debtor.getDebtorKey(), 3, "Officer call task created (step 3 of 3, day 10)", now));
             }

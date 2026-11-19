@@ -112,12 +112,26 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
     const body: CaseDetailDto = {
       debtor: row(),
       evidence: ['Ageing: 60 days'],
-      activity: [{ text: 'Risk scored', source: 'Risk Sentinel', createdAt: null }],
+      activity: [
+        { text: 'Risk scored', source: 'Risk Sentinel', createdAt: null },
+        {
+          text: 'Case detail viewed by Nomsa Mahlangu',
+          source: 'Access log · Nomsa Mahlangu · Officer · Team A',
+          createdAt: '2026-11-17T07:42:00Z',
+        },
+      ],
       lastDecision: null,
     };
     req.flush(body);
     expect(view?.evidence).toEqual(['Ageing: 60 days']);
-    expect(view?.activity).toEqual([{ t: 'Risk scored', m: 'Risk Sentinel' }]);
+    expect(view?.activity).toEqual([
+      { t: 'Risk scored', m: 'Risk Sentinel' },
+      {
+        t: 'Case detail viewed by Nomsa Mahlangu',
+        m: 'Access log · Nomsa Mahlangu · Officer · Team A',
+        at: '2026-11-17T07:42:00Z',
+      },
+    ]);
   });
 
   describe('decide() — POST /api/debtors/{key}/decision (issue #66)', () => {
@@ -170,6 +184,32 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
       api.decide('STU-100301-2026', { action: 'APPROVE' }).subscribe({ error: (e) => (status = e.status) });
       http.expectOne(`${API_BASE}/api/debtors/STU-100301-2026/decision`).flush('no', { status: 403, statusText: 'Forbidden' });
       expect(status).toBe(403);
+    });
+  });
+
+  describe('engage() — POST /api/debtors/{key}/engagements (issue #59, #269)', () => {
+    it('POSTs the channel and maps the response into activity entries', () => {
+      let activity: { t: string; m: string }[] = [];
+      api.engage('STU-100234-2026', { channel: 'SMS' }).subscribe((a) => (activity = a));
+      const req = http.expectOne(`${API_BASE}/api/debtors/STU-100234-2026/engagements`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ channel: 'SMS' });
+      req.flush([{ text: 'SMS sent to student', source: 'Engagement Agent · Nomsa Mahlangu', createdAt: null }]);
+      expect(activity).toEqual([{ t: 'SMS sent to student', m: 'Engagement Agent · Nomsa Mahlangu' }]);
+    });
+
+    it('sends an optional note and URL-encodes the debtor key', () => {
+      api.engage('STU 1/2026', { channel: 'CALL', note: 'Promised to pay Friday' }).subscribe();
+      const req = http.expectOne(`${API_BASE}/api/debtors/STU%201%2F2026/engagements`);
+      expect(req.request.body).toEqual({ channel: 'CALL', note: 'Promised to pay Friday' });
+      req.flush([]);
+    });
+
+    it('propagates a 409 when the hand-over is not yet eligible', () => {
+      let status = -1;
+      api.engage('STU-100301-2026', { channel: 'HANDOVER' }).subscribe({ error: (e) => (status = e.status) });
+      http.expectOne(`${API_BASE}/api/debtors/STU-100301-2026/engagements`).flush('no', { status: 409, statusText: 'Conflict' });
+      expect(status).toBe(409);
     });
   });
 

@@ -1,5 +1,6 @@
 import { Component, computed } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { CaseStore } from '../../core/case-store.service';
 import { DebtService } from '../../core/debt.service';
 import { FundKey } from '../../core/models';
 import { SummaryCardsComponent } from '../../shared/summary-cards/summary-cards.component';
@@ -43,12 +44,15 @@ const WORKSPACES: Workspace[] = [
 export class HomeComponent {
   readonly workspaces = WORKSPACES;
 
-  constructor(public debt: DebtService) {}
+  constructor(
+    public debt: DebtService,
+    private store: CaseStore,
+  ) {}
 
-  /** Institution-wide counts, deliberately not portfolio-scoped (issue #18 non-goal) —
-   *  Home is an aggregate dashboard, not case-level work. */
-  readonly picked = computed(() => this.debt.allPickedRows().length);
-  readonly paying = computed(() => this.debt.allPayingRows().length);
+  /** The callout's counts come from the same scoped `GET /api/debtors` lists as the Tracker tab
+   *  badge, so "picked up {n}" always equals that badge (TC-37 #256, FTC-95 #199). */
+  readonly picked = computed(() => this.store.picked().length);
+  readonly paying = computed(() => this.store.paying().length);
 
   onYearChange(value: string): void {
     this.debt.setYear(value === 'all' ? 'all' : Number(value));

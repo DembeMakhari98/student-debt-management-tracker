@@ -6,16 +6,21 @@ import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.dto.CaseDetailDto;
 import com.adaptit.studentdebt.dto.DecisionRequestDto;
+import com.adaptit.studentdebt.dto.RecommendationDto;
+import com.adaptit.studentdebt.dto.TermDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
+import com.adaptit.studentdebt.web.BadRequestException;
 import com.adaptit.studentdebt.web.NotFoundException;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
-import jakarta.validation.ValidationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Handles an officer's approve / amend / decline on a case (issue #13). Every decision is written
@@ -32,19 +37,22 @@ public class DecisionService {
     private final DecisionEngineService decisionEngineService;
     private final CaseService caseService;
     private final ActivityLogWriteBackService writeBackService;
+    private final ObjectMapper objectMapper;
 
     public DecisionService(DebtorRepository debtorRepository,
                             OfficerDecisionRepository officerDecisionRepository,
                             ActivityLogEntryRepository activityLogEntryRepository,
                             DecisionEngineService decisionEngineService,
                             CaseService caseService,
-                            ActivityLogWriteBackService writeBackService) {
+                            ActivityLogWriteBackService writeBackService,
+                            ObjectMapper objectMapper) {
         this.debtorRepository = debtorRepository;
         this.officerDecisionRepository = officerDecisionRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
         this.decisionEngineService = decisionEngineService;
         this.caseService = caseService;
         this.writeBackService = writeBackService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -56,21 +64,21 @@ public class DecisionService {
         try {
             action = DecisionAction.valueOf(request.action().toUpperCase());
         } catch (IllegalArgumentException ex) {
-            throw new ValidationException("action must be one of APPROVE, AMEND, DECLINE");
+            throw new BadRequestException("action must be one of APPROVE, AMEND, DECLINE");
         }
         if (action == DecisionAction.AMEND && isBlank(request.amendedTerms())) {
-            throw new ValidationException("amendedTerms is required when action = AMEND");
+            throw new BadRequestException("amendedTerms is required when action = AMEND");
         }
         if (action == DecisionAction.DECLINE && isBlank(request.reason())) {
-            throw new ValidationException("reason is required when action = DECLINE");
+            throw new BadRequestException("reason is required when action = DECLINE");
         }
 
-        String recommendationType = decisionEngineService.recommend(debtor).type();
+        RecommendationDto rec = decisionEngineService.recommend(debtor);
         Instant now = Instant.now();
 
         OfficerDecision decision = OfficerDecision.builder()
                 .debtorKey(debtorKey)
-                .recommendationType(recommendationType)
+                .recommendationType(rec.type())
                 .action(action)
                 .amendedTerms(request.amendedTerms())
                 .reason(request.reason())
@@ -84,16 +92,40 @@ public class DecisionService {
             case AMEND -> "amended and approved";
             case DECLINE -> "declined";
         };
+        String detail = switch (action) {
+            case DECLINE -> " — " + request.reason();
+            case AMEND -> " — original terms: " + formatTerms(rec.terms())
+                    + "; amended to: " + formatAmendedTerms(request.amendedTerms());
+            case APPROVE -> "";
+        };
         ActivityLogEntry entry = activityLogEntryRepository.save(ActivityLogEntry.builder()
                 .debtorKey(debtorKey)
-                .text("Recommendation " + verb + " by " + request.decidedBy()
-                        + (action == DecisionAction.DECLINE ? " — " + request.reason() : ""))
+                .text("Recommendation " + verb + " by " + request.decidedBy() + detail)
                 .source("Officer decision · " + request.decidedBy())
                 .createdAt(now)
                 .build());
         writeBackService.recordAndAttempt(entry);
 
         return caseService.detailFor(debtorKey);
+    }
+
+    private static String formatTerms(List<TermDto> terms) {
+        return terms.stream().map(t -> t.key() + ": " + t.value()).collect(Collectors.joining(", "));
+    }
+
+    /**
+     * {@code amendedTerms} is free text on the wire — the frontend sends a JSON array of
+     * {@code {key, value}} (see {@code encodeAmendedTerms}), but nothing stops a direct API caller
+     * sending plain text, and the field has always been stored as-is. Parse the JSON shape when
+     * it's there for a readable log line; fall back to the raw string otherwise, same resilience
+     * the frontend's own {@code parseAmendedTerms} uses.
+     */
+    private String formatAmendedTerms(String raw) {
+        try {
+            return formatTerms(List.of(objectMapper.readValue(raw, TermDto[].class)));
+        } catch (RuntimeException ex) {
+            return raw;
+        }
     }
 
     private static boolean isBlank(String s) {

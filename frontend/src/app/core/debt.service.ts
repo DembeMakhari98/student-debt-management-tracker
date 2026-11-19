@@ -162,6 +162,10 @@ export class DebtService {
   signInAs(officer: Officer): void {
     this.actingOfficer.set(officer);
     this.portfolioScope.set('own');
+    // The constructor's summary fetch runs before sign-in, without a token, and fails with 401
+    // (FTC-37/TC-03, bug #158). Drop whatever was shown before and fetch again as this user.
+    this.summaryData.set(null);
+    this.refreshSummary();
   }
 
   /** Every Level 3 escalation, logged — not tied to any one debtor, so kept separate from
@@ -210,17 +214,10 @@ export class DebtService {
     this.caseId.set(null);
     this.refreshSummary();
   }
-  /** Logs an access entry (issue #18 — every read of a student's financial detail must be
-   *  attributable to a logged-in user) when opening a *different* case; re-selecting the
-   *  already-open one doesn't re-log. */
+  /** Opens a case. Access is recorded by the backend when the case detail is fetched
+   *  (GET /api/debtors/{key}, case_access_log) and comes back in the case's activity feed;
+   *  nothing is logged in the browser (FTC-38, bug #161). */
   setCase(id: string): void {
-    if (id !== this.caseId()) {
-      const officer = this.currentOfficer();
-      this.logEngagementAction(id, {
-        t: `Case detail viewed by ${officer.name}`,
-        m: `Access log · ${officer.name} (${officer.team})`,
-      });
-    }
     this.caseId.set(id);
   }
   setAutonomy(level: number): void {
@@ -418,9 +415,9 @@ export class DebtService {
     return DEBTORS.filter((d) => (year === 'all' || d.year === year) && (funding === 'all' || d.funding === funding));
   });
 
-  /** Institution-wide, deliberately NOT portfolio-scoped (issue #18 non-goal) — Home's
-   *  aggregate dashboard KPIs are the only intended consumers. Everything else (Tracker,
-   *  Cases, CSV export) must use the scoped `pickedRows`/`refundRows`/`payingRows` below. */
+  /** Institution-wide, NOT portfolio-scoped — the unscoped base the scoped
+   *  `pickedRows`/`refundRows`/`payingRows` below filter. UI counts (Home callout, tab badges)
+   *  read the API-backed CaseStore lists instead, so they follow the portfolio scope (#256). */
   readonly allPickedRows = computed<Debtor[]>(() =>
     this.rows()
       .filter((d) => this.pickedUp(d))
@@ -762,7 +759,7 @@ export class DebtService {
   exportCsv(): void {
     this.http
       .get(`${API_BASE}/api/debtors/export`, {
-        params: { year: String(this.year()), funding: String(this.funding()) },
+        params: { year: String(this.year()), funding: String(this.funding()), portfolio: this.portfolioScope() },
         responseType: 'text',
         observe: 'response',
       })

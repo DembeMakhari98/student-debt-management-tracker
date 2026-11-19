@@ -102,6 +102,14 @@ export interface DecisionRequest {
   reason?: string;
 }
 
+/** Body of `POST /api/debtors/{key}/engagements` (backend EngagementRequestDto, issue #59, #269). */
+export type EngagementChannel = 'SMS' | 'WHATSAPP' | 'CALL' | 'HANDOVER';
+
+export interface EngagementRequest {
+  channel: EngagementChannel;
+  note?: string;
+}
+
 /** The inverse of `parseAmendedTerms`: the officer's edited terms as the wire string. */
 export function encodeAmendedTerms(terms: Term[]): string {
   return JSON.stringify(terms.map((t) => ({ key: t.k, value: t.v })));
@@ -229,7 +237,7 @@ export function toDetailView(dto: CaseDetailDto): CaseView {
   return toCaseView(
     dto.debtor,
     dto.evidence,
-    dto.activity.map((a) => ({ t: a.text, m: a.source })),
+    dto.activity.map((a) => (a.createdAt ? { t: a.text, m: a.source, at: a.createdAt } : { t: a.text, m: a.source })),
   );
 }
 
@@ -263,5 +271,12 @@ export class DebtorApi {
     return this.http
       .post<CaseDetailDto>(`${API_BASE}/api/debtors/${encodeURIComponent(debtorKey)}/decision`, request)
       .pipe(map(toDetailView));
+  }
+
+  /** Records an engagement channel action; the response is the case's refreshed activity log. */
+  engage(debtorKey: string, request: EngagementRequest): Observable<ActivityEntry[]> {
+    return this.http
+      .post<ActivityEntryDto[]>(`${API_BASE}/api/debtors/${encodeURIComponent(debtorKey)}/engagements`, request)
+      .pipe(map((rows) => rows.map((a) => ({ t: a.text, m: a.source }))));
   }
 }

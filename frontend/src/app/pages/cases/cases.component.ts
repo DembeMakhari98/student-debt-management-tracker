@@ -2,10 +2,10 @@ import { Component, computed, effect, signal, Signal, untracked } from '@angular
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { CaseStore } from '../../core/case-store.service';
-import { DecisionRequest, encodeAmendedTerms } from '../../core/debtor-api';
+import { DecisionRequest, EngagementChannel, encodeAmendedTerms } from '../../core/debtor-api';
 import { DebtService, formatRand, formatRandTight } from '../../core/debt.service';
 import { AGE_BUCKETS, AGENTS, FUND, POLICY } from '../../core/constants';
-import { ActivityEntry, CaseView, Term } from '../../core/models';
+import { CaseView, Term } from '../../core/models';
 
 /** Case management & AI recommendation — case list + full case detail (issue #12, #13). */
 @Component({
@@ -20,6 +20,17 @@ export class CasesComponent {
   readonly AGENTS = AGENTS;
   readonly POLICY = POLICY;
   readonly AGE_BUCKETS = AGE_BUCKETS;
+
+  /** e.g. "17 Nov 2026, 09:42" — the time on a stored activity entry. */
+  when(iso: string): string {
+    return new Date(iso).toLocaleString('en-ZA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
 
   private readonly queryParams: Signal<ParamMap | undefined>;
 
@@ -192,30 +203,69 @@ export class CasesComponent {
   }
 
   /* =========================================================================
-     ENGAGEMENT CHANNELS (issue #14) — frontend-only, session-lifetime activity
-     entries. No real SMS/WhatsApp/Adapt Connect dispatch — see
-     docs/SDD/issue-14-engagement-channels-panel.spec.md.
+     ENGAGEMENT CHANNELS (issue #14, #59, #268) — every channel, including Hand to
+     Adapt Connect, goes through the real engagement API via CaseStore.engage() so
+     the action is attributed to the signed-in officer, timestamped, and survives a
+     refresh. Gating by autonomy level and recommendation type is still an open
+     item (Spec §6.3) — only Hand to Adapt Connect's Registration-hold gate exists.
      ========================================================================= */
 
-  private logEngagement(entry: ActivityEntry): void {
+  private engage(channel: EngagementChannel, note?: string): void {
     const sel = this.selected();
     if (!sel) return;
-    this.debt.logEngagementAction(sel.d.id, entry);
+    this.store.engage(sel.d.id, note ? { channel, note } : { channel }).subscribe();
   }
 
   sendSms(): void {
-    this.logEngagement({ t: 'SMS sent to student', m: 'Engagement Agent · Officer action' });
+    this.engage('SMS');
   }
 
-  /** Target gateway: Cuedesk API (confirmed by product owner) — not yet integrated. */
+  /** Target gateway: Cuedesk API (confirmed by product owner) — not yet integrated server-side. */
   sendWhatsApp(): void {
-    this.logEngagement({ t: 'WhatsApp message sent to student', m: 'Engagement Agent · Officer action' });
+    this.engage('WHATSAPP');
   }
 
-  logCall(): void {
-    this.logEngagement({ t: 'Call logged with student', m: 'Engagement Agent · Officer action' });
+  /** A call needs the outcome the officer heard, so this opens an inline capture instead of
+   *  logging immediately — the case history must show more than just "a call happened" (#218 AC2). */
+  readonly logCallOpen = signal(false);
+  readonly callOutcome = signal('');
+
+  openLogCall(): void {
+    this.callOutcome.set('');
+    this.logCallOpen.set(true);
   }
 
-  /** No-op: button is disabled pending the Adapt Connect hand-off interface (issue #14). */
-  handToAdaptConnect(): void {}
+  updateCallOutcome(value: string): void {
+    this.callOutcome.set(value);
+  }
+
+  cancelLogCall(): void {
+    this.logCallOpen.set(false);
+  }
+
+  confirmLogCall(): void {
+    const outcome = this.callOutcome().trim();
+    if (!outcome) return;
+    this.engage('CALL', outcome);
+    this.logCallOpen.set(false);
+  }
+
+  /** Hand-over is only available once an officer has approved (or amended-and-approved) the case's
+   *  Registration hold recommendation — the same rule the server enforces (issue #269, spec rule 7). */
+  readonly canHandOver = computed(() => {
+    const sel = this.selected();
+    return !!sel && sel.rec.type === 'Registration hold'
+      && (sel.decision?.action === 'Approved' || sel.decision?.action === 'Amended');
+  });
+
+  handOverTooltip(): string {
+    return this.canHandOver()
+      ? 'Hand this case to Adapt Connect for collections'
+      : 'Only available once an officer has approved this case’s Registration hold recommendation';
+  }
+
+  handToAdaptConnect(): void {
+    if (!this.canHandOver()) return;
+    this.engage('HANDOVER');
+  }
 }
