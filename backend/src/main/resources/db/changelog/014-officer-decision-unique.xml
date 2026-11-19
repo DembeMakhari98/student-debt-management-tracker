@@ -10,7 +10,7 @@
          the service's "not already decided" check before either commits, and both inserts succeed.
          The unique constraint is the actual safety net; DecisionService's pre-check just gives the
          losing request a clean 409 with who decided it instead of a raw constraint-violation 500. -->
-    <changeSet id="013-01-officer-decision-unique" author="student-debt-tracker">
+    <changeSet id="014-01-officer-decision-unique" author="student-debt-tracker">
         <addUniqueConstraint tableName="officer_decision"
                               columnNames="debtor_key, recommendation_type"
                               constraintName="uq_officer_decision_debtor_recommendation"/>

@@ -147,6 +147,22 @@ describe('CasesComponent — case list & case detail (issue #12)', () => {
     });
   });
 
+  it('shows the time on an activity entry that has one, such as a server access entry (FTC-38)', () => {
+    const id = component.selected()!.d.id;
+    const at = '2026-11-17T07:42:00Z';
+    debt.logEngagementAction(id, {
+      t: 'Case detail viewed by Nomsa Mahlangu',
+      m: 'Access log · Nomsa Mahlangu · Officer · Team A',
+      at,
+    });
+    fixture.detectChanges();
+
+    const time = fixture.nativeElement.querySelector(`time[datetime="${at}"]`) as HTMLTimeElement | null;
+    expect(time).withContext('the entry must render a <time> element').toBeTruthy();
+    expect(time!.textContent).toBe(component.when(at));
+    expect(time!.textContent).toContain('2026');
+  });
+
   it('AC6 — an action logged this session appears above the server entries', () => {
     const id = component.selected()!.d.id;
     debt.logEngagementAction(id, { t: 'Follow-up call logged', m: 'Officer decision · Test Officer' });

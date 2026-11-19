@@ -260,6 +260,16 @@ describe('AgeingComponent — fetch, re-fetch and failure handling (issue #67)',
     req.flush(FIXTURE);
   });
 
+  it('sends the portfolio scope and re-fetches when it changes (FTC-66)', () => {
+    expect(expectRequest().request.params.get('portfolio')).toBe('own');
+
+    debt.setPortfolioScope('team');
+    fixture.detectChanges();
+    const req = expectRequest();
+    expect(req.request.params.get('portfolio')).toBe('team');
+    req.flush(FIXTURE);
+  });
+
   it('is loading until the request resolves', () => {
     expect(component.ageingApi.loading()).toBeTrue();
     expectRequest().flush(FIXTURE);

@@ -151,6 +151,7 @@ Verify: `GET /api/admin/extract/history?limit=10` (MANAGER/ADMIN only).
 | TEAM scope with 2 officers | Team A (`nomsa.mahlangu`, `sibusiso.khoza`) or Team B (`anele.dube`, `priya.naidoo`) | `portfolio=team` as one officer should include the other's cases |
 | Reassignment (MANAGER/ADMIN only) | any debtor | `PATCH /api/debtors/{key}/assignment` |
 | Portfolio escalation audit | — | 3 seeded rows (`grace.vanrooyen` on `/api/debtors` and `/api/debtors/export`, `admin` on `/api/summary`) plus whatever real `portfolio=all` calls have been made since — `GET /api/audit/portfolio-escalations?limit=20` (MANAGER/ADMIN only) |
+| Case access audit (FTC-38/FTC-93/TC-06) | any case, e.g. `STU-100301-2026` | Each `GET /api/debtors/{key}` that succeeds adds a `case_access_log` row (user, role, team, time) and a "Case detail viewed by …" entry in that case's activity, with its time. Refused (403) and unauthenticated (401) calls add nothing. `GET /api/audit/case-access?debtorKey={key}&limit=20` (MANAGER/ADMIN only) lists them; no API path edits or deletes them |
 
 ## 9. Retention (issue #20) — not practically seedable
 

@@ -235,7 +235,7 @@ export function toDetailView(dto: CaseDetailDto): CaseView {
   return toCaseView(
     dto.debtor,
     dto.evidence,
-    dto.activity.map((a) => ({ t: a.text, m: a.source })),
+    dto.activity.map((a) => (a.createdAt ? { t: a.text, m: a.source, at: a.createdAt } : { t: a.text, m: a.source })),
   );
 }
 
