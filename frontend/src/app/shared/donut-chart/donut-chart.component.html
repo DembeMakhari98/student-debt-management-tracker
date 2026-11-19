@@ -1,4 +1,8 @@
-@if (total() <= 0) {
+@if (failed()) {
+  <div class="note" role="alert">Couldn't load the funding mix. Refresh the page to try again.</div>
+} @else if (loading()) {
+  <div class="note">Loading the funding mix…</div>
+} @else if (total() <= 0) {
   <div style="display:flex;justify-content:center">
     <svg viewBox="0 0 220 220" style="width:200px;height:200px">
       <circle [attr.cx]="cx" [attr.cy]="cy" [attr.r]="r" fill="none" stroke="var(--bg-3)" [attr.stroke-width]="sw"/>
