@@ -300,6 +300,90 @@ describe('CaseStore — Tracker and Case Management data from the API (issue #65
     });
   });
 
+  describe('engage() — recording an engagement action (issue #59, #269)', () => {
+    const run = (key: string, request: Parameters<CaseStore['engage']>[1]) => {
+      let saved: boolean | undefined;
+      store.engage(key, request).subscribe((v) => (saved = v));
+      return saved;
+    };
+
+    it('POSTs the engagement, emits true, and returns to idle', () => {
+      const key = store.picked().find((c) => c.d.id !== 'STU-100301')!.d.id;
+      expect(run(key, { channel: 'SMS' })).toBeTrue();
+      expect(mockApi.engagementCalls).toEqual([{ key, body: { channel: 'SMS' } }]);
+      expect(store.engagementState()).toBe('idle');
+    });
+
+    it('refreshes the open detail and the list row with the server activity', () => {
+      const key = store.picked().find((c) => c.d.id !== 'STU-100301')!.d.id;
+      store.loadDetail(key);
+
+      run(key, { channel: 'CALL', note: 'Promised to pay Friday' });
+
+      expect(store.detail()?.activity[0].t).toBe('Call logged with student — Promised to pay Friday');
+      expect(store.picked().find((c) => c.d.id === key)!.activity[0].t).toBe(
+        'Call logged with student — Promised to pay Friday',
+      );
+    });
+
+    it('hands over a Registration-hold case once an officer has approved it', () => {
+      const key = 'STU-100301'; // Defaulted/no-payment debtor, recommends Registration hold (debt.service rule 2)
+      store.decide(key, { action: 'APPROVE' }).subscribe();
+
+      expect(run(key, { channel: 'HANDOVER' })).toBeTrue();
+      expect(store.picked().find((c) => c.d.id === key)!.activity[0].t).toBe('Case handed over to Adapt Connect');
+    });
+
+    it('rejects the hand-over when the case has not been approved, without touching the activity log', () => {
+      const key = 'STU-100301';
+      const before = store.picked().find((c) => c.d.id === key)!.activity;
+
+      expect(run(key, { channel: 'HANDOVER' })).toBeFalse();
+
+      expect(store.engagementState()).toBe('error');
+      expect(store.engagementErrorStatus()).toBe(409);
+      expect(store.engagementErrorMessage()).toContain('no longer eligible');
+      expect(store.picked().find((c) => c.d.id === key)!.activity).toEqual(before);
+    });
+
+    for (const [status, text] of [
+      [403, "can't act on it"],
+      [404, 'no longer exists'],
+      [401, 'session has expired'],
+      [400, 'rejected that action'],
+      [500, "Couldn't record"],
+      [0, "Couldn't record"],
+    ] as const) {
+      it(`a ${status} leaves the activity log untouched and explains it`, () => {
+        const key = store.picked().find((c) => c.d.id !== 'STU-100301')!.d.id;
+        mockApi.failEngagement = true;
+        mockApi.engagementStatus = status;
+
+        expect(run(key, { channel: 'SMS' })).toBeFalse();
+
+        expect(store.engagementState()).toBe('error');
+        expect(store.engagementErrorStatus()).toBe(status);
+        expect(store.engagementErrorFor()).toBe(key);
+        expect(store.engagementErrorMessage()).toContain(text);
+      });
+    }
+
+    it('ignores a second engagement while one is saving, and does not call the API', () => {
+      store.engagementState.set('saving');
+      expect(run(store.picked()[0].d.id, { channel: 'SMS' })).toBeFalse();
+      expect(mockApi.engagementCalls).toEqual([]);
+    });
+
+    it('resets the saving state when the user signs out', () => {
+      mockApi.failEngagement = true;
+      run(store.picked()[0].d.id, { channel: 'SMS' });
+      (TestBed.inject(AuthService).token as WritableSignal<string | null>).set(null);
+      settle();
+      expect(store.engagementState()).toBe('idle');
+      expect(store.engagementErrorFor()).toBeNull();
+    });
+  });
+
   it('empties everything when the user signs out', () => {
     (TestBed.inject(AuthService).token as WritableSignal<string | null>).set(null);
     settle();

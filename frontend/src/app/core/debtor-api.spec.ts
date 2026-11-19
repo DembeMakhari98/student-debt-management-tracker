@@ -186,6 +186,32 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
     });
   });
 
+  describe('engage() — POST /api/debtors/{key}/engagements (issue #59, #269)', () => {
+    it('POSTs the channel and maps the response into activity entries', () => {
+      let activity: { t: string; m: string }[] = [];
+      api.engage('STU-100234-2026', { channel: 'SMS' }).subscribe((a) => (activity = a));
+      const req = http.expectOne(`${API_BASE}/api/debtors/STU-100234-2026/engagements`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ channel: 'SMS' });
+      req.flush([{ text: 'SMS sent to student', source: 'Engagement Agent · Nomsa Mahlangu', createdAt: null }]);
+      expect(activity).toEqual([{ t: 'SMS sent to student', m: 'Engagement Agent · Nomsa Mahlangu' }]);
+    });
+
+    it('sends an optional note and URL-encodes the debtor key', () => {
+      api.engage('STU 1/2026', { channel: 'CALL', note: 'Promised to pay Friday' }).subscribe();
+      const req = http.expectOne(`${API_BASE}/api/debtors/STU%201%2F2026/engagements`);
+      expect(req.request.body).toEqual({ channel: 'CALL', note: 'Promised to pay Friday' });
+      req.flush([]);
+    });
+
+    it('propagates a 409 when the hand-over is not yet eligible', () => {
+      let status = -1;
+      api.engage('STU-100301-2026', { channel: 'HANDOVER' }).subscribe({ error: (e) => (status = e.status) });
+      http.expectOne(`${API_BASE}/api/debtors/STU-100301-2026/engagements`).flush('no', { status: 409, statusText: 'Conflict' });
+      expect(status).toBe(409);
+    });
+  });
+
   it('propagates HTTP errors so the store can read the status (403 other team, 404 unknown)', () => {
     let status = 0;
     api.detail('STU-100301-2026').subscribe({ error: (e) => (status = e.status) });
