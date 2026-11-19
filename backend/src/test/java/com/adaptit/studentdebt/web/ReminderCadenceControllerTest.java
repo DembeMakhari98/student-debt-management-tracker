@@ -254,7 +254,7 @@ class ReminderCadenceControllerTest {
     }
 
     @Test
-    void aRunDispatchesEachDueStepOnceAndASecondRunDispatchesNothingNew() throws Exception {
+    void aRunDispatchesOnlyTheEarliestDueStepAndCatchesUpOneStepPerSubsequentRun() throws Exception {
         Debtor due = debtorRepository.findAll().stream()
                 .filter(d -> RecommendationType.REMINDER_CADENCE.name().equals(decisionEngineService.recommend(d).type()))
                 .findFirst().orElse(null);
@@ -264,17 +264,26 @@ class ReminderCadenceControllerTest {
         systemSettingRepository.flush();
         ReminderCadenceProgress existing = progressRepository.findById(due.getDebtorKey()).orElseGet(ReminderCadenceProgress::new);
         existing.setDebtorKey(due.getDebtorKey());
-        existing.setStartedAt(Instant.now().minus(20, ChronoUnit.DAYS));
+        existing.setStartedAt(Instant.now().minus(20, ChronoUnit.DAYS)); // steps 1, 2 and 3 are all overdue at once
         existing.setStep1SentAt(null);
         existing.setStep2SentAt(null);
         existing.setStep3SentAt(null);
         progressRepository.saveAndFlush(existing);
 
+        // Issue #267: a run outage must not blast every overdue step at the same instant — each run
+        // catches up exactly one step, so the cadence still paces SMS/WhatsApp/the officer call apart.
         mockMvc.perform(post("/api/admin/reminders/run").with(grace()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.autonomyLevel").value(4))
-                .andExpect(jsonPath("$.dispatched[?(@.debtorKey=='" + due.getDebtorKey() + "')].step",
-                        containsInAnyOrder(1, 2, 3)));
+                .andExpect(jsonPath("$.dispatched[?(@.debtorKey=='" + due.getDebtorKey() + "')].step", contains(1)));
+
+        mockMvc.perform(post("/api/admin/reminders/run").with(grace()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dispatched[?(@.debtorKey=='" + due.getDebtorKey() + "')].step", contains(2)));
+
+        mockMvc.perform(post("/api/admin/reminders/run").with(grace()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dispatched[?(@.debtorKey=='" + due.getDebtorKey() + "')].step", contains(3)));
 
         mockMvc.perform(post("/api/admin/reminders/run").with(grace()))
                 .andExpect(status().isOk())
