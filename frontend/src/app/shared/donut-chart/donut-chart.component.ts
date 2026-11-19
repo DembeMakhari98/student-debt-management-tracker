@@ -2,6 +2,7 @@ import { Component, computed } from '@angular/core';
 import { DebtService, formatRand } from '../../core/debt.service';
 import { FUND, FUND_KEYS } from '../../core/constants';
 import { FundKey } from '../../core/models';
+import { YearChartApiService } from '../../core/year-chart-api.service';
 
 interface Slice {
   color: string;
@@ -33,16 +34,35 @@ export class DonutChartComponent {
   readonly r = R;
   readonly sw = SW;
 
-  constructor(public debt: DebtService) {}
+  constructor(
+    public debt: DebtService,
+    private yearChartApi: YearChartApiService,
+  ) {}
+
+  /**
+   * The donut reads the same live data as the Home debt-by-year chart, `GET /api/summary/by-year`
+   * (issue #176), instead of the frontend's bundled demo data (issue #177 / FTC-74). That endpoint
+   * counts exactly what the "Total debt owed to institution" KPI counts (positive balances only,
+   * in the caller's portfolio), split per financial year and funding source, so the donut's total
+   * always equals the KPI for the same year and funding filter.
+   *
+   * It does not fetch by itself: `<app-year-chart>` on the same Home page triggers the (shared,
+   * portfolio-scoped) request, and this component renders whatever that service holds.
+   */
+  readonly loading = computed(() => this.yearChartApi.loading() && this.yearChartApi.data().length === 0);
+  readonly failed = computed(() => this.yearChartApi.error());
 
   private readonly totals = computed<Record<FundKey, number>>(() => {
     const t: Record<FundKey, number> = { self: 0, gov: 0, private: 0 };
-    this.debt
-      .rows()
-      .filter((d) => this.debt.rowDebt(d) > 0)
-      .forEach((d) => {
-        t[d.funding] += this.debt.rowDebt(d);
-      });
+    const year = this.debt.year();
+    const funding = this.debt.funding();
+    for (const row of this.yearChartApi.data()) {
+      if (year !== 'all' && row.year !== year) continue;
+      for (const f of FUND_KEYS) {
+        if (funding !== 'all' && funding !== f) continue;
+        t[f] += row.byFundingSource[f.toUpperCase()] ?? 0;
+      }
+    }
     return t;
   });
 
