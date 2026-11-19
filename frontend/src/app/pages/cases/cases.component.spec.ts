@@ -260,25 +260,25 @@ describe('CasesComponent — engagement channels panel (issue #14)', () => {
     store = TestBed.inject(CaseStore);
   });
 
-  it('sendSms() logs an SMS entry against the selected case', () => {
+  it('sendSms() records an SMS engagement against the selected case through the real API (issue #268)', () => {
     const id = component.selected()!.d.id;
     component.sendSms();
-    expect(debt.logEngagementAction).toHaveBeenCalledWith(id, jasmine.objectContaining({ t: 'SMS sent to student' }));
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'SMS' } }]);
+    expect(store.detail()!.activity[0].t).toBe('SMS sent to student');
   });
 
-  it('sendWhatsApp() logs a WhatsApp entry against the selected case', () => {
+  it('sendWhatsApp() records a WhatsApp engagement against the selected case through the real API (issue #268)', () => {
     const id = component.selected()!.d.id;
     component.sendWhatsApp();
-    expect(debt.logEngagementAction).toHaveBeenCalledWith(
-      id,
-      jasmine.objectContaining({ t: 'WhatsApp message sent to student' }),
-    );
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'WHATSAPP' } }]);
+    expect(store.detail()!.activity[0].t).toBe('WhatsApp message sent to student');
   });
 
-  it('logCall() logs a call entry against the selected case', () => {
+  it('logCall() records a call engagement against the selected case through the real API (issue #268)', () => {
     const id = component.selected()!.d.id;
     component.logCall();
-    expect(debt.logEngagementAction).toHaveBeenCalledWith(id, jasmine.objectContaining({ t: 'Call logged with student' }));
+    expect(mockApi.engagementCalls).toEqual([{ key: id, body: { channel: 'CALL' } }]);
+    expect(store.detail()!.activity[0].t).toBe('Call logged with student');
   });
 
   it('canHandOver() is false, and handToAdaptConnect() calls the API nowhere, for a case that is not an approved Registration hold (issue #269)', () => {

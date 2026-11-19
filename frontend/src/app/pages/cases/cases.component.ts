@@ -2,10 +2,10 @@ import { Component, computed, effect, signal, Signal, untracked } from '@angular
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { CaseStore } from '../../core/case-store.service';
-import { DecisionRequest, encodeAmendedTerms } from '../../core/debtor-api';
+import { DecisionRequest, EngagementChannel, encodeAmendedTerms } from '../../core/debtor-api';
 import { DebtService, formatRand, formatRandTight } from '../../core/debt.service';
 import { AGE_BUCKETS, AGENTS, FUND, POLICY } from '../../core/constants';
-import { ActivityEntry, CaseView, Term } from '../../core/models';
+import { CaseView, Term } from '../../core/models';
 
 /** Case management & AI recommendation — case list + full case detail (issue #12, #13). */
 @Component({
@@ -203,30 +203,30 @@ export class CasesComponent {
   }
 
   /* =========================================================================
-     ENGAGEMENT CHANNELS (issue #14) — SMS/WhatsApp/call are still frontend-only,
-     session-lifetime activity entries (see docs/SDD/issue-14-engagement-channels-
-     panel.spec.md). Hand to Adapt Connect goes through the real engagement API
-     (issue #59, #269) since it is gated server-side on an approved Registration
-     hold decision, not merely logged.
+     ENGAGEMENT CHANNELS (issue #14, #59, #268) — every channel, including Hand to
+     Adapt Connect, goes through the real engagement API via CaseStore.engage() so
+     the action is attributed to the signed-in officer, timestamped, and survives a
+     refresh. Gating by autonomy level and recommendation type is still an open
+     item (Spec §6.3) — only Hand to Adapt Connect's Registration-hold gate exists.
      ========================================================================= */
 
-  private logEngagement(entry: ActivityEntry): void {
+  private engage(channel: EngagementChannel): void {
     const sel = this.selected();
     if (!sel) return;
-    this.debt.logEngagementAction(sel.d.id, entry);
+    this.store.engage(sel.d.id, { channel }).subscribe();
   }
 
   sendSms(): void {
-    this.logEngagement({ t: 'SMS sent to student', m: 'Engagement Agent · Officer action' });
+    this.engage('SMS');
   }
 
-  /** Target gateway: Cuedesk API (confirmed by product owner) — not yet integrated. */
+  /** Target gateway: Cuedesk API (confirmed by product owner) — not yet integrated server-side. */
   sendWhatsApp(): void {
-    this.logEngagement({ t: 'WhatsApp message sent to student', m: 'Engagement Agent · Officer action' });
+    this.engage('WHATSAPP');
   }
 
   logCall(): void {
-    this.logEngagement({ t: 'Call logged with student', m: 'Engagement Agent · Officer action' });
+    this.engage('CALL');
   }
 
   /** Hand-over is only available once an officer has approved (or amended-and-approved) the case's
@@ -244,8 +244,7 @@ export class CasesComponent {
   }
 
   handToAdaptConnect(): void {
-    const sel = this.selected();
-    if (!sel || !this.canHandOver()) return;
-    this.store.engage(sel.d.id, { channel: 'HANDOVER' }).subscribe();
+    if (!this.canHandOver()) return;
+    this.engage('HANDOVER');
   }
 }
