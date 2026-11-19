@@ -1,5 +1,6 @@
 package com.adaptit.studentdebt.service;
 
+import com.adaptit.studentdebt.domain.ActivityLogEntry;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.FundingSource;
@@ -9,12 +10,14 @@ import com.adaptit.studentdebt.dto.DecisionRequestDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
 import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
+import com.adaptit.studentdebt.web.BadRequestException;
 import com.adaptit.studentdebt.web.NotFoundException;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
-import jakarta.validation.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -35,10 +38,11 @@ class DecisionServiceTest {
     private final CaseService caseService = mock(CaseService.class);
     private final DecisionEngineService decisionEngineService = new DecisionEngineService();
     private final ActivityLogWriteBackService writeBackService = mock(ActivityLogWriteBackService.class);
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     private final DecisionService decisionService = new DecisionService(
             debtorRepository, officerDecisionRepository, activityLogEntryRepository, decisionEngineService,
-            caseService, writeBackService);
+            caseService, writeBackService, objectMapper);
 
     private Debtor debtor;
 
@@ -83,7 +87,7 @@ class DecisionServiceTest {
     void amendRequiresAmendedTerms() {
         assertThatThrownBy(() ->
                 decisionService.decide("STU-100234-2026", new DecisionRequestDto("AMEND", null, null, "Nomsa Mahlangu")))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BadRequestException.class);
     }
 
     @Test
@@ -97,10 +101,32 @@ class DecisionServiceTest {
     }
 
     @Test
+    void amendLogsBothTheOriginalAndTheAmendedTerms() {
+        decisionService.decide("STU-100234-2026", new DecisionRequestDto(
+                "AMEND", "[{\"key\":\"Instalments\",\"value\":\"6 \\u00d7 R 866.67\"}]", null, "Nomsa Mahlangu"));
+
+        ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
+        verify(activityLogEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getText())
+                .startsWith("Recommendation amended and approved by Nomsa Mahlangu — original terms: Instalments:")
+                .contains("amended to: Instalments: 6 × R 866.67");
+    }
+
+    @Test
+    void amendLogsThePlainTextAmendedTermsAsIsWhenItIsNotJson() {
+        decisionService.decide("STU-100234-2026",
+                new DecisionRequestDto("AMEND", "6 x R 1200", null, "Nomsa Mahlangu"));
+
+        ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
+        verify(activityLogEntryRepository).save(captor.capture());
+        assertThat(captor.getValue().getText()).contains("amended to: 6 x R 1200");
+    }
+
+    @Test
     void declineRequiresAReason() {
         assertThatThrownBy(() ->
                 decisionService.decide("STU-100234-2026", new DecisionRequestDto("DECLINE", null, "  ", "Nomsa Mahlangu")))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BadRequestException.class);
     }
 
     @Test
@@ -118,7 +144,7 @@ class DecisionServiceTest {
     void unknownActionIsRejected() {
         assertThatThrownBy(() ->
                 decisionService.decide("STU-100234-2026", new DecisionRequestDto("REJECT", null, null, "Nomsa Mahlangu")))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BadRequestException.class);
     }
 
     @Test
