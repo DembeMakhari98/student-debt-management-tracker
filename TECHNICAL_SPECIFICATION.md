@@ -576,7 +576,9 @@ Band, Picked up by agent, AI recommendation, Status, Policy
   The web app's list views must remain responsive against the full multi-year book (the
   reference data spans 2022–2026); paginate or virtualise the Age Analysis detail table
   if the production book is materially larger than the ~25-row prototype dataset.
-- **Currency/locale:** all monetary values in ZAR, formatted `en-ZA` (e.g. `R 12,000`).
+- **Currency/locale:** all monetary values in ZAR, formatted `en-ZA` (e.g. `R 12 000` —
+  `en-ZA` groups thousands with a space, not a comma; `Intl`/`NumberFormat` with this
+  locale already produce that, so this is the actual output, not a typo).
 - **Responsiveness:** the prototype defines breakpoints at 1500px, 1240px, 1040px,
   900px, and 820px that progressively collapse the KPI grid, two-column layouts, and
   chrome to single-column/stacked layouts. Match this behaviour or replace it with the
