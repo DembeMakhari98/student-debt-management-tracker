@@ -25,6 +25,24 @@ function debtor(overrides: Partial<Debtor>): Debtor {
   };
 }
 
+describe('formatRand — en-ZA currency formatting (issue #275)', () => {
+  it('groups thousands with a space, not a comma', () => {
+    // The Technical Spec's own illustrative example used a comma ("R 12,000"), which isn't how
+    // en-ZA actually formats numbers — a space is the real, correct separator.
+    expect(formatRand(12000)).not.toContain(',');
+    expect(formatRand(12000)).toContain('12');
+    expect(formatRand(12000)).toContain('000');
+  });
+
+  it('prefixes with "R "', () => {
+    expect(formatRand(500).startsWith('R ')).toBeTrue();
+  });
+
+  it('rounds to the nearest rand', () => {
+    expect(formatRand(1200.6)).toBe(formatRand(1201));
+  });
+});
+
 describe('DebtService — decision engine (issue #7)', () => {
   let service: DebtService;
 
