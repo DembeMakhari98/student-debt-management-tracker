@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Guards against two officers approving/amending/declining the same recommendation at the
+         same moment (issue #215, #149): without this, two concurrent decide() calls can both pass
+         the service's "not already decided" check before either commits, and both inserts succeed.
+         The unique constraint is the actual safety net; DecisionService's pre-check just gives the
+         losing request a clean 409 with who decided it instead of a raw constraint-violation 500. -->
+    <changeSet id="014-01-officer-decision-unique" author="student-debt-tracker">
+        <addUniqueConstraint tableName="officer_decision"
+                              columnNames="debtor_key, recommendation_type"
+                              constraintName="uq_officer_decision_debtor_recommendation"/>
+    </changeSet>
+
+</databaseChangeLog>
