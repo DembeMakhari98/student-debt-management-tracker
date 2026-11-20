@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!--
+        Nine more debtors, all in financial year 2025, for the exact figures that the functional test
+        cases name and that 012 does not contain (functional test issues #113, #207, #237, #239,
+        #240, #242). Every row is added here instead of editing 012. Like 012 it loads only outside
+        production and outside the unit-test context.
+
+        Year 2025 is deliberate: the 2026 views (the default demo view, and every officer's caseload)
+        keep exactly the figures they had before. Only "All years" and the 2025 view change.
+        See docs/TEST_SCENARIOS.md, section 2b, for what each row demonstrates.
+
+          STU-100501-2025  NSFAS declined, owes R20 000 -> hardship award capped at R6 000  (FTC-24, TC-20)
+          STU-100502-2025  NSFAS lapsed,   owes R10 000 -> hardship award R4 000 (40%)       (TC-20)
+          STU-100503-2025  NSFAS pending, 2 missed, R12 000 -> holding arrangement 4 x R3 000 (TC-21)
+          STU-100504-2025  Self-funded, 3 missed, R4 500, last receipt -> 3 x R1 500          (TC-23)
+          STU-100505-2025  Self-funded, credit of R1 200 -> refund R1 200                    (TC-18)
+          STU-100506-2025  Self-funded, 2 missed, owes R5 000  -> 3 instalments  (band edge)  (FTC-103)
+          STU-100507-2025  Self-funded, 2 missed, owes R5 001  -> 4 instalments  (band edge)  (FTC-103)
+          STU-100508-2025  Self-funded, 2 missed, owes R15 001 -> 6 instalments  (band edge)  (FTC-103)
+          STU-100509-2025  Self-funded, 2 missed, owes R30 001 -> 8 instalments  (band edge)  (FTC-103)
+
+        No arrangement is Defaulted, so rule 2 never fires; rows 1 and 2 match rule 3 first, row 3
+        matches rule 4, row 5 matches rule 1, and the rest fall to rule 6.
+    -->
+    <changeSet id="017-01-seed-exact-figure-test-debtors-2025" author="student-debt-tracker" context="!prod and !test">
+
+        <!-- Rule 3, capped: 40% of R20 000 is R8 000, so the R6 000 cap applies. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100501-2025"/><column name="student_id" value="STU-100501"/><column name="name" value="Thandeka Zulu"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L3 Civil Engineering and Building Construction"/>
+            <column name="funding_source" value="GOV"/><column name="funding_status" value="NSFAS declined"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-05-05"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="10000"/><column name="ageing_90" valueNumeric="10000"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="nomsa-mahlangu"/>
+        </insert>
+
+        <!-- Rule 3, uncapped: 40% of R10 000 is R4 000. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100502-2025"/><column name="student_id" value="STU-100502"/><column name="name" value="Kabelo Mahlangu"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L2 Office Administration"/>
+            <column name="funding_source" value="GOV"/><column name="funding_status" value="NSFAS lapsed"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-06-10"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="5000"/>
+            <column name="ageing_60" valueNumeric="5000"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="sibusiso-khoza"/>
+        </insert>
+
+        <!-- Rule 4: pending funding and 2 missed. R12 000 is in the 4-instalment band: 4 x R3 000. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100503-2025"/><column name="student_id" value="STU-100503"/><column name="name" value="Zodwa Nkuna"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="Report 191 N5 Marketing Management"/>
+            <column name="funding_source" value="GOV"/><column name="funding_status" value="NSFAS pending"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-07-14"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="6000"/>
+            <column name="ageing_60" valueNumeric="6000"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="anele-dube"/>
+        </insert>
+
+        <!-- Rule 6, 3 instalments: Self-funded, 3 missed, R4 500, with a last receipt date for the rationale. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100504-2025"/><column name="student_id" value="STU-100504"/><column name="name" value="Sizwe Mthethwa"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L4 Hospitality"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="3"/><column name="last_payment_date" valueDate="2025-08-12"/>
+            <column name="ageing_current" valueNumeric="1500"/><column name="ageing_30" valueNumeric="1500"/>
+            <column name="ageing_60" valueNumeric="1500"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="priya-naidoo"/>
+        </insert>
+
+        <!-- Rule 1: a credit of exactly R1 200 (fresh, so it does not raise the stale-credit flag). -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100505-2025"/><column name="student_id" value="STU-100505"/><column name="name" value="Ntombi Dlamini"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L2 Office Administration"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="0"/><column name="last_payment_date" valueDate="2025-11-06"/>
+            <column name="credit_since" valueDate="2025-11-06"/><column name="credit_days" valueNumeric="14"/>
+            <column name="credit_reason" value="Overpaid registration fee"/>
+            <column name="ageing_current" valueNumeric="-1200"/><column name="ageing_30" valueNumeric="0"/>
+            <column name="ageing_60" valueNumeric="0"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="thato-mokoena"/>
+        </insert>
+
+        <!-- Rule 6 at the edges of the instalment bands: R5 000 and R5 001, R15 001, R30 001. -->
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100506-2025"/><column name="student_id" value="STU-100506"/><column name="name" value="Lwazi Cele"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L3 Engineering and Related Design"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-09-03"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="2500"/>
+            <column name="ageing_60" valueNumeric="2500"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="nomsa-mahlangu"/>
+        </insert>
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100507-2025"/><column name="student_id" value="STU-100507"/><column name="name" value="Anele Jali"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="Report 191 N4 Financial Management"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-09-17"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="2500.50"/>
+            <column name="ageing_60" valueNumeric="2500.50"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="sibusiso-khoza"/>
+        </insert>
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100508-2025"/><column name="student_id" value="STU-100508"/><column name="name" value="Mbali Shange"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L4 Hospitality"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-08-25"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="7500"/>
+            <column name="ageing_60" valueNumeric="7501"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="anele-dube"/>
+        </insert>
+        <insert tableName="debtor">
+            <column name="debtor_key" value="STU-100509-2025"/><column name="student_id" value="STU-100509"/><column name="name" value="Pule Mokone"/>
+            <column name="financial_year" valueNumeric="2025"/><column name="programme" value="NC(V) L3 Civil Engineering and Building Construction"/>
+            <column name="funding_source" value="SELF"/><column name="funding_status" value="Self-funded"/>
+            <column name="missed_instalments" valueNumeric="2"/><column name="last_payment_date" valueDate="2025-10-02"/>
+            <column name="ageing_current" valueNumeric="0"/><column name="ageing_30" valueNumeric="15000"/>
+            <column name="ageing_60" valueNumeric="15001"/><column name="ageing_90" valueNumeric="0"/><column name="ageing_120" valueNumeric="0"/>
+            <column name="assigned_officer" value="priya-naidoo"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

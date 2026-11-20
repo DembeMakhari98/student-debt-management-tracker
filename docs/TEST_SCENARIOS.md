@@ -62,6 +62,31 @@ debtor with `NSFAS declined`/`lapsed` always gets HARDSHIP_FUND regardless of ho
 missed — this is why the 45/69/70 score-boundary debtors all show HARDSHIP_FUND rather than
 PAYMENT_ARRANGEMENT or REMINDER_CADENCE even though their `missed_instalments` would otherwise qualify.
 
+### 2b. Exact-figure debtors (`017-seed-additional-test-scenarios.xml`)
+
+The functional test cases name specific amounts that `012` does not contain. These nine debtors, all in
+financial year **2025**, supply them. They are in 2025 on purpose: the 2026 views and every officer's
+caseload keep the figures they had before `017`; only "All years" and the 2025 view change.
+
+| Debtor | Setup | Expected recommendation | Test case |
+|---|---|---|---|
+| `STU-100501-2025` Thandeka Zulu | NSFAS declined, owes R20 000, 2 missed | HARDSHIP_FUND, award sought **R 6 000** (40% = R8 000, capped) | FTC-24, TC-20 |
+| `STU-100502-2025` Kabelo Mahlangu | NSFAS lapsed, owes R10 000, 2 missed | HARDSHIP_FUND, award sought **R 4 000** | TC-20 |
+| `STU-100503-2025` Zodwa Nkuna | NSFAS pending, owes R12 000, 2 missed | "Holding arrangement, 4 instalments", **4 × R 3 000** | TC-21 |
+| `STU-100504-2025` Sizwe Mthethwa | Self-funded, owes R4 500, 3 missed, last receipt 2025-08-12 | "Payment arrangement, 3 instalments", **3 × R 1 500**, rationale cites the last receipt | TC-23 |
+| `STU-100505-2025` Ntombi Dlamini | Self-funded, credit of **R1 200** | REFUND, "Refund R 1 200 to the student" | TC-18 |
+| `STU-100506-2025` Lwazi Cele | Self-funded, owes **R5 000**, 2 missed | Payment arrangement, **3** instalments | FTC-103 |
+| `STU-100507-2025` Anele Jali | Self-funded, owes **R5 001**, 2 missed | Payment arrangement, **4** instalments | FTC-103 |
+| `STU-100508-2025` Mbali Shange | Self-funded, owes **R15 001**, 2 missed | Payment arrangement, **6** instalments | FTC-103 |
+| `STU-100509-2025` Pule Mokone | Self-funded, owes **R30 001**, 2 missed | Payment arrangement, **8** instalments | FTC-103 |
+
+Together they add R101 503 of debt and one R1 200 credit, all in 2025. Because the credit is in financial
+year 2025 it is past its term end (31 December 2025), so it also appears among the past-term-end credits on
+Age Analysis, like the existing 2025 credit `STU-098140-2025`; it is fresh (14 days), so it is **not** counted
+in the 90-day stale-credit total. Not covered by seed data: the
+"funding is approved and the holding arrangement falls away" step of FTC-25, which needs a way to change a
+debtor's funding status.
+
 ## 3. Autonomy levels (business case §3.6) and the reminder-cadence gate
 
 System is seeded at **Level 2 (Recommend)** — nothing auto-executes. `autonomy_level_audit` carries a full
