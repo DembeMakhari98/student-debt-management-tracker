@@ -201,4 +201,4 @@ opposite of what this dataset is for.
 | STU-100407-2026 | Tumi Sithole | Reminder cadence, complete | 16 | WATCH | REMINDER_CADENCE | sibusiso-khoza |
 | STU-100408-2026 | Zanele Dube | Reminder cadence, gate-withheld | 16 | WATCH | REMINDER_CADENCE | anele-dube |
 
-Total debtor count after seeding: **34** (26 original + 8 new).
+Total debtor count after seeding: **43** (26 original + 8 from `012` + 9 from `017`, see section 2b).
