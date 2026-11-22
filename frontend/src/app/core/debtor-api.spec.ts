@@ -198,6 +198,17 @@ describe('DebtorApi — Tracker and Case Management client (issue #65)', () => {
       expect(activity).toEqual([{ t: 'SMS sent to student', m: 'Engagement Agent · Nomsa Mahlangu' }]);
     });
 
+    it('carries the server timestamp onto the activity entry when present (issue #269, #135-137)', () => {
+      let activity: { t: string; m: string; at?: string }[] = [];
+      api.engage('STU-100234-2026', { channel: 'CALL', note: 'Promised to pay Friday' }).subscribe((a) => (activity = a));
+      http
+        .expectOne(`${API_BASE}/api/debtors/STU-100234-2026/engagements`)
+        .flush([{ text: 'Call logged with student — Promised to pay Friday', source: 'Engagement Agent · Nomsa Mahlangu', createdAt: '2026-11-21T10:04:00Z' }]);
+      expect(activity).toEqual([
+        { t: 'Call logged with student — Promised to pay Friday', m: 'Engagement Agent · Nomsa Mahlangu', at: '2026-11-21T10:04:00Z' },
+      ]);
+    });
+
     it('sends an optional note and URL-encodes the debtor key', () => {
       api.engage('STU 1/2026', { channel: 'CALL', note: 'Promised to pay Friday' }).subscribe();
       const req = http.expectOne(`${API_BASE}/api/debtors/STU%201%2F2026/engagements`);

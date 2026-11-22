@@ -368,6 +368,18 @@ describe('CasesComponent — engagement panel, real click → service → templa
     expect(fixture.nativeElement.textContent).toContain('SMS sent to student');
   });
 
+  it('shows the time on an engagement entry, same as any other activity entry (issue #269, #135-137)', () => {
+    findButton('Send SMS').click();
+    fixture.detectChanges();
+
+    const entry = component.selected()!.activity[0];
+    expect(entry.t).toBe('SMS sent to student');
+    expect(entry.at).withContext('the server-stored createdAt must reach the view model').toBeTruthy();
+
+    const time = fixture.nativeElement.querySelector(`time[datetime="${entry.at}"]`) as HTMLTimeElement | null;
+    expect(time).withContext('the entry must render a <time> element, not just an activity-feed marker').toBeTruthy();
+  });
+
   it('clicking the same engagement button twice renders both entries without throwing (regression: NG0955 duplicate track keys)', () => {
     const btn = findButton('Send SMS');
     expect(() => {
