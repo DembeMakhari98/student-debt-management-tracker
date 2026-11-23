@@ -1,13 +1,16 @@
 package com.adaptit.studentdebt.service;
 
 import com.adaptit.studentdebt.domain.ActivityLogEntry;
+import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.FundingSource;
+import com.adaptit.studentdebt.domain.OfficerDecision;
 import com.adaptit.studentdebt.domain.ReminderCadenceProgress;
 import com.adaptit.studentdebt.dto.DispatchedStepDto;
 import com.adaptit.studentdebt.dto.ReminderRunResultDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
+import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.repository.ReminderCadenceProgressRepository;
 import com.adaptit.studentdebt.repository.SystemSettingRepository;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
@@ -40,10 +43,12 @@ class ReminderCadenceServiceTest {
     private final DecisionEngineService decisionEngineService = new DecisionEngineService();
     private final AutonomyGateService autonomyGateService = new AutonomyGateService();
     private final ActivityLogWriteBackService writeBackService = mock(ActivityLogWriteBackService.class);
+    private final OfficerDecisionRepository officerDecisionRepository = mock(OfficerDecisionRepository.class);
 
     private final ReminderCadenceService service = new ReminderCadenceService(
             debtorRepository, progressRepository, activityLogEntryRepository, systemSettingRepository,
-            decisionEngineService, autonomyGateService, java.time.Clock.systemUTC(), writeBackService);
+            decisionEngineService, autonomyGateService, java.time.Clock.systemUTC(), writeBackService,
+            officerDecisionRepository);
 
     private static Debtor reminderCadenceDebtor(String debtorKey) {
         Debtor d = new Debtor();
@@ -172,6 +177,81 @@ class ReminderCadenceServiceTest {
 
         verify(activityLogEntryRepository, never()).save(any());
         verify(progressRepository).save(any());
+    }
+
+    private void officerDecided(String debtorKey, DecisionAction action) {
+        when(officerDecisionRepository.findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(
+                eq(debtorKey), eq("REMINDER_CADENCE")))
+                .thenReturn(Optional.of(OfficerDecision.builder()
+                        .debtorKey(debtorKey).recommendationType("REMINDER_CADENCE").action(action)
+                        .decidedBy("nomsa-mahlangu").decidedAt(Instant.parse("2026-01-01T08:00:00Z")).build()));
+    }
+
+    @Test
+    void level2DispatchesOnceAnOfficerHasApprovedTheCadence() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant now = start.plusSeconds(24 * 3600);
+        ReminderCadenceProgress progress = progress("STU-1-2026", start);
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress));
+        officerDecided("STU-1-2026", DecisionAction.APPROVE);
+
+        ReminderRunResultDto result = service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 2, now);
+
+        assertThat(result.dispatchedCount()).isEqualTo(1);
+        assertThat(result.withheldCount()).isZero();
+        assertThat(progress.getStep1SentAt()).isEqualTo(now);
+    }
+
+    @Test
+    void level2OfficerApprovedCadenceStillKeepsTheDay1Day5Day10Spacing() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        ReminderCadenceProgress progress = progress("STU-1-2026", start);
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress));
+        officerDecided("STU-1-2026", DecisionAction.AMEND);
+        Debtor d = reminderCadenceDebtor("STU-1-2026");
+
+        service.dispatch(List.of(d), 2, start.plusSeconds(24 * 3600));      // day 1: SMS
+        service.dispatch(List.of(d), 2, start.plusSeconds(4 * 24 * 3600));  // day 4: nothing due
+        assertThat(progress.getStep2SentAt()).isNull();
+        service.dispatch(List.of(d), 2, start.plusSeconds(5 * 24 * 3600));  // day 5: WhatsApp
+        service.dispatch(List.of(d), 2, start.plusSeconds(10 * 24 * 3600)); // day 10: officer call
+
+        ArgumentCaptor<ActivityLogEntry> captor = ArgumentCaptor.forClass(ActivityLogEntry.class);
+        verify(activityLogEntryRepository, times(3)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(ActivityLogEntry::getText).containsExactly(
+                "SMS reminder sent (step 1 of 3, day 1)",
+                "WhatsApp reminder sent (step 2 of 3, day 5)",
+                "Officer call task created (step 3 of 3, day 10)");
+    }
+
+    @Test
+    void level2DeclinedCadenceStaysWithheld() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress("STU-1-2026", start)));
+        officerDecided("STU-1-2026", DecisionAction.DECLINE);
+
+        ReminderRunResultDto result = service.dispatch(
+                List.of(reminderCadenceDebtor("STU-1-2026")), 2, start.plusSeconds(24 * 3600));
+
+        assertThat(result.withheldCount()).isEqualTo(1);
+        verify(activityLogEntryRepository, never()).save(any());
+    }
+
+    @Test
+    void studentPayingBeforeDay5StopsTheRemainingSteps() {
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        ReminderCadenceProgress progress = progress("STU-1-2026", start);
+        when(progressRepository.findById("STU-1-2026")).thenReturn(Optional.of(progress));
+
+        service.dispatch(List.of(reminderCadenceDebtor("STU-1-2026")), 3, start.plusSeconds(24 * 3600)); // SMS
+        // Student pays on day 3: the nightly scoring pass drops missed instalments back to zero.
+        ReminderRunResultDto day5 = service.dispatch(
+                List.of(monitorDebtor("STU-1-2026")), 3, start.plusSeconds(5 * 24 * 3600));
+
+        assertThat(day5.cancelledCount()).isEqualTo(1);
+        assertThat(day5.dispatchedCount()).isZero();
+        verify(progressRepository).delete(progress);
+        verify(activityLogEntryRepository, times(1)).save(any()); // only the day-1 SMS, never WhatsApp/call
     }
 
     @Test
