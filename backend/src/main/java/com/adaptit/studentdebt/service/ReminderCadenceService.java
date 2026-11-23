@@ -1,6 +1,7 @@
 package com.adaptit.studentdebt.service;
 
 import com.adaptit.studentdebt.domain.ActivityLogEntry;
+import com.adaptit.studentdebt.domain.DecisionAction;
 import com.adaptit.studentdebt.domain.Debtor;
 import com.adaptit.studentdebt.domain.RecommendationType;
 import com.adaptit.studentdebt.domain.ReminderCadenceProgress;
@@ -9,6 +10,7 @@ import com.adaptit.studentdebt.dto.RecommendationDto;
 import com.adaptit.studentdebt.dto.ReminderRunResultDto;
 import com.adaptit.studentdebt.repository.ActivityLogEntryRepository;
 import com.adaptit.studentdebt.repository.DebtorRepository;
+import com.adaptit.studentdebt.repository.OfficerDecisionRepository;
 import com.adaptit.studentdebt.repository.ReminderCadenceProgressRepository;
 import com.adaptit.studentdebt.repository.SystemSettingRepository;
 import com.adaptit.studentdebt.writeback.ActivityLogWriteBackService;
@@ -55,6 +57,7 @@ public class ReminderCadenceService {
     private final AutonomyGateService autonomyGateService;
     private final Clock clock;
     private final ActivityLogWriteBackService writeBackService;
+    private final OfficerDecisionRepository officerDecisionRepository;
 
     public ReminderCadenceService(DebtorRepository debtorRepository,
                                    ReminderCadenceProgressRepository progressRepository,
@@ -63,7 +66,8 @@ public class ReminderCadenceService {
                                    DecisionEngineService decisionEngineService,
                                    AutonomyGateService autonomyGateService,
                                    Clock clock,
-                                   ActivityLogWriteBackService writeBackService) {
+                                   ActivityLogWriteBackService writeBackService,
+                                   OfficerDecisionRepository officerDecisionRepository) {
         this.debtorRepository = debtorRepository;
         this.progressRepository = progressRepository;
         this.activityLogEntryRepository = activityLogEntryRepository;
@@ -72,6 +76,7 @@ public class ReminderCadenceService {
         this.autonomyGateService = autonomyGateService;
         this.clock = clock;
         this.writeBackService = writeBackService;
+        this.officerDecisionRepository = officerDecisionRepository;
     }
 
     /**
@@ -114,9 +119,11 @@ public class ReminderCadenceService {
                 progress.setStartedAt(now);
             }
 
-            if (!autonomyGateService.autoEligible(rec, autonomyLevel)) {
+            if (!autonomyGateService.autoEligible(rec, autonomyLevel)
+                    && !officerApproved(debtor.getDebtorKey(), rec.type())) {
                 // Needs approval at this autonomy level — queued, per issue #8's Level 2 default.
-                // The clock still starts/keeps running; only dispatch is withheld.
+                // The clock still starts/keeps running; only dispatch is withheld until an officer
+                // approves (or amends) the cadence on the case (issue #267).
                 progressRepository.save(progress);
                 withheld++;
                 continue;
@@ -146,6 +153,20 @@ public class ReminderCadenceService {
             progressRepository.save(progress);
         }
         return new ReminderRunResultDto(now, autonomyLevel, dispatched.size(), withheld, cancelled, List.copyOf(dispatched));
+    }
+
+    /**
+     * Whether an officer has approved (or amended and approved) this case's current recommendation
+     * through the decision panel (issue #13). At Level 2 that approval is what lets the cadence run
+     * (issue #267: "given a Reminder cadence case ... approved by an officer at Level 2"); before
+     * this, the dispatcher only looked at the autonomy level, so an approved case stayed withheld
+     * forever. A declined recommendation stays withheld.
+     */
+    private boolean officerApproved(String debtorKey, String recommendationType) {
+        return officerDecisionRepository
+                .findFirstByDebtorKeyAndRecommendationTypeOrderByDecidedAtDesc(debtorKey, recommendationType)
+                .map(d -> d.getAction() == DecisionAction.APPROVE || d.getAction() == DecisionAction.AMEND)
+                .orElse(false);
     }
 
     private DispatchedStepDto recordDispatch(String debtorKey, int step, String text, Instant now) {
