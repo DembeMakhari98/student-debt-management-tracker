@@ -233,12 +233,14 @@ export function toCaseView(row: DebtorRowDto, evidence: string[] = [], activity:
   };
 }
 
+/** `createdAt` is only ever absent on the handful of seeded nightly-extract entries that predate
+ *  the column (issue #277) — every entry written through the app has one (FTC-46/47/48, #269). */
+export function toActivityEntry(dto: ActivityEntryDto): ActivityEntry {
+  return dto.createdAt ? { t: dto.text, m: dto.source, at: dto.createdAt } : { t: dto.text, m: dto.source };
+}
+
 export function toDetailView(dto: CaseDetailDto): CaseView {
-  return toCaseView(
-    dto.debtor,
-    dto.evidence,
-    dto.activity.map((a) => (a.createdAt ? { t: a.text, m: a.source, at: a.createdAt } : { t: a.text, m: a.source })),
-  );
+  return toCaseView(dto.debtor, dto.evidence, dto.activity.map(toActivityEntry));
 }
 
 /** Thin HTTP client for the Tracker worklist and Case Management endpoints. */
@@ -277,6 +279,6 @@ export class DebtorApi {
   engage(debtorKey: string, request: EngagementRequest): Observable<ActivityEntry[]> {
     return this.http
       .post<ActivityEntryDto[]>(`${API_BASE}/api/debtors/${encodeURIComponent(debtorKey)}/engagements`, request)
-      .pipe(map((rows) => rows.map((a) => ({ t: a.text, m: a.source }))));
+      .pipe(map((rows) => rows.map(toActivityEntry)));
   }
 }
