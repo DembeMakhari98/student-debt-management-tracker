@@ -198,6 +198,13 @@ tbody tr:hover td { background: var(--bg-2); }
 .pill.gov     { background: rgba(0,159,176,.10); color: var(--teal-text);   border: 1px solid rgba(0,159,176,.28); }
 .pill.private { background: rgba(255,154,0,.12); color: var(--honey-text);  border: 1px solid rgba(255,154,0,.30); }
 .tag { font-size: 10.5px; color: var(--fg-3); font-family: var(--font-mono); }
+/* 9-digit Student Number next to a student's name (issue #305): mono digits in a quiet chip, so it
+   reads as an identifier, not part of the name. */
+.stu-no { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 7px; border-radius: 4px;
+  background: var(--bg-2); border: 1px solid var(--border); font-family: var(--font-mono);
+  font-size: 11.5px; font-weight: 700; color: var(--fg-1); letter-spacing: .04em; white-space: nowrap; }
+.stu-no-label { font-family: var(--font-sans); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--fg-3); }
 .pos { color: var(--teal-text); font-weight: 700; }
 .neg { color: var(--red-text); font-weight: 700; }
 .scroll-x { overflow-x: auto; }

@@ -54,6 +54,7 @@ public class RowAssembler {
         return new DebtorRowDto(
                 d.getDebtorKey(),
                 d.getStudentId(),
+                d.getStudentNumber(),
                 d.getName(),
                 d.getFinancialYear(),
                 d.getProgramme(),

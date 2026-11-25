@@ -71,7 +71,15 @@
           <tbody>
             @for (c of payingCases(); track c.d.id) {
               <tr>
-                <td><span style="color:var(--fg-1);font-weight:700">{{ c.d.name }}</span><div class="tag">{{ c.d.id }}</div></td>
+                <td>
+                  <span style="color:var(--fg-1);font-weight:700">{{ c.d.name }}</span>
+                  @if (c.d.studentNumber) {
+                    <span class="stu-no" style="margin-left:8px" title="Student Number" [attr.aria-label]="'Student Number ' + c.d.studentNumber">
+                      <span class="stu-no-label">Student No.</span> {{ c.d.studentNumber }}
+                    </span>
+                  }
+                  <div class="tag">{{ c.d.id }}</div>
+                </td>
                 <td><span class="pill" [class]="FUND[c.d.funding].pill">{{ FUND[c.d.funding].label }}</span></td>
                 <td>{{ c.d.fundStatus }}</td>
                 <td class="tag" style="font-size:12px">{{ c.d.lastPay || '—' }}</td>

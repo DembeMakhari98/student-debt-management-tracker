@@ -46,6 +46,8 @@ export interface DecisionDto {
 export interface DebtorRowDto {
   debtorKey: string;
   studentId: string;
+  /** 9-digit Student Number as text (issue #305); null if not on file. */
+  studentNumber: string | null;
   name: string;
   year: number;
   programme: string;
@@ -197,6 +199,7 @@ export function toDebtor(row: DebtorRowDto): Debtor {
   return {
     id: row.debtorKey,
     name: row.name,
+    studentNumber: row.studentNumber ?? null,
     funding: row.fundingSource.toLowerCase() as FundKey,
     year: row.year,
     prog: row.programme,

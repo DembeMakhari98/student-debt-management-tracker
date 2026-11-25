@@ -38,6 +38,37 @@ function caseView(overrides: Partial<CaseView> = {}): CaseView {
   };
 }
 
+describe('CaseRowComponent — Student Number (issue #305)', () => {
+  function render(c: CaseView): HTMLElement {
+    TestBed.configureTestingModule({
+      imports: [CaseRowComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const fixture = TestBed.createComponent(CaseRowComponent);
+    fixture.componentInstance.case = c;
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('shows the 9-digit Student Number next to the name, in its own element', () => {
+    const el = render(caseView({ d: debtor({ studentNumber: '100234604' }) }));
+    const chip = el.querySelector('.stu-no') as HTMLElement;
+    expect(chip).toBeTruthy();
+    expect(chip.textContent).toContain('100234604');
+    expect(chip.textContent).not.toContain('Test Student');
+  });
+
+  it('keeps every leading zero', () => {
+    const el = render(caseView({ d: debtor({ studentNumber: '012345678' }) }));
+    expect((el.querySelector('.stu-no') as HTMLElement).textContent).toContain('012345678');
+  });
+
+  it('renders no empty chip when the student has no number on file', () => {
+    const el = render(caseView({ d: debtor({ studentNumber: null }) }));
+    expect(el.querySelector('.stu-no')).toBeNull();
+  });
+});
+
 describe('CaseRowComponent — decision-aware status (issue #13 AC6)', () => {
   function createWith(c: CaseView) {
     TestBed.configureTestingModule({

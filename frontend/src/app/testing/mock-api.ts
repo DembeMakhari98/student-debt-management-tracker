@@ -103,6 +103,7 @@ function rowOf(debt: DebtService, d: Debtor): DebtorRowDto {
   return {
     debtorKey: d.id,
     studentId: d.id,
+    studentNumber: d.studentNumber ?? null,
     name: d.name,
     year: d.year,
     programme: d.prog,

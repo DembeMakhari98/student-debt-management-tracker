@@ -16,6 +16,8 @@ export interface Ageing {
 export interface Debtor {
   id: string;
   name: string;
+  /** 9-digit Student Number (issue #305). Always a string so leading zeros are kept; null if not on file. */
+  studentNumber?: string | null;
   funding: FundKey;
   year: number;
   prog: string;
