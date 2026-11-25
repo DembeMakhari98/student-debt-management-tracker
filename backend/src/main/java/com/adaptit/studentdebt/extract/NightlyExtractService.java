@@ -102,6 +102,11 @@ public class NightlyExtractService {
 
             debtor.setDebtorKey(e.debtorKey());
             debtor.setStudentId(e.studentId());
+            // issue #305: only overwrite with a real value, so a feed without Student Numbers
+            // never wipes the ones already on file.
+            if (e.studentNumber() != null) {
+                debtor.setStudentNumber(e.studentNumber());
+            }
             debtor.setName(e.name());
             debtor.setFinancialYear(e.financialYear());
             debtor.setProgramme(e.programme());

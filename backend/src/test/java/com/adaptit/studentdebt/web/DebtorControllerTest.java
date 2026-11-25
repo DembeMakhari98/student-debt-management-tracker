@@ -56,6 +56,31 @@ class DebtorControllerTest {
         assertEquals("WATCH", watch.riskBand());
     }
 
+    @Test
+    void everySeededRowCarriesANineDigitStudentNumberAndLeadingZerosSurvive() throws Exception {
+        for (String year : new String[] {"2022", "2023", "2024", "2025", "2026"}) {
+            for (String scope : new String[] {"picked", "refunds", "paying"}) {
+                MvcResult result = mockMvc.perform(get("/api/debtors")
+                                .param("scope", scope).param("year", year).param("portfolio", "all"))
+                        .andExpect(status().isOk())
+                        .andReturn();
+                for (DebtorRowDto row : objectMapper.readValue(
+                        result.getResponse().getContentAsString(), DebtorRowDto[].class)) {
+                    assertTrue(row.studentNumber() != null && row.studentNumber().matches("\\d{9}"),
+                            row.debtorKey() + " has student number " + row.studentNumber());
+                }
+            }
+        }
+
+        MvcResult result = mockMvc.perform(get("/api/debtors").param("scope", "cases").param("year", "2025").param("portfolio", "all"))
+                .andExpect(status().isOk())
+                .andReturn();
+        // Sent as a JSON string, so the leading zero is not lost to number parsing.
+        assertTrue(result.getResponse().getContentAsString().contains("\"studentNumber\":\"098012752\""));
+        assertEquals("098012752", find(objectMapper.readValue(
+                result.getResponse().getContentAsString(), DebtorRowDto[].class), "STU-098012-2025").studentNumber());
+    }
+
     private static DebtorRowDto find(DebtorRowDto[] rows, String debtorKey) {
         Optional<DebtorRowDto> match = Arrays.stream(rows)
                 .filter(r -> debtorKey.equals(r.debtorKey()))

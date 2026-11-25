@@ -6,6 +6,11 @@
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
     <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
       <span style="font-size:15px;font-weight:700;color:var(--fg-1);line-height:1.2">{{ case.d.name }}</span>
+      @if (case.d.studentNumber) {
+        <span class="stu-no" title="Student Number" [attr.aria-label]="'Student Number ' + case.d.studentNumber">
+          <span class="stu-no-label">Student No.</span> {{ case.d.studentNumber }}
+        </span>
+      }
       <span class="tag">{{ case.d.id }}</span>
       <span class="pill" [class]="FUND[case.d.funding].pill">{{ FUND[case.d.funding].label }}</span>
     </div>

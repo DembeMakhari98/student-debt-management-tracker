@@ -32,6 +32,14 @@ public class Debtor {
     @Column(name = "student_id", length = 20, nullable = false)
     private String studentId;
 
+    /**
+     * The 9-digit Student Number shown next to the name on the Tracker (issue #305). Text, never a
+     * number, so a leading zero (e.g. {@code 088002xxx}) is kept. Same value on every financial-year
+     * row of the same student. Null until the source system supplies one.
+     */
+    @Column(name = "student_number", length = 9)
+    private String studentNumber;
+
     @Column(nullable = false, length = 120)
     private String name;
 

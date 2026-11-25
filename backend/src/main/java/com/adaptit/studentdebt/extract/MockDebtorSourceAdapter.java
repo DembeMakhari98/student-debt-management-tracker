@@ -28,6 +28,35 @@ public class MockDebtorSourceAdapter implements DebtorSourceAdapter {
     private static final String CIV = "NC(V) L3 Civil Engineering and Building Construction";
     private static final String BUS = "Report 191 N6 Business Management";
 
+    /** Student Numbers (issue #305) — the same values Liquibase changeset 018 seeds. */
+    static final Map<String, String> STUDENT_NUMBERS = Map.ofEntries(
+            Map.entry("STU-100234", "100234604"),
+            Map.entry("STU-100251", "100251584"),
+            Map.entry("STU-100288", "100288991"),
+            Map.entry("STU-100290", "100290734"),
+            Map.entry("STU-100301", "100301486"),
+            Map.entry("STU-100312", "100312571"),
+            Map.entry("STU-100333", "100333703"),
+            Map.entry("STU-100360", "100360730"),
+            Map.entry("STU-100341", "100341674"),
+            Map.entry("STU-100355", "100355873"),
+            Map.entry("STU-098012", "098012752"),
+            Map.entry("STU-098044", "098044969"),
+            Map.entry("STU-098077", "098077224"),
+            Map.entry("STU-098090", "098090052"),
+            Map.entry("STU-098111", "098111851"),
+            Map.entry("STU-098140", "098140954"),
+            Map.entry("STU-098155", "098155191"),
+            Map.entry("STU-095003", "095003632"),
+            Map.entry("STU-095021", "095021650"),
+            Map.entry("STU-095050", "095050753"),
+            Map.entry("STU-095066", "095066028"),
+            Map.entry("STU-091009", "091009712"),
+            Map.entry("STU-091033", "091033625"),
+            Map.entry("STU-091074", "091074851"),
+            Map.entry("STU-088002", "088002668"),
+            Map.entry("STU-088040", "088040780"));
+
     @Override
     public List<ExtractedDebtor> extractDebtors() {
         List<ExtractedDebtor> out = new ArrayList<>();
@@ -115,6 +144,7 @@ public class MockDebtorSourceAdapter implements DebtorSourceAdapter {
         return new ExtractedDebtor(
                 studentId + "-" + year,
                 studentId,
+                STUDENT_NUMBERS.get(studentId),
                 name,
                 year,
                 programme,

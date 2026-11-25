@@ -21,6 +21,7 @@ function row(overrides: Partial<DebtorRowDto> = {}): DebtorRowDto {
   return {
     debtorKey: 'STU-100234-2026',
     studentId: 'STU-100234',
+    studentNumber: '100234604',
     name: 'Test Student',
     year: 2026,
     programme: 'BCom',

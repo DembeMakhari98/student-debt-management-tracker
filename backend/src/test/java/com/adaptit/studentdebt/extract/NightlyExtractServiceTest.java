@@ -46,7 +46,7 @@ class NightlyExtractServiceTest {
     @Test
     void successfulRunUpsertsExistingDebtorAndLogsSuccess() {
         ExtractedDebtor extracted = new ExtractedDebtor(
-                "STU-100341-2026", "STU-100341", "Mpho Sithole", 2026, "Programme",
+                "STU-100341-2026", "STU-100341", "100341674", "Mpho Sithole", 2026, "Programme",
                 FundingSource.SELF, "Self-funded", 0, null, null,
                 BigDecimal.valueOf(-4200), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 null, 24, "Duplicate EFT receipted twice");
@@ -152,7 +152,7 @@ class NightlyExtractServiceTest {
 
         // No missed instalments, no arrears, no outstanding balance — paid in full, no longer picked up.
         ExtractedDebtor extracted = new ExtractedDebtor(
-                "STU-100341-2026", "STU-100341", "Mpho Sithole", 2026, "Programme",
+                "STU-100341-2026", "STU-100341", "100341674", "Mpho Sithole", 2026, "Programme",
                 FundingSource.SELF, "Self-funded", 0, null, null,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 null, null, null);
@@ -171,9 +171,50 @@ class NightlyExtractServiceTest {
         assertThat(saved.getValue().getPickedUpSince()).isNull();
     }
 
+    @Test
+    void studentNumberIsCopiedAsTextWithItsLeadingZero() {
+        ExtractedDebtor extracted = new ExtractedDebtor(
+                "STU-098012-2025", "STU-098012", "098012752", "Dineo Nkosi", 2025, "Programme",
+                FundingSource.SELF, "Self-funded", 0, null, null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                null, null, null);
+        Debtor saved = runExtractOnto(new Debtor(), extracted);
+
+        assertThat(saved.getStudentNumber()).isEqualTo("098012752").hasSize(9);
+    }
+
+    @Test
+    void aFeedWithoutAStudentNumberNeverWipesTheOneOnFile() {
+        Debtor existing = new Debtor();
+        existing.setDebtorKey("STU-098012-2025");
+        existing.setStudentNumber("098012752");
+        ExtractedDebtor extracted = new ExtractedDebtor(
+                "STU-098012-2025", "STU-098012", null, "Dineo Nkosi", 2025, "Programme",
+                FundingSource.SELF, "Self-funded", 0, null, null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                null, null, null);
+
+        Debtor saved = runExtractOnto(existing, extracted);
+
+        assertThat(saved.getStudentNumber()).isEqualTo("098012752");
+    }
+
+    private Debtor runExtractOnto(Debtor existing, ExtractedDebtor extracted) {
+        when(sourceAdapter.extractDebtors()).thenReturn(List.of(extracted));
+        when(sourceAdapter.extractRegisteredCounts()).thenReturn(Map.of());
+        when(debtorRepository.findById(extracted.debtorKey())).thenReturn(Optional.of(existing));
+        when(jobRunLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(riskScoringService.loadFundingRiskWeights()).thenReturn(Map.of());
+        new NightlyExtractService(sourceAdapter, debtorRepository, registeredCountRepository,
+                jobRunLogRepository, riskScoringService).runExtract();
+        ArgumentCaptor<Debtor> saved = ArgumentCaptor.forClass(Debtor.class);
+        verify(debtorRepository).save(saved.capture());
+        return saved.getValue();
+    }
+
     private static ExtractedDebtor pickedUpExtract(String debtorKey, int missedInstalments, BigDecimal ageingCurrent) {
         return new ExtractedDebtor(
-                debtorKey, "STU-100341", "Mpho Sithole", 2026, "Programme",
+                debtorKey, "STU-100341", "100341674", "Mpho Sithole", 2026, "Programme",
                 FundingSource.SELF, "Self-funded", missedInstalments, null, null,
                 ageingCurrent, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 null, null, null);

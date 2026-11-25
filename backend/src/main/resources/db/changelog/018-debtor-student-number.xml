@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <!--
+        The student's 9-digit Student Number (issue #305), shown next to their name on the Tracker.
+        It is text, not a number: a Student Number can start with 0 (e.g. 088002xxx) and every
+        digit must be kept. It belongs to the student, not the financial year, so every debtor row
+        of the same student_id carries the same number.
+
+        Nullable because ITS Integrator's real Student Records feed is not wired up yet (issue #1);
+        the seed rows below give every seeded student a valid number.
+    -->
+    <changeSet id="018-01-add-debtor-student-number" author="student-debt-tracker">
+        <addColumn tableName="debtor">
+            <column name="student_number" type="varchar(9)"/>
+        </addColumn>
+    </changeSet>
+
+    <!-- Students from 003-seed-debtors.xml (same context as that file). -->
+    <changeSet id="018-02-seed-student-numbers" author="student-debt-tracker">
+        <update tableName="debtor">
+            <column name="student_number" value="100234604"/>
+            <where>student_id = 'STU-100234'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100251584"/>
+            <where>student_id = 'STU-100251'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100288991"/>
+            <where>student_id = 'STU-100288'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100290734"/>
+            <where>student_id = 'STU-100290'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100301486"/>
+            <where>student_id = 'STU-100301'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100312571"/>
+            <where>student_id = 'STU-100312'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100333703"/>
+            <where>student_id = 'STU-100333'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100360730"/>
+            <where>student_id = 'STU-100360'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100341674"/>
+            <where>student_id = 'STU-100341'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100355873"/>
+            <where>student_id = 'STU-100355'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098012752"/>
+            <where>student_id = 'STU-098012'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098044969"/>
+            <where>student_id = 'STU-098044'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098077224"/>
+            <where>student_id = 'STU-098077'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098090052"/>
+            <where>student_id = 'STU-098090'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098111851"/>
+            <where>student_id = 'STU-098111'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098140954"/>
+            <where>student_id = 'STU-098140'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="098155191"/>
+            <where>student_id = 'STU-098155'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="095003632"/>
+            <where>student_id = 'STU-095003'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="095021650"/>
+            <where>student_id = 'STU-095021'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="095050753"/>
+            <where>student_id = 'STU-095050'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="095066028"/>
+            <where>student_id = 'STU-095066'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="091009712"/>
+            <where>student_id = 'STU-091009'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="091033625"/>
+            <where>student_id = 'STU-091033'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="091074851"/>
+            <where>student_id = 'STU-091074'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="088002668"/>
+            <where>student_id = 'STU-088002'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="088040780"/>
+            <where>student_id = 'STU-088040'</where>
+        </update>
+    </changeSet>
+
+    <!-- Students from 012 and 017, which only load outside prod and the unit-test context. -->
+    <changeSet id="018-03-seed-student-numbers-test-scenarios" author="student-debt-tracker" context="!prod and !test">
+        <update tableName="debtor">
+            <column name="student_number" value="100401623"/>
+            <where>student_id = 'STU-100401'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100402661"/>
+            <where>student_id = 'STU-100402'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100403699"/>
+            <where>student_id = 'STU-100403'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100404737"/>
+            <where>student_id = 'STU-100404'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100405775"/>
+            <where>student_id = 'STU-100405'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100406813"/>
+            <where>student_id = 'STU-100406'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100407851"/>
+            <where>student_id = 'STU-100407'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100408889"/>
+            <where>student_id = 'STU-100408'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100501760"/>
+            <where>student_id = 'STU-100501'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100502798"/>
+            <where>student_id = 'STU-100502'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100503836"/>
+            <where>student_id = 'STU-100503'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100504874"/>
+            <where>student_id = 'STU-100504'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100505912"/>
+            <where>student_id = 'STU-100505'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100506950"/>
+            <where>student_id = 'STU-100506'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100507988"/>
+            <where>student_id = 'STU-100507'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100508026"/>
+            <where>student_id = 'STU-100508'</where>
+        </update>
+        <update tableName="debtor">
+            <column name="student_number" value="100509064"/>
+            <where>student_id = 'STU-100509'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

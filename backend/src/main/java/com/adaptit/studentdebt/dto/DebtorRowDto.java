@@ -11,6 +11,8 @@ import java.util.List;
 public record DebtorRowDto(
         String debtorKey,
         String studentId,
+        /** 9-digit Student Number as text, leading zeros kept (issue #305); null if not on file. */
+        String studentNumber,
         String name,
         Integer year,
         String programme,

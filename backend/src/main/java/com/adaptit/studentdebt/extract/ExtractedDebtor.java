@@ -14,6 +14,8 @@ import java.time.LocalDate;
 public record ExtractedDebtor(
         String debtorKey,
         String studentId,
+        /** 9-digit Student Number as text (issue #305); may be null if the source has none. */
+        String studentNumber,
         String name,
         Integer financialYear,
         String programme,
